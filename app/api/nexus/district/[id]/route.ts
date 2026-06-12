@@ -11,9 +11,10 @@ const DISTRICT_URLS: Record<string, string | undefined> = {
 
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const url = DISTRICT_URLS[params.id]
+  const { id } = await params
+  const url = DISTRICT_URLS[id]
 
   if (!url) {
     return NextResponse.json({
