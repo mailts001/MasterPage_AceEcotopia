@@ -1,11 +1,13 @@
 import HeroSection from '@/components/hero/HeroSection'
 import DistrictsSection from '@/components/districts/DistrictsSection'
+import X68CityMap from '@/components/citymap/X68CityMap'
 
 export default function HomePage() {
   return (
     <main>
       <HeroSection />
       <DistrictsSection />
+      <X68CityMap />
 
       {/* How it works */}
       <section className="py-24 px-4 border-t border-white/5">
