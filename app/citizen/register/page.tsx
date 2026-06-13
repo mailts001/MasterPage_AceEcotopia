@@ -5,6 +5,44 @@ import { createClient } from '@/lib/supabase/client'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
+const DISTRICT_FEATURES: Record<string, string[]> = {
+  propos: [
+    '🏠 Property valuation alerts',
+    '📊 Refinance opportunity signals',
+    '📍 District price trend reports',
+    '💰 50 Nexus Credits on signup',
+    '🔗 Earn 100 credits per referral',
+  ],
+  aceeconomy: [
+    '📈 Stock momentum signals (US & HK)',
+    '🔔 Earnings surprise alerts',
+    '🏦 REIT & ETF tracking',
+    '💰 50 Nexus Credits on signup',
+    '🔗 Earn 100 credits per referral',
+  ],
+  nexustravel: [
+    '✈️ Flight price drop alerts',
+    '🏨 Hotel deal notifications',
+    '💱 Currency signals for your routes',
+    '💰 50 Nexus Credits on signup',
+    '🔗 Earn 100 credits per referral',
+  ],
+  commerce: [
+    '🛒 Multi-platform arbitrage signals',
+    '💹 Demand & supply gap analysis',
+    '📦 Net margin calculator (fees + shipping)',
+    '💰 50 Nexus Credits on signup',
+    '🔗 Earn 100 credits per referral',
+  ],
+  default: [
+    '🌐 Access all 4 AI districts',
+    '🔔 3 free alerts per month',
+    '💰 50 Nexus Credits on signup',
+    '🔗 Earn 100 credits per referral',
+    '👤 Citizen profile & watchlist',
+  ],
+}
+
 const DISTRICT_THEMES: Record<string, {
   name: string; icon: string; tagline: string; benefit: string
   accent: string; glow: string; border: string; btn: string
@@ -168,11 +206,11 @@ function RegisterForm() {
             </button>
           </form>
 
-          {/* What you get */}
+          {/* What you get — district-specific */}
           <div className="mt-6 pt-6 border-t border-white/10">
-            <p className="text-xs text-gray-500 mb-3">Free forever includes:</p>
+            <p className="text-xs text-gray-500 mb-3">Free tier includes:</p>
             <div className="space-y-1.5">
-              {['🏠 Property deal alerts', '📈 Market signals', '✈️ Travel deals', '💰 50 Nexus Credits on signup', '🔗 Earn 100 credits per referral'].map(b => (
+              {(DISTRICT_FEATURES[districtId] ?? DISTRICT_FEATURES['default']).map((b: string) => (
                 <div key={b} className="text-xs text-gray-400">{b}</div>
               ))}
             </div>

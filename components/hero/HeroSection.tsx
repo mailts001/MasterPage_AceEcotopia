@@ -37,6 +37,14 @@ export default function HeroSection() {
 
   return (
     <section className="relative min-h-screen flex flex-col items-center justify-center px-4 py-20 overflow-hidden">
+      {/* Top nav */}
+      <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-6 py-4 z-20">
+        <span className="text-sm font-bold gradient-text">X68</span>
+        <div className="flex items-center gap-4 text-xs text-gray-500">
+          <a href="/citizen/login" className="hover:text-white transition">Sign In</a>
+          <a href="/citizen/register" className="bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition">Join Free</a>
+        </div>
+      </div>
       {/* Background grid */}
       <div className="absolute inset-0 bg-[linear-gradient(rgba(0,212,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(0,212,255,0.03)_1px,transparent_1px)] bg-[size:64px_64px]" />
 

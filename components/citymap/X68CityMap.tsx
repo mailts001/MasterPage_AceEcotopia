@@ -82,7 +82,7 @@ export default function X68CityMap() {
             <DistrictCard
               district={propos}
               accent="blue"
-              href="http://5.223.72.120:8504"
+              href="/citizen/register?district=propos"
             >
               <PropOSDistrict
                 healthScore={propos.health_score}
@@ -110,7 +110,7 @@ export default function X68CityMap() {
             <DistrictCard
               district={nexustravel}
               accent="purple"
-              href="https://nexus-travel-seven.vercel.app"
+              href="/citizen/register?district=nexustravel"
             >
               <NexusTravelDistrict
                 healthScore={nexustravel.health_score}
@@ -190,10 +190,9 @@ function DistrictCard({
             <div className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full transition-all"
               style={{ width: `${district.health_score * 100}%` }} />
           </div>
-          <a href={href} target={href.startsWith('http') ? '_blank' : undefined}
-            rel="noopener noreferrer"
-            className="text-xs text-gray-500 group-hover:text-white transition">
-            Visit →
+          <a href={href}
+            className="text-xs text-gray-500 group-hover:text-white transition whitespace-nowrap">
+            Join →
           </a>
         </div>
       </div>

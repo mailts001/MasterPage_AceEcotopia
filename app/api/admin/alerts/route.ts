@@ -5,7 +5,7 @@ function adminDb() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 }
 
-const ADMIN_KEY = process.env.ADMIN_PASSWORD || ''
+const ADMIN_KEY = process.env.ADMIN_SECRET_KEY || ''
 
 export async function GET(req: Request) {
   const key = req.headers.get('x-admin-key')

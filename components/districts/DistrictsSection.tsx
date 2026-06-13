@@ -45,7 +45,7 @@ const DISTRICTS = [
     color: 'from-purple-500/20 to-pink-500/20',
     border: 'border-purple-500/30',
     accent: 'text-purple-400',
-    href: 'https://nexus-travel-seven.vercel.app',
+    href: '#',
     features: ['Flight drop alerts', 'Hotel deals', 'Currency signals', 'Route monitoring'],
     citizenValue: 'Save $100–400 per trip',
   },
