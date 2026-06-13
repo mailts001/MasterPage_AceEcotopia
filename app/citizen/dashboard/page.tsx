@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { awardCredits, processReferral } from '@/lib/credits'
+import { sendWelcomeEmail } from '@/lib/email/send'
 import Link from 'next/link'
 import CopyButton from '@/components/auth/CopyButton'
 import ApiKeyManager from '@/components/auth/ApiKeyManager'
@@ -24,8 +25,13 @@ export default async function CitizenDashboard() {
       .select('*', { count: 'exact', head: true })
       .eq('citizen_id', user.id)
     if ((count ?? 0) === 0) {
-      // First login — award bonus and process referral if any
+      // First login — award bonus, process referral, send welcome email
       await awardCredits(user.id, 'signup_bonus').catch(() => {})
+      sendWelcomeEmail({
+        to: user.email!,
+        citizenName: citizen.display_name ?? 'Citizen',
+        referralCode: citizen.referral_code ?? '',
+      }).catch(() => {})
       const referralCode = user.user_metadata?.referred_by_code
       if (referralCode) {
         await processReferral(user.id, referralCode).catch(() => {})
