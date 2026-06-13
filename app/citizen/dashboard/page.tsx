@@ -5,6 +5,7 @@ import { sendWelcomeEmail } from '@/lib/email/send'
 import Link from 'next/link'
 import CopyButton from '@/components/auth/CopyButton'
 import ApiKeyManager from '@/components/auth/ApiKeyManager'
+import SignOutButton from '@/components/auth/SignOutButton'
 
 const DISTRICTS = [
   {
@@ -97,9 +98,7 @@ export default async function CitizenDashboard() {
         <Link href="/" className="text-lg font-bold gradient-text">X68</Link>
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-400">{citizen?.display_name ?? user.email}</span>
-          <form action="/api/auth/signout" method="post">
-            <button className="text-sm text-gray-500 hover:text-white transition">Sign out</button>
-          </form>
+          <SignOutButton />
         </div>
       </nav>
 
