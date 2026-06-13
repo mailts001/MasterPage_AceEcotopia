@@ -156,7 +156,9 @@ export default function DistrictsSection() {
 
                 {/* CTA */}
                 <a
-                  href={district.href !== '#' ? district.href : '/citizen/register'}
+                  href={district.href !== '#' ? district.href : `/citizen/register?district=${district.id}`}
+                  target={district.href !== '#' ? '_blank' : undefined}
+                  rel={district.href !== '#' ? 'noopener noreferrer' : undefined}
                   className={`inline-flex items-center gap-2 text-sm font-medium ${district.accent} hover:opacity-80 transition-opacity`}
                 >
                   {district.href !== '#' ? 'Visit District →' : 'Join to Access →'}
