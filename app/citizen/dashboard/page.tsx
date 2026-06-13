@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { awardCredits, processReferral } from '@/lib/credits'
 import Link from 'next/link'
 import CopyButton from '@/components/auth/CopyButton'
 import ApiKeyManager from '@/components/auth/ApiKeyManager'
@@ -15,6 +16,26 @@ export default async function CitizenDashboard() {
     .select('*')
     .eq('id', user.id)
     .single()
+
+  // Award signup bonus on first ever visit (credits === 0, no ledger entries)
+  if (citizen && citizen.nexus_credits === 0) {
+    const { count } = await supabase
+      .from('credits_ledger')
+      .select('*', { count: 'exact', head: true })
+      .eq('citizen_id', user.id)
+    if ((count ?? 0) === 0) {
+      // First login — award bonus and process referral if any
+      await awardCredits(user.id, 'signup_bonus').catch(() => {})
+      const referralCode = user.user_metadata?.referred_by_code
+      if (referralCode) {
+        await processReferral(user.id, referralCode).catch(() => {})
+      }
+      // Refresh citizen data to show updated credits
+      const { data: refreshed } = await supabase
+        .from('citizens').select('*').eq('id', user.id).single()
+      if (refreshed) Object.assign(citizen, refreshed)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#0A0E1A] text-white">
