@@ -61,16 +61,26 @@ export default function HeroSection() {
 
         {/* Main headline */}
         <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight tracking-tight">
-          Your AI
-          <span className="block gradient-text">Economic Ecosystem</span>
+          One Account.
+          <span className="block gradient-text">Four AI Districts.</span>
         </h1>
 
-        <p className="text-xl md:text-2xl text-slate-400 mb-4 max-w-3xl mx-auto leading-relaxed">
-          Property intelligence. Investment signals. Travel deals. Commerce automation.
+        <p className="text-xl md:text-2xl text-slate-400 mb-6 max-w-3xl mx-auto leading-relaxed">
+          X68 runs AI agents on property, stocks, flights, and commerce — 24/7.
+          You get alerts when something is worth acting on.
         </p>
-        <p className="text-lg text-slate-500 mb-12 max-w-2xl mx-auto">
-          One platform. Four districts. AI agents working for you 24/7.
-        </p>
+
+        {/* Concrete value hooks */}
+        <div className="flex flex-wrap justify-center gap-3 mb-10 max-w-2xl mx-auto">
+          {[
+            '🏠 Refinance alert before rates move',
+            '📈 Stock squeeze signal before breakout',
+            '✈️ Fare drop on your saved route',
+            '🛒 Arbitrage gap: buy low, sell high',
+          ].map(h => (
+            <span key={h} className="text-xs text-gray-400 bg-white/5 border border-white/10 rounded-full px-3 py-1.5">{h}</span>
+          ))}
+        </div>
 
         {/* CTA buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
