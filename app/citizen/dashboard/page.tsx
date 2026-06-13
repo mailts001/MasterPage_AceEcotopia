@@ -13,7 +13,7 @@ const DISTRICTS = [
     icon: '🏙️',
     tagline: 'Property Intelligence',
     desc: 'AI monitors SG property market. Get refinance alerts, valuation changes, deal signals.',
-    href: 'http://5.223.72.120:8504',
+    href: 'http://5.223.72.120:8504',  // PropOS Streamlit via nginx proxy
     accent: 'border-blue-500/30 text-blue-400',
     what: ['Refinance opportunity alerts', 'Listing undervaluation signals', 'District price trend reports'],
   },
@@ -23,7 +23,7 @@ const DISTRICTS = [
     icon: '💹',
     tagline: 'Investment Intelligence',
     desc: 'AI scans US & HK stocks, ETFs, REITs. Momentum picks, squeeze setups, earnings alerts.',
-    href: 'http://204.168.221.101:8501',
+    href: 'http://204.168.221.101:8501',  // Trading Streamlit dashboard
     accent: 'border-green-500/30 text-green-400',
     what: ['Stock momentum signals', 'Bollinger squeeze setups', 'Earnings surprise alerts'],
   },
@@ -43,7 +43,7 @@ const DISTRICTS = [
     icon: '🛒',
     tagline: 'Arbitrage Intelligence',
     desc: 'Multi-AI agents find price gaps across Shopee, Lazada, Amazon. Net margin calculated.',
-    href: 'http://5.223.72.120:3000',
+    href: 'http://204.168.221.101/',
     accent: 'border-amber-500/30 text-amber-400',
     what: ['Cross-platform arbitrage gaps', 'Demand & supply analysis', 'Net margin after fees & shipping'],
   },

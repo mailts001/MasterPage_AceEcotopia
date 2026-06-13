@@ -40,9 +40,13 @@ export default function HeroSection() {
       {/* Top nav */}
       <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-6 py-4 z-20">
         <span className="text-sm font-bold gradient-text">X68</span>
-        <div className="flex items-center gap-4 text-xs text-gray-500">
-          <a href="/citizen/login" className="hover:text-white transition">Sign In</a>
-          <a href="/citizen/register" className="bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition">Join Free</a>
+        <div className="flex items-center gap-1 text-xs text-gray-500">
+          <a href="#guide"   className="px-3 py-1.5 hover:text-white transition rounded-lg hover:bg-white/5">Help</a>
+          <a href="#city"    className="px-3 py-1.5 hover:text-white transition rounded-lg hover:bg-white/5">Live City</a>
+          <a href="#pricing" className="px-3 py-1.5 hover:text-white transition rounded-lg hover:bg-white/5">Pricing</a>
+          <span className="w-px h-4 bg-white/10 mx-1" />
+          <a href="/citizen/login"    className="px-3 py-1.5 hover:text-white transition">Sign In</a>
+          <a href="/citizen/register" className="bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition ml-1">Join Free</a>
         </div>
       </div>
       {/* Background grid */}
