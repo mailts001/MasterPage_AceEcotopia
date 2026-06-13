@@ -19,7 +19,7 @@ const DISTRICTS = [
     color: 'from-blue-500/20 to-cyan-500/20',
     border: 'border-blue-500/30',
     accent: 'text-blue-400',
-    href: 'http://5.223.72.120:8501',
+    href: '#',
     features: ['Refinance alerts', 'Valuation tracking', 'District trends', 'Sell signals'],
     citizenValue: 'Save $300–800/month on mortgage',
   },

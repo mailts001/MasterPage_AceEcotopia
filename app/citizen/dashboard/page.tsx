@@ -55,7 +55,7 @@ export default async function CitizenDashboard() {
         <h2 className="text-lg font-semibold mb-4">Your Districts</h2>
         <div className="grid md:grid-cols-2 gap-4 mb-8">
           {[
-            { id: 'propos', name: 'PropOS', desc: 'Property intelligence & deal alerts', color: 'cyan', href: 'http://5.223.72.120:8501' },
+            { id: 'propos', name: 'PropOS', desc: 'Property intelligence & deal alerts', color: 'cyan', href: 'http://5.223.72.120:8502' },
             { id: 'aceeconomy', name: 'AceEconomy', desc: 'Market signals & trading alerts', color: 'green', href: '#' },
             { id: 'nexustravel', name: 'NexusTravel', desc: 'Flight & hotel deal alerts', color: 'purple', href: 'https://nexus-travel-seven.vercel.app' },
             { id: 'commerce', name: 'Commerce', desc: 'Arbitrage & ecommerce deals', color: 'amber', href: '#' },
