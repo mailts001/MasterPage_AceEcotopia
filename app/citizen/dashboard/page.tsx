@@ -98,6 +98,20 @@ export default async function CitizenDashboard() {
           ))}
         </div>
 
+        {/* Upgrade CTA — show only for explorer tier */}
+        {citizen?.tier === 'explorer' && (
+          <div className="mb-8 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-xl p-6 flex items-center justify-between gap-4">
+            <div>
+              <p className="font-semibold text-white">Unlock Full Access</p>
+              <p className="text-sm text-gray-400 mt-0.5">Upgrade to Citizen — all 4 districts, 10k API calls/day, 100 credits/month</p>
+            </div>
+            <a href="/upgrade"
+              className="shrink-0 bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-5 py-2.5 rounded-lg transition text-sm">
+              Upgrade $19/mo →
+            </a>
+          </div>
+        )}
+
         {/* API Keys */}
         <div className="mb-8">
           <ApiKeyManager />
