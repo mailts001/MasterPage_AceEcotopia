@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import CopyButton from '@/components/auth/CopyButton'
 
 export default async function CitizenDashboard() {
   const supabase = await createClient()
@@ -86,12 +87,7 @@ export default async function CitizenDashboard() {
             <code className="bg-black/30 border border-white/10 px-4 py-2 rounded-lg text-cyan-400 font-mono text-sm tracking-widest">
               {citizen?.referral_code ?? '——'}
             </code>
-            <button
-              onClick={() => navigator.clipboard.writeText(citizen?.referral_code ?? '')}
-              className="text-xs text-gray-400 hover:text-white border border-white/10 px-3 py-2 rounded-lg transition"
-            >
-              Copy
-            </button>
+            <CopyButton text={citizen?.referral_code ?? ''} />
           </div>
         </div>
       </div>
