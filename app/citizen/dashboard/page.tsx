@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import CopyButton from '@/components/auth/CopyButton'
+import ApiKeyManager from '@/components/auth/ApiKeyManager'
 
 export default async function CitizenDashboard() {
   const supabase = await createClient()
@@ -74,6 +75,11 @@ export default async function CitizenDashboard() {
               <p className="text-sm text-gray-400">{d.desc}</p>
             </div>
           ))}
+        </div>
+
+        {/* API Keys */}
+        <div className="mb-8">
+          <ApiKeyManager />
         </div>
 
         {/* Referral CTA */}
