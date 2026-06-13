@@ -3,11 +3,11 @@ import './globals.css'
 
 export const metadata: Metadata = {
   icons: { icon: '/favicon.svg' },
-  title: 'AceEcotopia — AI Economic Ecosystem',
+  title: 'X68 — New Economic Verse',
   description: 'Your personal AI-powered economic ecosystem. Property intelligence, investment signals, travel deals, and commerce — all in one place.',
   keywords: ['AI', 'property intelligence', 'investment', 'travel', 'economic ecosystem'],
   openGraph: {
-    title: 'AceEcotopia',
+    title: 'X68',
     description: 'AI Economic Ecosystem — Join as a Citizen',
     type: 'website',
   },

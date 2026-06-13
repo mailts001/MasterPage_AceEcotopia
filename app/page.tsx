@@ -112,7 +112,7 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div>
-              <div className="text-xl font-bold gradient-text">AceEcotopia</div>
+              <div className="text-xl font-bold gradient-text">X68</div>
               <div className="text-sm text-slate-600 mt-1">AI Economic Ecosystem</div>
             </div>
             <div className="flex gap-8 text-sm text-slate-500">

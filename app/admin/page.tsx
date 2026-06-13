@@ -53,7 +53,7 @@ export default function AdminPage() {
       <div className="min-h-screen bg-[#0A0E1A] flex items-center justify-center px-4">
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
-            <span className="text-2xl font-bold gradient-text">AceEcotopia</span>
+            <span className="text-2xl font-bold gradient-text">X68</span>
             <p className="text-gray-400 mt-2 text-sm">Admin Panel</p>
           </div>
           <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
@@ -85,7 +85,7 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-[#0A0E1A] text-white">
       <nav className="border-b border-white/10 px-6 py-4 flex items-center justify-between">
-        <span className="text-lg font-bold gradient-text">AceEcotopia Admin</span>
+        <span className="text-lg font-bold gradient-text">X68 Admin</span>
         <button onClick={() => setAuthed(false)} className="text-sm text-gray-500 hover:text-white transition">
           Lock
         </button>

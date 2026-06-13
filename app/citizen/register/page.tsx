@@ -20,7 +20,7 @@ const DISTRICT_THEMES: Record<string, {
     btn: 'bg-blue-500 hover:bg-blue-400',
   },
   aceeconomy: {
-    name: 'AceEconomy District',
+    name: 'Financial District',
     icon: '💹',
     tagline: 'Investment Intelligence',
     benefit: 'Get stock momentum signals, earnings alerts & REIT tracking',
@@ -52,7 +52,7 @@ const DISTRICT_THEMES: Record<string, {
 }
 
 const DEFAULT_THEME = {
-  name: 'AceEcotopia',
+  name: 'X68',
   icon: '🌐',
   tagline: 'AI Economic Ecosystem',
   benefit: 'Access all 4 districts — property, stocks, travel & commerce AI agents',
@@ -109,7 +109,7 @@ function RegisterForm() {
         {/* Logo */}
         <div className="text-center mb-6">
           <Link href="/" className="inline-block">
-            <span className="text-2xl font-bold gradient-text">AceEcotopia</span>
+            <span className="text-2xl font-bold gradient-text">X68</span>
           </Link>
         </div>
 

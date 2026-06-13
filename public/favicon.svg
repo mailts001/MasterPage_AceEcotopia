@@ -1,4 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="8" fill="#0A0E1A"/>
-  <text x="16" y="22" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="bold" font-size="18" fill="#00D4FF">A</text>
+  <rect width="32" height="32" rx="6" fill="#0A0E1A"/>
+  <!-- Cinematic X -->
+  <line x1="7" y1="7" x2="25" y2="25" stroke="#00D4FF" stroke-width="3.5" stroke-linecap="round"/>
+  <line x1="25" y1="7" x2="7" y2="25" stroke="#00D4FF" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- 68 subtle -->
+  <text x="20" y="13" font-family="system-ui,sans-serif" font-weight="bold" font-size="6" fill="#F4B942" opacity="0.9">68</text>
 </svg>

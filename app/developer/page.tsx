@@ -88,7 +88,7 @@ export default function DeveloperPage() {
     <div className="min-h-screen bg-[#0A0E1A] text-white">
       {/* Nav */}
       <nav className="border-b border-white/10 px-6 py-4 flex items-center justify-between">
-        <Link href="/" className="text-lg font-bold gradient-text">AceEcotopia</Link>
+        <Link href="/" className="text-lg font-bold gradient-text">X68</Link>
         <div className="flex items-center gap-4">
           <Link href="/citizen/login" className="text-sm text-gray-400 hover:text-white transition">Sign in</Link>
           <Link href="/citizen/register" className="text-sm bg-cyan-500 hover:bg-cyan-400 text-black font-semibold px-4 py-1.5 rounded-lg transition">
@@ -104,7 +104,7 @@ export default function DeveloperPage() {
           Developer API — Beta
         </div>
         <h1 className="text-4xl md:text-5xl font-bold mb-4">
-          Build on the<br /><span className="gradient-text">AceEcotopia Network</span>
+          Build on the<br /><span className="gradient-text">X68 Network</span>
         </h1>
         <p className="text-lg text-gray-400 max-w-2xl mx-auto mb-8">
           Four AI-powered district APIs — property intelligence, market signals, travel deals, and commerce arbitrage. One key, all districts.

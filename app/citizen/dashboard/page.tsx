@@ -19,7 +19,7 @@ export default async function CitizenDashboard() {
     <div className="min-h-screen bg-[#0A0E1A] text-white">
       {/* Nav */}
       <nav className="border-b border-white/10 px-6 py-4 flex items-center justify-between">
-        <Link href="/" className="text-lg font-bold gradient-text">AceEcotopia</Link>
+        <Link href="/" className="text-lg font-bold gradient-text">X68</Link>
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-400">{citizen?.display_name ?? user.email}</span>
           <form action="/api/auth/signout" method="post">
@@ -34,7 +34,7 @@ export default async function CitizenDashboard() {
           <h1 className="text-2xl font-bold">
             Welcome back, <span className="gradient-text">{citizen?.display_name ?? 'Citizen'}</span>
           </h1>
-          <p className="text-gray-400 mt-1 text-sm">Your AceEcotopia command centre</p>
+          <p className="text-gray-400 mt-1 text-sm">Your X68 command centre</p>
         </div>
 
         {/* Stats row */}
@@ -57,9 +57,9 @@ export default async function CitizenDashboard() {
         <div className="grid md:grid-cols-2 gap-4 mb-8">
           {[
             { id: 'propos', name: 'PropOS', desc: 'Property intelligence & deal alerts', href: 'http://5.223.72.120:8504', live: true },
-            { id: 'aceeconomy', name: 'AceEconomy', desc: 'Market signals & trading alerts', href: null, live: false },
+            { id: 'aceeconomy', name: 'Financial District', desc: 'Market signals & trading alerts', href: null, live: false },
             { id: 'nexustravel', name: 'NexusTravel', desc: 'Flight & hotel deal alerts', href: 'https://nexus-travel-seven.vercel.app', live: true },
-            { id: 'commerce', name: 'eCommerce', desc: 'Arbitrage & ecommerce deals', href: null, live: false },
+            { id: 'commerce', name: 'E-commerce', desc: 'Arbitrage & ecommerce deals', href: null, live: false },
           ].map(d => (
             <div key={d.id} className="block p-5 rounded-xl bg-white/5 border border-white/10 transition hover:border-white/20">
               <div className="flex items-center justify-between mb-2">

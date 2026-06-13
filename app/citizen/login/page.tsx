@@ -37,7 +37,7 @@ export default function LoginPage() {
       <div className="relative w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/" className="inline-block">
-            <span className="text-2xl font-bold gradient-text">AceEcotopia</span>
+            <span className="text-2xl font-bold gradient-text">X68</span>
           </Link>
           <p className="text-gray-400 mt-2 text-sm">Welcome back, Citizen</p>
         </div>

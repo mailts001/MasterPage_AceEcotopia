@@ -25,7 +25,7 @@ const DISTRICTS = [
   },
   {
     id: 'aceeconomy',
-    name: 'AceEconomy District',
+    name: 'Financial District',
     tagline: 'Investment Intelligence',
     description: 'AI tracks your watchlist across US stocks, HK equities, REITs and ETFs. Get momentum signals and earnings alerts before the crowd.',
     icon: '💹',
@@ -51,7 +51,7 @@ const DISTRICTS = [
   },
   {
     id: 'commerce',
-    name: 'Commerce District',
+    name: 'E-commerce District',
     tagline: 'Arbitrage Intelligence',
     description: 'AI scans price gaps across Shopee, Lazada and Amazon. Surface arbitrage opportunities and optimise your listings automatically.',
     icon: '🛒',
