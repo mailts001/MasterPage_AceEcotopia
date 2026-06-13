@@ -84,7 +84,7 @@ function RegisterForm() {
       password,
       options: {
         data: { display_name: name, referred_by_code: referral || null },
-        emailRedirectTo: `${location.origin}/citizen/dashboard`,
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || location.origin}/citizen/dashboard`,
       },
     })
     if (error) {
