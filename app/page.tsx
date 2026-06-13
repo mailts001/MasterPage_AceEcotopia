@@ -1,6 +1,7 @@
 import HeroSection from '@/components/hero/HeroSection'
 import DistrictsSection from '@/components/districts/DistrictsSection'
 import X68CityMap from '@/components/citymap/X68CityMap'
+import DistrictGuide from '@/components/education/DistrictGuide'
 
 export default function HomePage() {
   return (
@@ -8,6 +9,7 @@ export default function HomePage() {
       <HeroSection />
       <DistrictsSection />
       <X68CityMap />
+      <DistrictGuide />
 
       {/* How it works */}
       <section className="py-24 px-4 border-t border-white/5">
