@@ -56,24 +56,23 @@ export default async function CitizenDashboard() {
         <h2 className="text-lg font-semibold mb-4">Your Districts</h2>
         <div className="grid md:grid-cols-2 gap-4 mb-8">
           {[
-            { id: 'propos', name: 'PropOS', desc: 'Property intelligence & deal alerts', color: 'cyan', href: 'http://5.223.72.120:8502' },
-            { id: 'aceeconomy', name: 'AceEconomy', desc: 'Market signals & trading alerts', color: 'green', href: '#' },
-            { id: 'nexustravel', name: 'NexusTravel', desc: 'Flight & hotel deal alerts', color: 'purple', href: 'https://nexus-travel-seven.vercel.app' },
-            { id: 'commerce', name: 'Commerce', desc: 'Arbitrage & ecommerce deals', color: 'amber', href: '#' },
+            { id: 'propos', name: 'PropOS', desc: 'Property intelligence & deal alerts', href: 'http://5.223.72.120:8504', live: true },
+            { id: 'aceeconomy', name: 'AceEconomy', desc: 'Market signals & trading alerts', href: null, live: false },
+            { id: 'nexustravel', name: 'NexusTravel', desc: 'Flight & hotel deal alerts', href: 'https://nexus-travel-seven.vercel.app', live: true },
+            { id: 'commerce', name: 'eCommerce', desc: 'Arbitrage & ecommerce deals', href: null, live: false },
           ].map(d => (
-            <a
-              key={d.id}
-              href={d.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="district-card group block p-5 rounded-xl bg-white/5 border border-white/10 hover:border-white/20 transition"
-            >
+            <div key={d.id} className="block p-5 rounded-xl bg-white/5 border border-white/10 transition hover:border-white/20">
               <div className="flex items-center justify-between mb-2">
                 <span className="font-semibold text-white">{d.name}</span>
-                <span className="text-xs text-gray-500 group-hover:text-gray-300 transition">Visit →</span>
+                {d.live && d.href ? (
+                  <a href={d.href} target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-cyan-400 hover:text-cyan-300 transition">Visit →</a>
+                ) : (
+                  <span className="text-xs text-gray-600 border border-white/5 px-2 py-0.5 rounded-full">Coming soon</span>
+                )}
               </div>
               <p className="text-sm text-gray-400">{d.desc}</p>
-            </a>
+            </div>
           ))}
         </div>
 
