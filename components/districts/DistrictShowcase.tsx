@@ -74,12 +74,31 @@ const DISTRICTS = [
   },
 ]
 
+const REPLAY_DELAY_MS = 3000   // hold on last frame for 3s before replaying
+
 export default function DistrictShowcase() {
   const [active, setActive] = useState(0)
-  const videoRefs = useRef<(HTMLVideoElement | null)[]>([])
+  const videoRefs  = useRef<(HTMLVideoElement | null)[]>([])
+  const timerRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // When active tab changes, restart that video
+  // Clear any pending replay timer
+  const clearTimer = () => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null }
+  }
+
+  // Called when a video finishes — hold on last frame, then replay after delay
+  const handleEnded = (i: number) => {
+    if (i !== active) return
+    clearTimer()
+    timerRef.current = setTimeout(() => {
+      const v = videoRefs.current[i]
+      if (v) { v.currentTime = 0; v.play().catch(() => {}) }
+    }, REPLAY_DELAY_MS)
+  }
+
+  // When active tab changes, cancel timer + restart that video
   useEffect(() => {
+    clearTimer()
     videoRefs.current.forEach((v, i) => {
       if (!v) return
       if (i === active) {
@@ -89,6 +108,7 @@ export default function DistrictShowcase() {
         v.pause()
       }
     })
+    return clearTimer
   }, [active])
 
   const d = DISTRICTS[active]
@@ -164,8 +184,8 @@ export default function DistrictShowcase() {
               poster={dist.poster}
               muted
               playsInline
-              loop
               preload={i === 0 ? 'auto' : 'metadata'}
+              onEnded={() => handleEnded(i)}
               className="w-full block transition-opacity duration-500"
               style={{
                 display:  i === active ? 'block' : 'none',
