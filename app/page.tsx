@@ -2,11 +2,16 @@ import HeroSection from '@/components/hero/HeroSection'
 import DistrictsSection from '@/components/districts/DistrictsSection'
 import X68CityMap from '@/components/citymap/X68CityMap'
 import DistrictGuide from '@/components/education/DistrictGuide'
+import NexusTravelCinematic from '@/components/districts/nexustravel/NexusTravelCinematic'
 
 export default function HomePage() {
   return (
     <main>
       <HeroSection />
+
+      {/* NexusTravel cinematic scroll scene — full viewport pinned experience */}
+      <NexusTravelCinematic />
+
       <DistrictsSection />
 
       {/* City map — anchor for nav */}
