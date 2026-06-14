@@ -18,6 +18,14 @@ body {
   font-family: 'Inter', system-ui, sans-serif;
 }
 
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeInUp {
+  animation: fadeInUp 0.45s ease-out both;
+}
+
 .gradient-text {
   background: linear-gradient(135deg, #00D4FF 0%, #F4B942 100%);
   -webkit-background-clip: text;
