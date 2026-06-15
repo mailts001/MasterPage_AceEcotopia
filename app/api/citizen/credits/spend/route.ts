@@ -36,9 +36,8 @@ export async function POST(req: Request) {
 
   await supabase.from('credits_ledger').insert({
     citizen_id: user.id,
-    amount: -option.cost,
+    delta: -option.cost,
     reason: `spend_${action}`,
-    ref_id: null,
   })
 
   return NextResponse.json({

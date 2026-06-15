@@ -78,11 +78,12 @@ export default function X68CityMap() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* PropOS */}
+            {/* PropOS — direct public access */}
             <DistrictCard
               district={propos}
               accent="blue"
-              href="/citizen/register?district=propos"
+              href="http://5.223.72.120:8504"
+              external
             >
               <PropOSDistrict
                 healthScore={propos.health_score}
@@ -106,11 +107,12 @@ export default function X68CityMap() {
               />
             </DistrictCard>
 
-            {/* NexusTravel */}
+            {/* NexusTravel — direct public access */}
             <DistrictCard
               district={nexustravel}
               accent="purple"
-              href="/citizen/register?district=nexustravel"
+              href="https://nexus-travel-seven.vercel.app"
+              external
             >
               <NexusTravelDistrict
                 healthScore={nexustravel.health_score}
@@ -158,11 +160,12 @@ export default function X68CityMap() {
 }
 
 function DistrictCard({
-  district, accent, href, children,
+  district, accent, href, external, children,
 }: {
   district: DistrictState
   accent: string
   href: string
+  external?: boolean
   children: React.ReactNode
 }) {
   const tier = TIER_LABEL[district.revenue_tier] ?? TIER_LABEL.seed
@@ -191,8 +194,10 @@ function DistrictCard({
               style={{ width: `${district.health_score * 100}%` }} />
           </div>
           <a href={href}
+            target={external ? '_blank' : undefined}
+            rel={external ? 'noopener noreferrer' : undefined}
             className="text-xs text-gray-500 group-hover:text-white transition whitespace-nowrap">
-            Join →
+            {external ? 'Visit →' : 'Join →'}
           </a>
         </div>
       </div>

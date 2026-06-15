@@ -3,11 +3,11 @@ import { createClient } from '@/lib/supabase/server'
 import { awardCredits, processReferral } from '@/lib/credits'
 import { sendWelcomeEmail } from '@/lib/email/send'
 import Link from 'next/link'
-import CopyButton from '@/components/auth/CopyButton'
 import ApiKeyManager from '@/components/auth/ApiKeyManager'
 import SignOutButton from '@/components/auth/SignOutButton'
 import WatchlistPanel from '@/components/dashboard/WatchlistPanel'
 import CreditsSpend from '@/components/dashboard/CreditsSpend'
+import ReferralPanel from '@/components/dashboard/ReferralPanel'
 
 // Districts — Financial links to internal signals page (not trading bot)
 // E-commerce gated to Citizen tier
@@ -250,25 +250,10 @@ export default async function CitizenDashboard() {
         </div>
 
         {/* Referral */}
-        <div className="bg-gradient-to-r from-yellow-500/5 to-green-500/5 border border-yellow-500/20 rounded-xl p-5">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <h3 className="font-semibold text-white text-sm mb-1">Earn Nexus Credits</h3>
-              <div className="space-y-1 text-xs text-gray-400 mb-3">
-                <p>🔗 Refer a friend → <span className="text-yellow-400">+100 credits</span></p>
-                <p>🎯 Friend upgrades → <span className="text-yellow-400">+500 credits</span></p>
-                <p>📝 Complete profile → <span className="text-yellow-400">+50 credits</span></p>
-                <p>💡 100 credits = 1 extra alert slot, permanently free</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <code className="bg-black/30 border border-white/10 px-4 py-2 rounded-lg text-cyan-400 font-mono text-sm tracking-widest">
-                {citizen?.referral_code ?? '——'}
-              </code>
-              <CopyButton text={citizen?.referral_code ?? ''} />
-            </div>
-          </div>
-        </div>
+        <ReferralPanel
+          referralCode={citizen?.referral_code ?? ''}
+          citizenName={citizen?.display_name ?? 'A fellow citizen'}
+        />
 
       </div>
     </div>
