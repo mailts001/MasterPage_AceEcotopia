@@ -9,6 +9,7 @@ import WatchlistPanel from '@/components/dashboard/WatchlistPanel'
 import CreditsSpend from '@/components/dashboard/CreditsSpend'
 import ReferralPanel from '@/components/dashboard/ReferralPanel'
 import TelegramLink from '@/components/dashboard/TelegramLink'
+import StreakBanner from '@/components/dashboard/StreakBanner'
 
 // Districts — Financial links to internal signals page (not trading bot)
 // E-commerce gated to Citizen tier
@@ -136,12 +137,12 @@ export default async function CitizenDashboard() {
           <p className="text-gray-500 mt-1 text-sm">Your X68 command centre</p>
         </div>
 
-        {/* Stats row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* Stats row — 5 cols on md, 2 on mobile */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {[
-            { label: 'Nexus Credits', value: credits, color: 'text-yellow-400', sub: '100 per referral' },
-            { label: 'Alerts / month', value: alertLimit, color: 'text-cyan-400', sub: isPaid ? 'unlimited · all districts' : '3 free · upgrade for more' },
-            { label: 'Watchlist Items', value: watchlist?.length ?? 0, color: 'text-green-400', sub: 'across all districts' },
+            { label: 'Nexus Credits', value: credits, color: 'text-yellow-400', sub: '+10/day login' },
+            { label: 'Alerts / month', value: alertLimit, color: 'text-cyan-400', sub: isPaid ? 'unlimited · all districts' : '3 free · upgrade' },
+            { label: 'Watchlist Items', value: watchlist?.length ?? 0, color: 'text-green-400', sub: 'across districts' },
             { label: 'Member Since', value: citizen ? new Date(citizen.created_at).toLocaleDateString('en-SG', { month: 'short', year: 'numeric' }) : '—', color: 'text-gray-300', sub: '' },
           ].map(s => (
             <div key={s.label} className="bg-white/5 border border-white/10 rounded-xl p-4">
@@ -150,6 +151,8 @@ export default async function CitizenDashboard() {
               <div className="text-xs text-gray-600 mt-0.5">{s.sub}</div>
             </div>
           ))}
+          {/* Streak chip — client component, fires streak API on mount */}
+          <StreakBanner initialCredits={credits} />
         </div>
 
         {/* Explorer upgrade banner */}

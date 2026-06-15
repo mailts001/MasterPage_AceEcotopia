@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 const SPEND_OPTIONS = {
-  alert_slot: { cost: 100, description: '+1 alert slot/month, permanently' },
-  api_boost:  { cost: 200, description: '+1,000 API calls/day for 30 days' },
+  alert_slot:    { cost: 100, description: '+1 alert slot/month, permanently' },
+  api_boost:     { cost: 200, description: '+1,000 API calls/day for 30 days' },
+  commerce_scan: { cost: 150, description: 'Fresh arbitrage discovery scan triggered' },
 }
 
 export async function POST(req: Request) {
