@@ -58,8 +58,8 @@ const DISTRICTS = [
     icon: '🛒',
     tagline: 'Arbitrage Intelligence',
     desc: 'Multi-AI agents surface price gaps across Shopee, Lazada, Amazon with net margin calculated.',
-    href: 'http://204.168.221.101/',
-    internal: false,
+    href: '/citizen/dashboard/commerce',
+    internal: true,
     citizenOnly: true,   // ← Citizen tier required
     accent: 'border-amber-500/30',
     accentText: 'text-amber-400',
