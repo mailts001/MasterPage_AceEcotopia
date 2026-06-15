@@ -110,7 +110,17 @@ function RegisterForm() {
   const [name, setName] = useState('')
   const [referral, setReferral] = useState('')
   const [loading, setLoading] = useState(false)
+  const [checking, setChecking] = useState(true)
+  const [alreadyIn, setAlreadyIn] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  // Check if already logged in — redirect to dashboard immediately
+  useState(() => {
+    createClient().auth.getUser().then(({ data: { user } }) => {
+      if (user) setAlreadyIn(true)
+      setChecking(false)
+    })
+  })
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault()
@@ -135,6 +145,39 @@ function RegisterForm() {
     }
     setLoading(false)
   }
+
+  // Still checking session
+  if (checking) return (
+    <div className="min-h-screen bg-[#0A0E1A] flex items-center justify-center">
+      <div className="w-6 h-6 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
+    </div>
+  )
+
+  // Already a citizen — show a friendly redirect card instead of the form
+  if (alreadyIn) return (
+    <div className="min-h-screen bg-[#0A0E1A] flex items-center justify-center px-4">
+      <div className="w-full max-w-md text-center">
+        <div className="text-5xl mb-4">{theme.icon}</div>
+        <h1 className="text-2xl font-bold text-white mb-2">You're already a Citizen!</h1>
+        <p className="text-slate-400 text-sm mb-2">
+          Your X68 account covers <strong className="text-white">all 4 districts</strong> — including {theme.name}.
+        </p>
+        <p className="text-slate-500 text-xs mb-8">
+          No separate join needed. Head to your dashboard to access {theme.name} and configure your watchlist.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <Link href="/citizen/dashboard"
+            className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-6 py-3 rounded-xl transition text-sm">
+            Go to Dashboard →
+          </Link>
+          <Link href="/"
+            className="border border-white/10 hover:border-white/25 text-slate-400 hover:text-white px-6 py-3 rounded-xl transition text-sm">
+            Back to Home
+          </Link>
+        </div>
+      </div>
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-[#0A0E1A] flex items-center justify-center px-4">
