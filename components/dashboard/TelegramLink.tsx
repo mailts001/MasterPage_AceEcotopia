@@ -57,46 +57,49 @@ export default function TelegramLink({ initialLinked }: Props) {
   if (code) return (
     <div className="bg-cyan-500/5 border border-cyan-500/20 rounded-xl p-4 space-y-3">
       <div className="flex items-center gap-2 text-sm font-medium text-cyan-400">
-        <span>✈️</span> Connect your Telegram
+        <span>💬</span> Connect your Telegram
       </div>
 
-      <ol className="space-y-2 text-xs text-slate-400">
-        <li className="flex gap-2">
-          <span className="text-cyan-500 font-mono font-bold shrink-0">1.</span>
-          Open Telegram and search for{' '}
-          <a href="https://t.me/AceIBKRTradingBot" target="_blank" rel="noopener noreferrer"
-            className="text-cyan-400 underline">@AceIBKRTradingBot</a>
-        </li>
-        <li className="flex gap-2">
-          <span className="text-cyan-500 font-mono font-bold shrink-0">2.</span>
-          Send this command to the bot:
-        </li>
-      </ol>
+      {/* ONE-TAP option */}
+      <a
+        href={`https://t.me/AceIBKRTradingBot?start=${code}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center justify-center gap-2 w-full bg-cyan-500 hover:bg-cyan-400
+          text-black font-bold text-sm py-2.5 rounded-lg transition"
+      >
+        <span>✈️</span> Open Telegram &amp; Link Automatically
+      </a>
 
-      {/* Command to copy */}
-      <div className="flex items-center gap-2">
-        <code className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2
-          text-cyan-300 font-mono text-sm tracking-wider">
-          /linkx68 {code}
-        </code>
-        <button onClick={copyCommand}
-          className={`shrink-0 text-xs px-3 py-2 rounded-lg border transition-all ${
-            copied
-              ? 'border-green-500/40 bg-green-500/10 text-green-400'
-              : 'border-white/10 text-slate-400 hover:text-white'
-          }`}>
-          {copied ? '✓ Copied!' : 'Copy'}
-        </button>
-      </div>
-
-      <p className="text-[11px] text-slate-600">
-        ⏱ Code expires in 15 minutes · Refresh this page after linking to confirm
+      <p className="text-center text-[11px] text-slate-500">
+        Tap above — the bot receives the code automatically. No typing needed.
       </p>
 
-      <button onClick={() => window.location.reload()}
-        className="text-xs text-cyan-500 hover:text-cyan-400 transition underline">
-        I sent it — check status
-      </button>
+      <div className="border-t border-white/8 pt-3">
+        <p className="text-[11px] text-slate-600 mb-2">Or manually: open @AceIBKRTradingBot and send:</p>
+        <div className="flex items-center gap-2">
+          <code className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2
+            text-cyan-300 font-mono text-sm tracking-wider">
+            /linkx68 {code}
+          </code>
+          <button onClick={copyCommand}
+            className={`shrink-0 text-xs px-3 py-2 rounded-lg border transition-all ${
+              copied
+                ? 'border-green-500/40 bg-green-500/10 text-green-400'
+                : 'border-white/10 text-slate-400 hover:text-white'
+            }`}>
+            {copied ? '✓ Copied!' : 'Copy'}
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] text-slate-600">⏱ Code expires in 15 minutes</p>
+        <button onClick={() => window.location.reload()}
+          className="text-xs text-cyan-500 hover:text-cyan-400 transition underline">
+          Check status
+        </button>
+      </div>
     </div>
   )
 
