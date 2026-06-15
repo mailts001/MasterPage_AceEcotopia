@@ -8,6 +8,7 @@ import SignOutButton from '@/components/auth/SignOutButton'
 import WatchlistPanel from '@/components/dashboard/WatchlistPanel'
 import CreditsSpend from '@/components/dashboard/CreditsSpend'
 import ReferralPanel from '@/components/dashboard/ReferralPanel'
+import TelegramLink from '@/components/dashboard/TelegramLink'
 
 // Districts — Financial links to internal signals page (not trading bot)
 // E-commerce gated to Citizen tier
@@ -108,6 +109,7 @@ export default async function CitizenDashboard() {
   const isPaid = !isExplorer
   const alertLimit = isPaid ? '∞' : '3'
   const credits = citizen?.nexus_credits ?? 0
+  const telegramLinked = !!(citizen as Record<string, unknown>)?.telegram_chat_id
 
   return (
     <div className="min-h-screen bg-[#0A0E1A] text-white">
@@ -220,6 +222,9 @@ export default async function CitizenDashboard() {
             })}
           </div>
         </div>
+
+        {/* Telegram connection */}
+        <TelegramLink initialLinked={telegramLinked} />
 
         {/* Watchlist */}
         <WatchlistPanel initialItems={watchlist ?? []} />
