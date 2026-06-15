@@ -47,8 +47,8 @@ const DISTRICT_CONFIG = {
       { key: 'budget',  label: 'Max Budget (SGD)', placeholder: 'e.g. 450',      hint: 'Alert when fare drops below this' },
     ],
     idField: 'route',
-    status: 'coming_soon' as const,
-    statusNote: 'NexusTravel monitoring integration in progress — routes saved now will activate when live.',
+    status: 'live' as const,
+    statusNote: '',
   },
   commerce: {
     label: 'E-commerce', icon: '🛒',
