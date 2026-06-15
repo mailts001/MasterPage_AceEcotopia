@@ -231,32 +231,76 @@ export default function WatchlistPanel({ initialItems }: { initialItems: Asset[]
                     {st.label}
                   </span>
                 </div>
-                <div className="space-y-2">
-                  {distItems.map(item => (
-                    <div key={item.id} className="flex items-start justify-between group">
-                      <div>
-                        <span className="text-xs text-slate-200 font-mono font-semibold">
-                          {item.asset_id}
-                        </span>
-                        {/* Show additional meta fields */}
-                        {item.asset_meta && Object.entries(item.asset_meta)
-                          .filter(([k]) => k !== DISTRICT_CONFIG[d as DistrictKey].idField)
-                          .filter(([, v]) => v)
-                          .map(([k, v]) => (
-                            <span key={k} className="text-[10px] text-slate-600 ml-2">
-                              {v}
+                <div className="space-y-3">
+                  {distItems.map(item => {
+                    const meta = item.asset_meta || {}
+                    const isTravel = d === 'nexustravel'
+                    const isFinancial = d === 'aceeconomy'
+                    const lastFare = meta.last_fare ? parseInt(meta.last_fare) : null
+                    const budget   = meta.budget   ? parseInt(meta.budget)    : null
+                    const isDeal   = meta.fare_status === 'deal'
+
+                    return (
+                      <div key={item.id} className="group">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <span className="text-xs text-slate-200 font-mono font-semibold">
+                              {item.asset_id}
                             </span>
-                          ))
-                        }
+                            {/* cabin / alert_type inline */}
+                            {(meta.cabin || meta.alert_type) && (
+                              <span className="text-[10px] text-slate-600 ml-2">
+                                {meta.cabin || meta.alert_type}
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleDelete(item.id)}
+                            className="text-slate-700 hover:text-red-400 text-xs opacity-0 group-hover:opacity-100 transition ml-2 shrink-0"
+                          >
+                            ✕
+                          </button>
+                        </div>
+
+                        {/* NexusTravel: show last fare result */}
+                        {isTravel && (
+                          <div className="mt-1.5">
+                            {lastFare ? (
+                              <div className={`flex items-center gap-2 text-[10px] px-2 py-1 rounded-lg border ${
+                                isDeal
+                                  ? 'border-green-500/20 bg-green-500/8 text-green-400'
+                                  : 'border-white/8 bg-white/3 text-slate-500'
+                              }`}>
+                                <span>{isDeal ? '🟢' : '🔴'}</span>
+                                <span>
+                                  SGD <strong>{lastFare}</strong>
+                                  {budget && <span className="text-slate-600"> · budget {budget}</span>}
+                                  {meta.last_fare_date && <span className="text-slate-600"> · {meta.last_fare_date}</span>}
+                                </span>
+                                {isDeal && <span className="text-green-400 font-medium ml-auto">✓ deal</span>}
+                              </div>
+                            ) : (
+                              <div className="text-[10px] text-slate-700 italic">
+                                {budget && `Budget: SGD ${budget} · `}Checking fares twice daily…
+                              </div>
+                            )}
+                            {meta.last_checked && (
+                              <div className="text-[9px] text-slate-700 mt-0.5 pl-1">
+                                Last checked {meta.last_checked} UTC
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Financial: show budget/target */}
+                        {isFinancial && !isTravel && (
+                          <div className="text-[10px] text-slate-700 mt-0.5">
+                            {meta.alert_type && `Alert: ${meta.alert_type}`}
+                          </div>
+                        )}
                       </div>
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        className="text-slate-700 hover:text-red-400 text-xs opacity-0 group-hover:opacity-100 transition ml-2 shrink-0"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )
