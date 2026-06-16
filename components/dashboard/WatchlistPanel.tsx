@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { routeToIATA } from '@/lib/airports'
 
 interface Asset {
   id: string
@@ -42,9 +43,10 @@ const DISTRICT_CONFIG = {
     accentText: 'text-purple-400', accentBg: 'bg-purple-500/10', accentBorder: 'border-purple-500/20',
     description: 'Monitor flight routes. AI alerts you when fares drop below your target price.',
     fields: [
-      { key: 'route',   label: 'Route',         placeholder: 'e.g. SIN-NRT',     hint: 'IATA airport codes, origin-destination' },
-      { key: 'cabin',   label: 'Cabin Class',   placeholder: 'Economy / Business' },
-      { key: 'budget',  label: 'Max Budget (SGD)', placeholder: 'e.g. 450',      hint: 'Alert when fare drops below this' },
+      { key: 'from_city', label: 'From',            placeholder: 'e.g. Singapore, London, Tokyo', hint: 'City name or IATA code' },
+      { key: 'to_city',   label: 'To',              placeholder: 'e.g. Tokyo, Bali, New York',    hint: 'City name or IATA code' },
+      { key: 'cabin',     label: 'Cabin Class',     placeholder: 'Economy / Business' },
+      { key: 'budget',    label: 'Max Budget (SGD)', placeholder: 'e.g. 450', hint: 'Alert when fare drops below this' },
     ],
     idField: 'route',
     status: 'live' as const,
@@ -85,17 +87,34 @@ export default function WatchlistPanel({ initialItems }: { initialItems: Asset[]
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
-    const idVal = fields[cfg.idField]?.trim()
-    if (!idVal) return
     setSaving(true); setError('')
+
+    // NexusTravel: resolve city names → IATA route
+    let finalFields = { ...fields }
+    let assetId = fields[cfg.idField]?.trim()
+
+    if (district === 'nexustravel') {
+      const from = fields.from_city?.trim() || ''
+      const to   = fields.to_city?.trim()   || ''
+      if (!from || !to) { setError('Please enter both From and To cities'); setSaving(false); return }
+      const resolved = routeToIATA(from, to)
+      if (!resolved) {
+        setError(`Could not find airports for "${from}" or "${to}". Try IATA codes (e.g. SIN, NRT) or check spelling.`)
+        setSaving(false); return
+      }
+      assetId = resolved.route
+      finalFields = { ...finalFields, route: resolved.route, from_city: resolved.fromCity, to_city: resolved.toCity }
+    }
+
+    if (!assetId) { setError('Required field missing'); setSaving(false); return }
 
     const res = await fetch('/api/citizen/watchlist', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         district,
-        asset_id:   idVal.toUpperCase(),
-        asset_meta: fields,
+        asset_id:   assetId.toUpperCase(),
+        asset_meta: finalFields,
       }),
     })
     if (res.ok) {
@@ -196,11 +215,27 @@ export default function WatchlistPanel({ initialItems }: { initialItems: Asset[]
               </div>
             ))}
 
+            {/* NexusTravel: live IATA preview */}
+            {district === 'nexustravel' && fields.from_city && fields.to_city && (() => {
+              const preview = routeToIATA(fields.from_city, fields.to_city)
+              return preview ? (
+                <div className="flex items-center gap-2 text-xs bg-purple-500/10 border border-purple-500/20 rounded-lg px-3 py-2">
+                  <span className="text-purple-400">✓</span>
+                  <span className="text-white font-mono font-bold">{preview.route}</span>
+                  <span className="text-slate-500">{preview.fromCity} → {preview.toCity}</span>
+                </div>
+              ) : (
+                <div className="text-xs text-amber-400/70 bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2">
+                  ⚠ City not recognised — try IATA code (e.g. SIN, NRT, BKK)
+                </div>
+              )
+            })()}
+
             {error && <p className="text-xs text-red-400">{error}</p>}
 
             <button
               type="submit"
-              disabled={saving || !fields[cfg.idField]?.trim()}
+              disabled={saving || (district !== 'nexustravel' && !fields[cfg.idField]?.trim())}
               className="bg-cyan-500 hover:bg-cyan-400 disabled:opacity-40 text-black
                 font-semibold text-xs px-5 py-2 rounded-lg transition"
             >
