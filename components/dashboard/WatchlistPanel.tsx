@@ -15,27 +15,27 @@ const DISTRICT_CONFIG = {
   propos: {
     label: 'PropOS', icon: '🏙️',
     accentText: 'text-blue-400', accentBg: 'bg-blue-500/10', accentBorder: 'border-blue-500/20',
-    description: 'Monitor Singapore properties. AI alerts you when refinance rates improve or valuation shifts.',
+    description: 'Monitor SG properties by postal code. AI surfaces recent HDB resale transactions, area price trends, and alerts twice weekly.',
     fields: [
-      { key: 'postal_code',  label: 'Postal Code',        placeholder: 'e.g. 523401',    hint: '6-digit SG postal code' },
-      { key: 'property_type',label: 'Type (optional)',     placeholder: 'HDB / Condo / Landed' },
-      { key: 'alert_below',  label: 'Alert if rate drops below (%)', placeholder: 'e.g. 2.8' },
+      { key: 'postal_code',  label: 'Postal Code',  placeholder: 'e.g. 400320', hint: '6-digit SG postal code' },
+      { key: 'property_type',label: 'Type (optional)', placeholder: 'HDB / Condo / Landed' },
+      { key: 'alert_below',  label: 'Alert if refinance rate drops below (%)', placeholder: 'e.g. 2.8' },
     ],
     idField: 'postal_code',
-    status: 'coming_soon' as const,
-    statusNote: 'PropOS integration in progress — your saved properties will trigger alerts when live.',
+    status: 'live' as const,
+    statusNote: '',
   },
   aceeconomy: {
     label: 'Financial', icon: '💹',
     accentText: 'text-green-400', accentBg: 'bg-green-500/10', accentBorder: 'border-green-500/20',
-    description: 'Track listed stocks & ETFs. AI prioritises momentum signals for tickers you watch. US & HK markets only.',
+    description: 'Track listed stocks & ETFs. AI cross-checks your tickers against nightly momentum + squeeze scans and alerts via Telegram.',
     fields: [
       { key: 'ticker',  label: 'Ticker Symbol', placeholder: 'e.g. NVDA, AAPL, 0700.HK', hint: 'Listed equities only — no private companies' },
       { key: 'alert_type', label: 'Alert on',   placeholder: 'Any signal / Squeeze only / Earnings only' },
     ],
     idField: 'ticker',
-    status: 'partial' as const,
-    statusNote: 'Scanner runs nightly. Your tickers will be cross-checked when signals fire — Telegram delivery coming.',
+    status: 'live' as const,
+    statusNote: '',
   },
   nexustravel: {
     label: 'NexusTravel', icon: '✈️',
@@ -60,8 +60,8 @@ const DISTRICT_CONFIG = {
       { key: 'target_price', label: 'Your price target (SGD)', placeholder: 'e.g. 900', hint: 'Alert when arbitrage gap > 10% below this' },
     ],
     idField: 'product',
-    status: 'coming_soon' as const,
-    statusNote: 'Commerce OS scans its own opportunity pool now. User-defined product tracking coming next.',
+    status: 'live' as const,
+    statusNote: '',
   },
 }
 
@@ -292,10 +292,55 @@ export default function WatchlistPanel({ initialItems }: { initialItems: Asset[]
                           </div>
                         )}
 
-                        {/* Financial: show budget/target */}
-                        {isFinancial && !isTravel && (
+                        {/* Financial: alert type */}
+                        {isFinancial && (
                           <div className="text-[10px] text-slate-700 mt-0.5">
-                            {meta.alert_type && `Alert: ${meta.alert_type}`}
+                            {meta.alert_type && `Alert on: ${meta.alert_type}`}
+                          </div>
+                        )}
+
+                        {/* PropOS: show last transaction data */}
+                        {d === 'propos' && (
+                          <div className="mt-1.5 space-y-1">
+                            {meta.address && (
+                              <div className="text-[10px] text-slate-500">{meta.address}</div>
+                            )}
+                            {meta.block_avg_sgd ? (
+                              <div className="flex items-center gap-2 text-[10px] px-2 py-1 rounded-lg border border-blue-500/20 bg-blue-500/5 text-blue-300">
+                                <span>🏠</span>
+                                <span>
+                                  Block avg: <strong>${parseInt(meta.block_avg_sgd).toLocaleString()}</strong>
+                                  {meta.block_txns_6m && <span className="text-slate-600"> · {meta.block_txns_6m} txn (6mo)</span>}
+                                </span>
+                              </div>
+                            ) : meta.last_checked ? (
+                              <div className="text-[10px] text-slate-700 italic">No HDB resale found — may be private/condo</div>
+                            ) : (
+                              <div className="text-[10px] text-slate-700 italic">Checking Mon & Thu…</div>
+                            )}
+                            {meta.last_checked && (
+                              <div className="text-[9px] text-slate-700">Updated {meta.last_checked}</div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Commerce: show last match */}
+                        {d === 'commerce' && (
+                          <div className="mt-1.5">
+                            {meta.last_match ? (
+                              <div className="text-[10px] px-2 py-1 rounded-lg border border-amber-500/20 bg-amber-500/5 space-y-0.5">
+                                <div className="text-amber-300 font-medium">
+                                  {meta.last_match_margin}% margin matched
+                                </div>
+                                <div className="text-slate-500">
+                                  {meta.last_match_src} → {meta.last_match_tgt}
+                                </div>
+                              </div>
+                            ) : meta.last_checked ? (
+                              <div className="text-[10px] text-slate-700 italic">No match found yet in Commerce OS pool</div>
+                            ) : (
+                              <div className="text-[10px] text-slate-700 italic">Checked daily after 10 PM SGT…</div>
+                            )}
                           </div>
                         )}
                       </div>
