@@ -182,8 +182,16 @@ export default async function CitizenDashboard() {
           <div className="grid md:grid-cols-2 gap-4">
             {DISTRICTS.map(d => {
               const locked = d.citizenOnly && isExplorer
+              const cardHref = locked ? '/upgrade' : d.href
+              const isInternal = !locked && d.internal
               return (
-                <div key={d.id} className={`rounded-xl bg-white/5 border ${d.accent} p-5 transition ${locked ? 'opacity-75' : 'hover:bg-white/8'}`}>
+                <a
+                  key={d.id}
+                  href={cardHref}
+                  target={isInternal ? undefined : '_blank'}
+                  rel={isInternal ? undefined : 'noopener noreferrer'}
+                  className={`block rounded-xl bg-white/5 border ${d.accent} p-5 transition cursor-pointer ${locked ? 'opacity-75 hover:opacity-90' : 'hover:bg-white/8'}`}
+                >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <span className="text-xl">{d.icon}</span>
@@ -193,17 +201,13 @@ export default async function CitizenDashboard() {
                       </div>
                     </div>
                     {locked ? (
-                      <a href="/upgrade"
-                        className="text-xs bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 px-2 py-1 rounded-lg hover:bg-cyan-500/30 transition shrink-0">
+                      <span className="text-xs bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 px-2 py-1 rounded-lg shrink-0">
                         Citizen only →
-                      </a>
+                      </span>
                     ) : (
-                      <a href={d.href}
-                        target={d.internal ? undefined : '_blank'}
-                        rel={d.internal ? undefined : 'noopener noreferrer'}
-                        className={`text-xs ${d.accentText} hover:opacity-70 transition shrink-0`}>
+                      <span className={`text-xs ${d.accentText} shrink-0`}>
                         Open →
-                      </a>
+                      </span>
                     )}
                   </div>
                   <p className="text-xs text-gray-400 mb-3 leading-relaxed">{d.desc}</p>
@@ -220,7 +224,7 @@ export default async function CitizenDashboard() {
                       🔒 Arbitrage signals require Citizen tier — direct commercial value
                     </p>
                   )}
-                </div>
+                </a>
               )
             })}
           </div>

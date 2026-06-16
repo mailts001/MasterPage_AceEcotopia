@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { routeToIATA } from '@/lib/airports'
 
+const ITEMS_PREVIEW = 3   // show this many before "Show all"
+
 interface Asset {
   id: string
   district: string
@@ -82,6 +84,11 @@ export default function WatchlistPanel({ initialItems }: { initialItems: Asset[]
   const [fields, setFields]     = useState<Record<string, string>>({})
   const [saving, setSaving]     = useState(false)
   const [error, setError]       = useState('')
+  // per-district expanded state & sort
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [sortBy, setSortBy]     = useState<'newest' | 'oldest' | 'alpha'>('newest')
+
+  const toggleExpand = (d: string) => setExpanded(prev => ({ ...prev, [d]: !prev[d] }))
 
   const cfg = DISTRICT_CONFIG[district]
 
@@ -252,22 +259,54 @@ export default function WatchlistPanel({ initialItems }: { initialItems: Asset[]
           <p className="text-gray-700 text-xs">Add stocks, properties, flight routes or products</p>
         </div>
       ) : (
+        <>
+          {/* Sort control */}
+          {items.length > 1 && (
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[10px] text-slate-600">Sort:</span>
+              {(['newest', 'oldest', 'alpha'] as const).map(opt => (
+                <button key={opt} onClick={() => setSortBy(opt)}
+                  className={`text-[10px] px-2 py-0.5 rounded border transition ${
+                    sortBy === opt
+                      ? 'border-cyan-500/40 text-cyan-400 bg-cyan-500/10'
+                      : 'border-white/10 text-slate-600 hover:text-slate-400'
+                  }`}>
+                  {opt === 'newest' ? 'Newest' : opt === 'oldest' ? 'Oldest' : 'A–Z'}
+                </button>
+              ))}
+            </div>
+          )}
+
         <div className="grid md:grid-cols-2 gap-4">
           {(Object.keys(DISTRICT_CONFIG) as DistrictKey[]).map(d => {
-            const distItems = byDistrict[d] ?? []
-            if (distItems.length === 0) return null
+            const rawItems = byDistrict[d] ?? []
+            if (rawItems.length === 0) return null
+
+            // Apply sort
+            const distItems = [...rawItems].sort((a, b) => {
+              if (sortBy === 'oldest') return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+              if (sortBy === 'alpha')  return a.asset_id.localeCompare(b.asset_id)
+              return new Date(b.created_at).getTime() - new Date(a.created_at).getTime() // newest
+            })
+
+            const isExpanded = expanded[d]
+            const visibleItems = isExpanded ? distItems : distItems.slice(0, ITEMS_PREVIEW)
+            const hasMore = distItems.length > ITEMS_PREVIEW
+
             const c   = DISTRICT_CONFIG[d]
             const st  = STATUS_BADGE[c.status]
             return (
               <div key={d} className={`${c.accentBg} border ${c.accentBorder} rounded-xl p-4`}>
                 <div className="flex items-center justify-between mb-3">
-                  <div className={`text-xs font-semibold ${c.accentText}`}>{c.icon} {c.label}</div>
+                  <div className={`text-xs font-semibold ${c.accentText}`}>{c.icon} {c.label}
+                    <span className="text-slate-600 font-normal ml-1">({distItems.length})</span>
+                  </div>
                   <span className={`text-[9px] px-1.5 py-0.5 rounded-full border font-mono ${st.cls}`}>
                     {st.label}
                   </span>
                 </div>
                 <div className="space-y-3">
-                  {distItems.map(item => {
+                  {visibleItems.map(item => {
                     const meta = item.asset_meta || {}
                     const isTravel = d === 'nexustravel'
                     const isFinancial = d === 'aceeconomy'
@@ -382,10 +421,23 @@ export default function WatchlistPanel({ initialItems }: { initialItems: Asset[]
                     )
                   })}
                 </div>
+                {/* Show more / less toggle */}
+                {hasMore && (
+                  <button
+                    onClick={() => toggleExpand(d)}
+                    className={`mt-3 w-full text-[10px] py-1.5 rounded-lg border transition
+                      ${c.accentBorder} ${c.accentText} hover:opacity-70`}
+                  >
+                    {isExpanded
+                      ? '▲ Show less'
+                      : `▼ Show all ${distItems.length} items`}
+                  </button>
+                )}
               </div>
             )
           })}
         </div>
+        </>
       )}
     </div>
   )
