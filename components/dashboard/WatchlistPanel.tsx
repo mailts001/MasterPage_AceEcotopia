@@ -191,7 +191,7 @@ export default function WatchlistPanel({ initialItems }: { initialItems: Asset[]
           {/* Description + status note */}
           <div className={`rounded-lg px-4 py-3 mb-4 border ${cfg.accentBg} ${cfg.accentBorder}`}>
             <p className="text-xs text-slate-300 leading-relaxed mb-1">{cfg.description}</p>
-            {(cfg.status === 'partial' || cfg.status === 'coming_soon') && (
+            {cfg.statusNote && cfg.status !== 'live' && (
               <p className="text-[11px] text-slate-500 italic">{cfg.statusNote}</p>
             )}
           </div>
