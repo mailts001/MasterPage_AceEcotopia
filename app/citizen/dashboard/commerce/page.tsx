@@ -135,8 +135,9 @@ export default function CommercePage() {
 
   useEffect(() => {
     fetch('/api/nexus/commerce/opportunities')
-      .then(r => r.json())
-      .then(d => {
+      .then(async r => {
+        const d = await r.json()
+        if (r.status === 403) { setError('upgrade_required'); setLoading(false); return }
         if (d.error && !d.opportunities) { setError(d.error); setLoading(false); return }
         setOpportunities(d.opportunities ?? [])
         setLoading(false)
@@ -231,6 +232,18 @@ export default function CommercePage() {
         {loading ? (
           <div className="grid md:grid-cols-2 gap-4">
             {[1,2,3,4].map(i => <div key={i} className="h-56 rounded-xl bg-white/5 animate-pulse" />)}
+          </div>
+        ) : error === 'upgrade_required' ? (
+          <div className="border border-cyan-500/20 bg-cyan-500/5 rounded-xl p-10 text-center">
+            <div className="text-3xl mb-3">🔒</div>
+            <p className="text-white font-semibold mb-1">Citizen tier required</p>
+            <p className="text-slate-500 text-sm mb-5">
+              Arbitrage intelligence is gated to Citizen members — direct commercial value that pays for itself.
+            </p>
+            <a href="/upgrade"
+              className="inline-block bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-6 py-2.5 rounded-lg transition text-sm">
+              Upgrade to Citizen $19/mo →
+            </a>
           </div>
         ) : error ? (
           <div className="border border-red-500/20 bg-red-500/5 rounded-xl p-8 text-center">
