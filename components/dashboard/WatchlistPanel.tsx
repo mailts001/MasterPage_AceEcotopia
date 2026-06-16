@@ -3,6 +3,13 @@
 import { useState } from 'react'
 import { routeToIATA } from '@/lib/airports'
 
+// Deep-link each district watchlist card to its signals page
+const DISTRICT_LINKS: Partial<Record<string, { href: string; label: string; external?: boolean }>> = {
+  aceeconomy: { href: '/citizen/dashboard/financial',  label: 'View signals →' },
+  commerce:   { href: '/citizen/dashboard/commerce',   label: 'View opportunities →' },
+  nexustravel:{ href: 'https://nexus-travel-seven.vercel.app', label: 'NexusTravel →', external: true },
+}
+
 const ITEMS_PREVIEW = 3   // show this many before "Show all"
 
 interface Asset {
@@ -301,9 +308,21 @@ export default function WatchlistPanel({ initialItems }: { initialItems: Asset[]
                   <div className={`text-xs font-semibold ${c.accentText}`}>{c.icon} {c.label}
                     <span className="text-slate-600 font-normal ml-1">({distItems.length})</span>
                   </div>
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full border font-mono ${st.cls}`}>
-                    {st.label}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {DISTRICT_LINKS[d] && (
+                      <a
+                        href={DISTRICT_LINKS[d]!.href}
+                        target={DISTRICT_LINKS[d]!.external ? '_blank' : undefined}
+                        rel={DISTRICT_LINKS[d]!.external ? 'noopener noreferrer' : undefined}
+                        className={`text-[10px] ${c.accentText} hover:opacity-70 transition`}
+                      >
+                        {DISTRICT_LINKS[d]!.label}
+                      </a>
+                    )}
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full border font-mono ${st.cls}`}>
+                      {st.label}
+                    </span>
+                  </div>
                 </div>
                 <div className="space-y-3">
                   {visibleItems.map(item => {
