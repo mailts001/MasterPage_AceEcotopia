@@ -87,7 +87,7 @@ export default async function UpgradeSuccess({
         </h1>
         <p className="text-gray-400 mb-2">Your subscription is active.</p>
         <p className="text-gray-500 text-sm mb-8">
-          All 4 districts unlocked · Telegram alerts enabled · 100 Nexus Credits added to your account.
+          All 5 districts unlocked · Telegram alerts enabled · 100 Nexus Credits added to your account.
         </p>
         <Link
           href="/citizen/dashboard"

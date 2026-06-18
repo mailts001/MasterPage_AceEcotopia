@@ -62,6 +62,19 @@ const DISTRICTS = [
     features: ['Price gap scanning', 'Arbitrage signals', 'Competitor monitoring', 'Auto-listing'],
     citizenValue: 'Find profit gaps others miss',
   },
+  {
+    id: 'serenity',
+    name: 'SerenityOS District',
+    tagline: 'Wellness + Events Intelligence',
+    description: 'AI surfaces SG events matched to your taste, tracks your daily Serenity Score, and delivers a morning wellness brief with breathing exercises.',
+    icon: '🌿',
+    color: 'from-emerald-500/20 to-teal-500/20',
+    border: 'border-emerald-500/30',
+    accent: 'text-emerald-400',
+    href: '/citizen/dashboard/wellness',
+    features: ['SG events radar', 'Daily Serenity Score™', 'Breathing exercises', 'Morning brief'],
+    citizenValue: 'Daily wellness ritual + never miss an event',
+  },
 ]
 
 export default function DistrictsSection() {
@@ -89,7 +102,7 @@ export default function DistrictsSection() {
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold mb-4">
-            Four <span className="gradient-text">Districts</span>
+            Five <span className="gradient-text">Districts</span>
           </h2>
           <p className="text-xl text-slate-400 max-w-2xl mx-auto">
             Each district has AI agents running 24/7. As a citizen, you decide which ones work for you.

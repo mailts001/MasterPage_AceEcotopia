@@ -15,7 +15,7 @@ const ITEMS: Item[] = [
     answer: (
       <div className="space-y-3 text-sm text-gray-400 leading-relaxed">
         <p>AI agents monitor the things you already spend money on — property, stocks, flights, and products — 24/7. When a signal fires (price anomaly, squeeze setup, arbitrage gap, deal alert) you get notified instantly via <strong className="text-white">Telegram or email</strong> before the window closes.</p>
-        <p>Without X68 you'd need four different apps, manual price checking, and stock scanner subscriptions. Here it's one account, one Telegram, four districts all running in parallel.</p>
+        <p>Without X68 you'd need five different apps, manual price checking, and stock scanner subscriptions. Here it's one account, one Telegram, five districts all running in parallel.</p>
         <div className="grid grid-cols-2 gap-2 mt-3">
           {[
             ['PropOS',     'Property price alerts, neighbourhood data'],

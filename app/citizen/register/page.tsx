@@ -93,7 +93,7 @@ const DEFAULT_THEME = {
   name: 'X68',
   icon: '🌐',
   tagline: 'AI Economic Ecosystem',
-  benefit: 'Access all 4 districts — property, stocks, travel & commerce AI agents',
+  benefit: 'Access all 5 districts — property, stocks, travel, commerce & wellness AI agents',
   accent: 'text-cyan-400',
   glow: 'bg-cyan-500/10',
   border: 'border-cyan-500/30',
@@ -160,7 +160,7 @@ function RegisterForm() {
         <div className="text-5xl mb-4">{theme.icon}</div>
         <h1 className="text-2xl font-bold text-white mb-2">You're already a Citizen!</h1>
         <p className="text-slate-400 text-sm mb-2">
-          Your X68 account covers <strong className="text-white">all 4 districts</strong> — including {theme.name}.
+          Your X68 account covers <strong className="text-white">all 5 districts</strong> — including {theme.name}.
         </p>
         <p className="text-slate-500 text-xs mb-8">
           No separate join needed. Head to your dashboard to access {theme.name} and configure your watchlist.

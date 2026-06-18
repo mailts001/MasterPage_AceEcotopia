@@ -72,6 +72,23 @@ const DISTRICTS = [
     features: ['🔍 Cross-platform arbitrage gaps','📦 Demand & supply gap analysis','💰 Net margin after all fees','🤖 Multi-agent price scanning','🔒 Citizen tier — direct value'],
     stat: { value: '74%', label: 'Best margin found today' },
   },
+  {
+    id:       'serenity',
+    name:     'SerenityOS District',
+    tagline:  'Wellness + Events Intelligence',
+    icon:     '🌿',
+    accent:   '#10B981',
+    accentCls:'text-emerald-400',
+    borderCls:'border-emerald-500/30',
+    video:    '/districts/serenity.mp4',
+    poster:   '/districts/serenity-poster.jpg',
+    href:     '/citizen/dashboard/wellness',
+    joinHref: '/citizen/register?district=serenity',
+    externalLabel: 'Open SerenityOS →',
+    desc:     'Daily Serenity Score™ check-in, SG events radar, ambient radio and breathing exercises. Your morning wellness ritual, automated.',
+    features: ['🌿 Daily Serenity Score™','📅 SG events radar (20+ events)','🫁 Guided breathing exercises','🎵 Ambient radio channels','📲 Morning Telegram wellness brief'],
+    stat: { value: '30', label: 'Events live this month' },
+  },
 ]
 
 const REPLAY_DELAY_MS = 3000   // hold on last frame for 3s before replaying

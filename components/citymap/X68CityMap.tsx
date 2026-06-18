@@ -5,6 +5,7 @@ import PropOSDistrict from './PropOSDistrict'
 import FinancialDistrict from './FinancialDistrict'
 import NexusTravelDistrict from './NexusTravelDistrict'
 import EcommerceDistrict from './EcommerceDistrict'
+import SerenityDistrict from './SerenityDistrict'
 
 interface DistrictState {
   id: string
@@ -51,6 +52,7 @@ export default function X68CityMap() {
   const aceeconomy  = districts?.aceeconomy  ?? mockDistrict('aceeconomy')
   const nexustravel = districts?.nexustravel ?? mockDistrict('nexustravel')
   const commerce    = districts?.commerce    ?? mockDistrict('commerce')
+  const serenity    = districts?.serenity    ?? mockDistrict('serenity')
 
   return (
     <section className="py-24 px-4 border-t border-white/5">
@@ -72,7 +74,7 @@ export default function X68CityMap() {
 
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {[1,2,3,4].map(i => (
+            {[1,2,3,4,5].map(i => (
               <div key={i} className="h-48 rounded-xl bg-white/5 animate-pulse" />
             ))}
           </div>
@@ -135,6 +137,20 @@ export default function X68CityMap() {
                 activeMonitors={commerce.active_monitors}
               />
             </DistrictCard>
+
+            {/* SerenityOS */}
+            <DistrictCard
+              district={serenity}
+              accent="emerald"
+              href="/citizen/dashboard/wellness"
+            >
+              <SerenityDistrict
+                healthScore={serenity.health_score}
+                alertsToday={serenity.alerts_today}
+                revenueTier={serenity.revenue_tier}
+                activeMonitors={serenity.active_monitors}
+              />
+            </DistrictCard>
           </div>
         )}
 
@@ -170,10 +186,11 @@ function DistrictCard({
 }) {
   const tier = TIER_LABEL[district.revenue_tier] ?? TIER_LABEL.seed
   const accentColors: Record<string, string> = {
-    blue:   'border-blue-500/30 hover:border-blue-500/60',
-    green:  'border-green-500/30 hover:border-green-500/60',
-    purple: 'border-purple-500/30 hover:border-purple-500/60',
-    amber:  'border-amber-500/30 hover:border-amber-500/60',
+    blue:    'border-blue-500/30 hover:border-blue-500/60',
+    green:   'border-green-500/30 hover:border-green-500/60',
+    purple:  'border-purple-500/30 hover:border-purple-500/60',
+    amber:   'border-amber-500/30 hover:border-amber-500/60',
+    emerald: 'border-emerald-500/30 hover:border-emerald-500/60',
   }
 
   return (

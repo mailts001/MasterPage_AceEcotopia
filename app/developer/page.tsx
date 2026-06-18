@@ -124,7 +124,7 @@ export default function DeveloperPage() {
         <div className="max-w-5xl mx-auto px-6 grid grid-cols-3 gap-6">
           {[
             { tier: 'Explorer', price: 'Free', calls: '100 calls/day', note: 'No credit card' },
-            { tier: 'Citizen', price: '$19/mo', calls: '10,000 calls/day', note: 'All 4 districts' },
+            { tier: 'Citizen', price: '$19/mo', calls: '10,000 calls/day', note: 'All 5 districts' },
             { tier: 'Enterprise', price: 'Custom', calls: 'Unlimited', note: 'SLA + dedicated support' },
           ].map(p => (
             <div key={p.tier} className="text-center">

@@ -66,7 +66,7 @@ export default function HomePage() {
                 period: 'forever',
                 desc: 'See what the AI finds. No commitment.',
                 features: [
-                  '3 alerts/month across all 4 districts',
+                  '3 alerts/month across all 5 districts',
                   'Read-only access to all district dashboards',
                   'Basic watchlist (up to 5 assets)',
                   '100 API calls/day (1 key)',
@@ -83,7 +83,7 @@ export default function HomePage() {
                 period: '/month',
                 desc: 'Unlimited AI monitoring. Telegram delivery.',
                 features: [
-                  'Unlimited alerts — all 4 districts',
+                  'Unlimited alerts — all 5 districts',
                   'Telegram instant delivery (before email)',
                   'Unlimited watchlist assets',
                   '10,000 API calls/day (3 keys)',
