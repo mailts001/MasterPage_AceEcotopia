@@ -8,6 +8,7 @@ const DISTRICT_LINKS: Partial<Record<string, { href: string; label: string; exte
   aceeconomy: { href: '/citizen/dashboard/financial',  label: 'View signals →' },
   commerce:   { href: '/citizen/dashboard/commerce',   label: 'View opportunities →' },
   nexustravel:{ href: 'https://nexus-travel-seven.vercel.app', label: 'NexusTravel →', external: true },
+  serenity:   { href: '/citizen/dashboard/wellness',   label: 'View events →' },
 }
 
 const ITEMS_PREVIEW = 3   // show this many before "Show all"
@@ -71,6 +72,19 @@ const DISTRICT_CONFIG = {
       { key: 'target_price', label: 'Your price target (SGD)', placeholder: 'e.g. 900', hint: 'Alert when arbitrage gap > 10% below this' },
     ],
     idField: 'product',
+    status: 'live' as const,
+    statusNote: '',
+  },
+  serenity: {
+    label: 'SerenityOS', icon: '🌿',
+    accentText: 'text-emerald-400', accentBg: 'bg-emerald-500/10', accentBorder: 'border-emerald-500/20',
+    description: 'Watch SG events by category — get Telegram alerts when tickets drop or events are announced.',
+    fields: [
+      { key: 'category',      label: 'Event category',      placeholder: 'e.g. pop, jazz, wellness, theatre, arts' },
+      { key: 'alert_days',    label: 'Alert days before',   placeholder: 'e.g. 7', hint: 'Notify N days before event' },
+      { key: 'score_alert',   label: 'Serenity Score alert below', placeholder: 'e.g. 45', hint: 'Telegram nudge when your score drops below this' },
+    ],
+    idField: 'category',
     status: 'live' as const,
     statusNote: '',
   },

@@ -66,6 +66,19 @@ const DISTRICTS = [
     accentText: 'text-amber-400',
     what: ['Cross-platform arbitrage gaps', 'Demand & supply gap analysis', 'Net margin after fees & shipping'],
   },
+  {
+    id: 'serenity',
+    name: 'SerenityOS',
+    icon: '🌿',
+    tagline: 'Wellness + Events Intelligence',
+    desc: 'SG events radar, daily Serenity Score check-in, ambient radio, breathing exercises & TCM wellness profile.',
+    href: '/citizen/dashboard/wellness',
+    internal: true,
+    citizenOnly: false,
+    accent: 'border-emerald-500/30',
+    accentText: 'text-emerald-400',
+    what: ['SG events & ticket alerts', 'Daily Serenity Score™ check-in', 'Ambient radio + breathing timer'],
+  },
 ]
 
 export default async function CitizenDashboard() {
