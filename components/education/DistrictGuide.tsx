@@ -22,6 +22,7 @@ const ITEMS: Item[] = [
             ['Financial',  'Stock signals, momentum picks, squeeze setups'],
             ['NexusTravel','Cheapest flights/hotels, error fare alerts'],
             ['E-commerce', 'Arbitrage gaps across Shopee, Amazon, Lazada'],
+            ['SerenityOS', 'Daily wellness score, SG events radar, morning brief'],
           ].map(([d, desc]) => (
             <div key={d} className="bg-white/5 rounded-lg p-3">
               <div className="text-white text-xs font-semibold mb-1">{d}</div>

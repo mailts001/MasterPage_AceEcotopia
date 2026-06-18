@@ -107,7 +107,7 @@ export default function DeveloperPage() {
           Build on the<br /><span className="gradient-text">X68 Network</span>
         </h1>
         <p className="text-lg text-gray-400 max-w-2xl mx-auto mb-8">
-          Four AI-powered district APIs — property intelligence, market signals, travel deals, and commerce arbitrage. One key, all districts.
+          Five AI-powered district APIs — property intelligence, market signals, travel deals, commerce arbitrage, and wellness. One key, all districts.
         </p>
         <div className="flex items-center justify-center gap-4">
           <Link href="/citizen/register" className="bg-cyan-500 hover:bg-cyan-400 text-black font-semibold px-6 py-3 rounded-lg transition text-sm">

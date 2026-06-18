@@ -66,11 +66,11 @@ export default function HeroSection() {
         {/* Main headline */}
         <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight tracking-tight">
           One Account.
-          <span className="block gradient-text">Four AI Districts.</span>
+          <span className="block gradient-text">Five AI Districts.</span>
         </h1>
 
         <p className="text-xl md:text-2xl text-slate-400 mb-6 max-w-3xl mx-auto leading-relaxed">
-          X68 runs AI agents on property, stocks, flights, and commerce — 24/7.
+          X68 runs AI agents on property, stocks, flights, commerce and wellness — 24/7.
           You get alerts when something is worth acting on.
         </p>
 
@@ -81,6 +81,7 @@ export default function HeroSection() {
             '📈 Stock squeeze signal before breakout',
             '✈️ Fare drop on your saved route',
             '🛒 Arbitrage gap: buy low, sell high',
+            '🌿 Morning wellness brief + SG events radar',
           ].map(h => (
             <span key={h} className="text-xs text-gray-400 bg-white/5 border border-white/10 rounded-full px-3 py-1.5">{h}</span>
           ))}
