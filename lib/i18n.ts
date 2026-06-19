@@ -130,6 +130,74 @@ export const strings = {
   pf_sla:          { en: 'SLA + dedicated support',                  zh: 'SLA 协议＋专属支持' },
   pf_whitelabel:   { en: 'White-label option',                       zh: '白标方案可选' },
   pf_api_bulk:     { en: 'Bulk API access',                          zh: '批量 API 访问' },
+  // ── Register page ────────────────────────────────────────────────
+  reg_already_title:  { en: "You're already a Citizen!",                        zh: '您已是公民！' },
+  reg_already_sub:    { en: 'Your X68 account covers all 5 districts — including', zh: '您的 X68 账户已覆盖全部 5 个智能区，包括' },
+  reg_already_note:   { en: 'No separate join needed. Head to your dashboard to access', zh: '无需单独加入。前往仪表板访问' },
+  reg_already_note2:  { en: 'and configure your watchlist.',                    zh: '并配置您的自选列表。' },
+  reg_go_dashboard:   { en: 'Go to Dashboard →',                                zh: '前往仪表板 →' },
+  reg_back_home:      { en: 'Back to Home',                                     zh: '返回首页' },
+  reg_title:          { en: 'Become a Citizen',                                 zh: '成为公民' },
+  reg_label_name:     { en: 'Display Name',                                     zh: '显示名称' },
+  reg_ph_name:        { en: 'How should we call you?',                          zh: '请输入您的昵称' },
+  reg_label_email:    { en: 'Email',                                            zh: '电子邮件' },
+  reg_label_password: { en: 'Password',                                         zh: '密码' },
+  reg_ph_password:    { en: 'At least 8 characters',                            zh: '至少 8 个字符' },
+  reg_label_referral: { en: 'Referral Code',                                    zh: '推荐码' },
+  reg_optional:       { en: '(optional)',                                        zh: '（选填）' },
+  reg_ph_referral:    { en: 'e.g. AB12CD34',                                    zh: '例如 AB12CD34' },
+  reg_btn_loading:    { en: 'Creating account…',                                zh: '创建中…' },
+  reg_btn_join:       { en: 'Join as a Citizen — Free',                         zh: '免费加入公民计划' },
+  reg_free_includes:  { en: 'Free tier includes:',                              zh: '免费版包含：' },
+  reg_signin_prompt:  { en: 'Already a citizen?',                               zh: '已有账户？' },
+  reg_signin_link:    { en: 'Sign in',                                          zh: '立即登录' },
+  reg_success:        {
+    en: "Check your email to confirm your account. You'll receive 50 Nexus Credits on first login!",
+    zh: '请查收确认邮件以激活账户，首次登录即获赠 50 积分！',
+  },
+
+  // ── District themes (register page) ─────────────────────────────
+  dt_propos_name:       { en: 'PropOS District',      zh: 'PropOS 房产区' },
+  dt_propos_tag:        { en: 'Property Intelligence', zh: '房产智能' },
+  dt_propos_benefit:    { en: 'Get refinance alerts & property deal signals worth $300–800/month', zh: '获取每月价值 $300–800 的再融资提醒与房产交易信号' },
+  dt_finance_name:      { en: 'Financial District',     zh: '金融区' },
+  dt_finance_tag:       { en: 'Investment Intelligence', zh: '投资智能' },
+  dt_finance_benefit:   { en: 'Get stock momentum signals, earnings alerts & REIT tracking', zh: '获取股票动能信号、财报提醒与房产信托追踪' },
+  dt_travel_name:       { en: 'NexusTravel District', zh: 'NexusTravel 旅行区' },
+  dt_travel_tag:        { en: 'Travel Intelligence',  zh: '旅行智能' },
+  dt_travel_benefit:    { en: 'Get flight price drop alerts & hotel deals — save $100–400 per trip', zh: '获取机票降价与酒店特价提醒——每次旅行节省 $100–400' },
+  dt_commerce_name:     { en: 'Commerce District',     zh: '电商区' },
+  dt_commerce_tag:      { en: 'Arbitrage Intelligence', zh: '套利智能' },
+  dt_commerce_benefit:  { en: 'Get price gap signals across Shopee, Lazada & Amazon', zh: '获取 Shopee、Lazada 与亚马逊跨平台价差信号' },
+  dt_default_name:      { en: 'X68',                  zh: 'X68' },
+  dt_default_tag:       { en: 'AI Economic Ecosystem', zh: 'AI 经济生态系统' },
+  dt_default_benefit:   { en: 'Access all 5 districts — property, stocks, travel, commerce & wellness AI agents', zh: '访问全部 5 个智能区——房产、股票、旅行、电商与健康 AI 代理' },
+
 } as const
 
 export type StringKey = keyof typeof strings
+
+// ── Array strings (not passed through t()) ───────────────────────
+// Access directly: districtFeatures['aceeconomy'][locale]
+export const districtFeatures = {
+  propos: {
+    en: ['🏠 Property valuation alerts','📊 Refinance opportunity signals','📍 District price trend reports','💰 50 Nexus Credits on signup','🔗 Earn 100 credits per referral'],
+    zh: ['🏠 房产估值提醒','📊 再融资机会信号','📍 区域价格趋势报告','💰 注册赠 50 积分','🔗 每次推荐赚 100 积分'],
+  },
+  aceeconomy: {
+    en: ['📈 Stock momentum signals (US & HK)','🔔 Earnings surprise alerts','🏦 REIT & ETF tracking','💰 50 Nexus Credits on signup','🔗 Earn 100 credits per referral'],
+    zh: ['📈 美港股动能信号','🔔 财报超预期提醒','🏦 房产信托与 ETF 追踪','💰 注册赠 50 积分','🔗 每次推荐赚 100 积分'],
+  },
+  nexustravel: {
+    en: ['✈️ Flight price drop alerts','🏨 Hotel deal notifications','💱 Currency signals for your routes','💰 50 Nexus Credits on signup','🔗 Earn 100 credits per referral'],
+    zh: ['✈️ 机票降价提醒','🏨 酒店特价通知','💱 航线汇率信号','💰 注册赠 50 积分','🔗 每次推荐赚 100 积分'],
+  },
+  commerce: {
+    en: ['🛒 Multi-platform arbitrage signals','💹 Demand & supply gap analysis','📦 Net margin calculator (fees + shipping)','💰 50 Nexus Credits on signup','🔗 Earn 100 credits per referral'],
+    zh: ['🛒 跨平台套利信号','💹 供需差距分析','📦 净利润计算器（含费用与运费）','💰 注册赠 50 积分','🔗 每次推荐赚 100 积分'],
+  },
+  default: {
+    en: ['🌐 Access all 5 AI districts','🔔 3 free alerts per month','💰 50 Nexus Credits on signup','🔗 Earn 100 credits per referral','👤 Citizen profile & watchlist'],
+    zh: ['🌐 访问全部 5 个智能区','🔔 每月 3 条免费提醒','💰 注册赠 50 积分','🔗 每次推荐赚 100 积分','👤 公民档案与自选列表'],
+  },
+} as const
