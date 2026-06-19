@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useLocale } from '@/hooks/useLocale'
 
 interface DistrictData {
   alerts_today: number
@@ -12,72 +13,58 @@ interface DistrictData {
 const DISTRICTS = [
   {
     id: 'propos',
-    name: 'PropOS District',
-    tagline: 'Property Intelligence',
-    description: 'AI monitors Singapore property market 24/7. Get alerts on refinance opportunities, valuation changes, and sell signals before your neighbours.',
+    nameKey: 'd_propos_name',   tagKey: 'd_propos_tag',   descKey: 'd_propos_desc',
     icon: '🏙️',
-    color: 'from-blue-500/20 to-cyan-500/20',
-    border: 'border-blue-500/30',
-    accent: 'text-blue-400',
+    color: 'from-blue-500/20 to-cyan-500/20', border: 'border-blue-500/30', accent: 'text-blue-400',
     href: 'http://5.223.72.120:8504',
-    features: ['Refinance alerts', 'Valuation tracking', 'District trends', 'Sell signals'],
-    citizenValue: 'Save $300–800/month on mortgage',
+    features: { en: ['Refinance alerts','Valuation tracking','District trends','Sell signals'],
+                zh: ['再融资提醒','估值追踪','区域趋势','出售信号'] },
+    citizenValue: { en: 'Save $300–800/month on mortgage', zh: '每月节省 $300–800 贷款利息' },
   },
   {
     id: 'aceeconomy',
-    name: 'Financial District',
-    tagline: 'Investment Intelligence',
-    description: 'AI tracks your watchlist across US stocks, HK equities, REITs and ETFs. Get momentum signals and earnings alerts before the crowd.',
+    nameKey: 'd_finance_name',  tagKey: 'd_finance_tag',  descKey: 'd_finance_desc',
     icon: '💹',
-    color: 'from-green-500/20 to-emerald-500/20',
-    border: 'border-green-500/30',
-    accent: 'text-green-400',
+    color: 'from-green-500/20 to-emerald-500/20', border: 'border-green-500/30', accent: 'text-green-400',
     href: '#',
-    features: ['Stock signals', 'Portfolio monitoring', 'Earnings alerts', 'REIT tracking'],
-    citizenValue: 'Intelligence edge on every trade',
+    features: { en: ['Stock signals','Portfolio monitoring','Earnings alerts','REIT tracking'],
+                zh: ['股票信号','投资组合监测','财报提醒','房产信托追踪'] },
+    citizenValue: { en: 'Intelligence edge on every trade', zh: '每笔交易都领先一步' },
   },
   {
     id: 'nexustravel',
-    name: 'NexusTravel District',
-    tagline: 'Travel Intelligence',
-    description: 'AI monitors your saved routes and hotels. Get instant alerts when flight prices drop below your threshold.',
+    nameKey: 'd_travel_name',   tagKey: 'd_travel_tag',   descKey: 'd_travel_desc',
     icon: '✈️',
-    color: 'from-purple-500/20 to-pink-500/20',
-    border: 'border-purple-500/30',
-    accent: 'text-purple-400',
+    color: 'from-purple-500/20 to-pink-500/20', border: 'border-purple-500/30', accent: 'text-purple-400',
     href: 'https://nexus-travel-seven.vercel.app',
-    features: ['Flight drop alerts', 'Hotel deals', 'Currency signals', 'Route monitoring'],
-    citizenValue: 'Save $100–400 per trip',
+    features: { en: ['Flight drop alerts','Hotel deals','Currency signals','Route monitoring'],
+                zh: ['机票降价提醒','酒店特价','汇率信号','航线监测'] },
+    citizenValue: { en: 'Save $100–400 per trip', zh: '每次旅行节省 $100–400' },
   },
   {
     id: 'commerce',
-    name: 'E-commerce District',
-    tagline: 'Arbitrage Intelligence',
-    description: 'AI scans price gaps across Shopee, Lazada and Amazon. Surface arbitrage opportunities and optimise your listings automatically.',
+    nameKey: 'd_commerce_name', tagKey: 'd_commerce_tag', descKey: 'd_commerce_desc',
     icon: '🛒',
-    color: 'from-amber-500/20 to-orange-500/20',
-    border: 'border-amber-500/30',
-    accent: 'text-amber-400',
+    color: 'from-amber-500/20 to-orange-500/20', border: 'border-amber-500/30', accent: 'text-amber-400',
     href: '#',
-    features: ['Price gap scanning', 'Arbitrage signals', 'Competitor monitoring', 'Auto-listing'],
-    citizenValue: 'Find profit gaps others miss',
+    features: { en: ['Price gap scanning','Arbitrage signals','Competitor monitoring','Auto-listing'],
+                zh: ['价差扫描','套利信号','竞品监测','自动刊登'] },
+    citizenValue: { en: 'Find profit gaps others miss', zh: '发现他人忽视的利润空间' },
   },
   {
     id: 'serenity',
-    name: 'SerenityOS District',
-    tagline: 'Wellness + Events Intelligence',
-    description: 'AI surfaces SG events matched to your taste, tracks your daily Serenity Score, and delivers a morning wellness brief with breathing exercises.',
+    nameKey: 'd_serenity_name', tagKey: 'd_serenity_tag', descKey: 'd_serenity_desc',
     icon: '🌿',
-    color: 'from-emerald-500/20 to-teal-500/20',
-    border: 'border-emerald-500/30',
-    accent: 'text-emerald-400',
+    color: 'from-emerald-500/20 to-teal-500/20', border: 'border-emerald-500/30', accent: 'text-emerald-400',
     href: '/citizen/dashboard/wellness',
-    features: ['SG events radar', 'Daily Serenity Score™', 'Breathing exercises', 'Morning brief'],
-    citizenValue: 'Daily wellness ritual + never miss an event',
+    features: { en: ['SG events radar','Daily Serenity Score™','Breathing exercises','Morning brief'],
+                zh: ['新加坡活动雷达','每日宁静评分™','呼吸练习','早间简报'] },
+    citizenValue: { en: 'Daily wellness ritual + never miss an event', zh: '每日健康习惯＋不错过任何活动' },
   },
-]
+] as const
 
 export default function DistrictsSection() {
+  const { t, locale } = useLocale()
   const [districtData, setDistrictData] = useState<Record<string, DistrictData>>({})
 
   useEffect(() => {
@@ -102,16 +89,21 @@ export default function DistrictsSection() {
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold mb-4">
-            Five <span className="gradient-text">Districts</span>
+            {t('districts_h2a')} <span className="gradient-text">{t('districts_h2b')}</span>
           </h2>
           <p className="text-xl text-slate-400 max-w-2xl mx-auto">
-            Each district has AI agents running 24/7. As a citizen, you decide which ones work for you.
+            {t('districts_sub')}
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {DISTRICTS.map((district) => {
             const data = districtData[district.id]
+            const name    = t(district.nameKey as Parameters<typeof t>[0])
+            const tagline = t(district.tagKey  as Parameters<typeof t>[0])
+            const desc    = t(district.descKey as Parameters<typeof t>[0])
+            const features     = district.features[locale]
+            const citizenValue = district.citizenValue[locale]
             return (
               <div key={district.id} className={`district-card rounded-2xl p-6 bg-gradient-to-br ${district.color}`}>
                 {/* Header */}
@@ -120,61 +112,49 @@ export default function DistrictsSection() {
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-2xl">{district.icon}</span>
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${district.border} ${district.accent} bg-transparent`}>
-                        {district.tagline}
+                        {tagline}
                       </span>
                     </div>
-                    <h3 className="text-xl font-bold text-white">{district.name}</h3>
+                    <h3 className="text-xl font-bold text-white">{name}</h3>
                   </div>
-                  {/* Live status */}
                   <div className="flex items-center gap-1.5">
                     <span className={`w-2 h-2 rounded-full ${data?.status === 'live' ? 'bg-green-400 pulse-dot' : 'bg-slate-600'}`} />
                     <span className="text-xs text-slate-500">
-                      {data?.status === 'live' ? 'LIVE' : 'Loading...'}
+                      {data?.status === 'live' ? t('districts_live') : t('districts_loading')}
                     </span>
                   </div>
                 </div>
 
-                {/* Description */}
-                <p className="text-slate-400 text-sm mb-4 leading-relaxed">
-                  {district.description}
-                </p>
+                <p className="text-slate-400 text-sm mb-4 leading-relaxed">{desc}</p>
 
-                {/* Live metrics */}
-                {data && data.status === 'live' && (
+                {data?.status === 'live' && (
                   <div className="flex gap-4 mb-4 text-xs">
                     <div>
                       <span className={`font-bold text-base ${district.accent}`}>{data.alerts_today}</span>
-                      <span className="text-slate-500 ml-1">alerts today</span>
+                      <span className="text-slate-500 ml-1">{t('districts_alerts')}</span>
                     </div>
                     <div>
                       <span className={`font-bold text-base ${district.accent}`}>{data.active_monitors}</span>
-                      <span className="text-slate-500 ml-1">monitors active</span>
+                      <span className="text-slate-500 ml-1">{t('districts_monitors')}</span>
                     </div>
                   </div>
                 )}
 
-                {/* Features */}
                 <div className="flex flex-wrap gap-2 mb-4">
-                  {district.features.map(f => (
-                    <span key={f} className="text-xs bg-white/5 text-slate-400 px-2 py-1 rounded-md border border-white/5">
-                      {f}
-                    </span>
+                  {features.map((f: string) => (
+                    <span key={f} className="text-xs bg-white/5 text-slate-400 px-2 py-1 rounded-md border border-white/5">{f}</span>
                   ))}
                 </div>
 
-                {/* Value prop */}
-                <div className={`text-xs font-medium ${district.accent} mb-4`}>
-                  ✦ {district.citizenValue}
-                </div>
+                <div className={`text-xs font-medium ${district.accent} mb-4`}>✦ {citizenValue}</div>
 
-                {/* CTA */}
                 <a
                   href={district.href !== '#' ? district.href : `/citizen/register?district=${district.id}`}
-                  target={district.href !== '#' ? '_blank' : undefined}
-                  rel={district.href !== '#' ? 'noopener noreferrer' : undefined}
+                  target={district.href !== '#' && !district.href.startsWith('/') ? '_blank' : undefined}
+                  rel={district.href !== '#' && !district.href.startsWith('/') ? 'noopener noreferrer' : undefined}
                   className={`inline-flex items-center gap-2 text-sm font-medium ${district.accent} hover:opacity-80 transition-opacity`}
                 >
-                  {district.href !== '#' ? 'Visit District →' : 'Join to Access →'}
+                  {district.href !== '#' ? t('districts_visit') : t('districts_join')}
                 </a>
               </div>
             )

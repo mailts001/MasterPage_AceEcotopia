@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import LocaleProvider from '@/components/LocaleProvider'
 
 export const metadata: Metadata = {
   icons: { icon: '/favicon.svg' },
@@ -21,7 +22,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen bg-[#0A0E1A] text-slate-200 antialiased">
-        {children}
+        <LocaleProvider>
+          {children}
+        </LocaleProvider>
       </body>
     </html>
   )
