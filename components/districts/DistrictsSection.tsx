@@ -10,33 +10,46 @@ interface DistrictData {
   status: 'live' | 'offline' | 'loading'
 }
 
-const DISTRICTS = [
+// external: open in new tab | internal: Next.js navigation | register: go to sign-up
+type DistrictEntry = {
+  id: string
+  nameKey: string; tagKey: string; descKey: string
+  icon: string
+  color: string; border: string; accent: string
+  visitHref: string          // where "Visit" goes (external or internal page)
+  external: boolean          // open in new tab?
+  requiresAuth: boolean      // show "Join to Access" instead of "Visit"
+  features: { en: string[]; zh: string[] }
+  citizenValue: { en: string; zh: string }
+}
+
+const DISTRICTS: DistrictEntry[] = [
   {
     id: 'propos',
-    nameKey: 'd_propos_name',   tagKey: 'd_propos_tag',   descKey: 'd_propos_desc',
+    nameKey: 'd_propos_name', tagKey: 'd_propos_tag', descKey: 'd_propos_desc',
     icon: '🏙️',
     color: 'from-blue-500/20 to-cyan-500/20', border: 'border-blue-500/30', accent: 'text-blue-400',
-    href: 'http://5.223.72.120:8504',
+    visitHref: 'http://5.223.72.120:8504', external: true, requiresAuth: false,
     features: { en: ['Refinance alerts','Valuation tracking','District trends','Sell signals'],
                 zh: ['再融资提醒','估值追踪','区域趋势','出售信号'] },
     citizenValue: { en: 'Save $300–800/month on mortgage', zh: '每月节省 $300–800 贷款利息' },
   },
   {
     id: 'aceeconomy',
-    nameKey: 'd_finance_name',  tagKey: 'd_finance_tag',  descKey: 'd_finance_desc',
+    nameKey: 'd_finance_name', tagKey: 'd_finance_tag', descKey: 'd_finance_desc',
     icon: '💹',
     color: 'from-green-500/20 to-emerald-500/20', border: 'border-green-500/30', accent: 'text-green-400',
-    href: '#',
+    visitHref: '/citizen/register?district=aceeconomy', external: false, requiresAuth: true,
     features: { en: ['Stock signals','Portfolio monitoring','Earnings alerts','REIT tracking'],
                 zh: ['股票信号','投资组合监测','财报提醒','房产信托追踪'] },
     citizenValue: { en: 'Intelligence edge on every trade', zh: '每笔交易都领先一步' },
   },
   {
     id: 'nexustravel',
-    nameKey: 'd_travel_name',   tagKey: 'd_travel_tag',   descKey: 'd_travel_desc',
+    nameKey: 'd_travel_name', tagKey: 'd_travel_tag', descKey: 'd_travel_desc',
     icon: '✈️',
     color: 'from-purple-500/20 to-pink-500/20', border: 'border-purple-500/30', accent: 'text-purple-400',
-    href: 'https://nexus-travel-seven.vercel.app',
+    visitHref: 'https://nexus-travel-seven.vercel.app', external: true, requiresAuth: false,
     features: { en: ['Flight drop alerts','Hotel deals','Currency signals','Route monitoring'],
                 zh: ['机票降价提醒','酒店特价','汇率信号','航线监测'] },
     citizenValue: { en: 'Save $100–400 per trip', zh: '每次旅行节省 $100–400' },
@@ -46,7 +59,7 @@ const DISTRICTS = [
     nameKey: 'd_commerce_name', tagKey: 'd_commerce_tag', descKey: 'd_commerce_desc',
     icon: '🛒',
     color: 'from-amber-500/20 to-orange-500/20', border: 'border-amber-500/30', accent: 'text-amber-400',
-    href: '#',
+    visitHref: '/citizen/register?district=commerce', external: false, requiresAuth: true,
     features: { en: ['Price gap scanning','Arbitrage signals','Competitor monitoring','Auto-listing'],
                 zh: ['价差扫描','套利信号','竞品监测','自动刊登'] },
     citizenValue: { en: 'Find profit gaps others miss', zh: '发现他人忽视的利润空间' },
@@ -56,12 +69,12 @@ const DISTRICTS = [
     nameKey: 'd_serenity_name', tagKey: 'd_serenity_tag', descKey: 'd_serenity_desc',
     icon: '🌿',
     color: 'from-emerald-500/20 to-teal-500/20', border: 'border-emerald-500/30', accent: 'text-emerald-400',
-    href: '/citizen/dashboard/wellness',
+    visitHref: '/citizen/dashboard/wellness', external: false, requiresAuth: false,
     features: { en: ['SG events radar','Daily Serenity Score™','Breathing exercises','Morning brief'],
                 zh: ['新加坡活动雷达','每日宁静评分™','呼吸练习','早间简报'] },
     citizenValue: { en: 'Daily wellness ritual + never miss an event', zh: '每日健康习惯＋不错过任何活动' },
   },
-] as const
+]
 
 export default function DistrictsSection() {
   const { t, locale } = useLocale()
@@ -149,12 +162,12 @@ export default function DistrictsSection() {
                 <div className={`text-xs font-medium ${district.accent} mb-4`}>✦ {citizenValue}</div>
 
                 <a
-                  href={district.href !== '#' ? district.href : `/citizen/register?district=${district.id}`}
-                  target={district.href !== '#' && !district.href.startsWith('/') ? '_blank' : undefined}
-                  rel={district.href !== '#' && !district.href.startsWith('/') ? 'noopener noreferrer' : undefined}
+                  href={district.visitHref}
+                  target={district.external ? '_blank' : undefined}
+                  rel={district.external ? 'noopener noreferrer' : undefined}
                   className={`inline-flex items-center gap-2 text-sm font-medium ${district.accent} hover:opacity-80 transition-opacity`}
                 >
-                  {district.href !== '#' ? t('districts_visit') : t('districts_join')}
+                  {district.requiresAuth ? t('districts_join') : t('districts_visit')}
                 </a>
               </div>
             )

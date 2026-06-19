@@ -200,6 +200,7 @@ export default function DistrictShowcase() {
               src={dist.video}
               poster={dist.poster}
               muted
+              autoPlay
               playsInline
               preload={i === 0 ? 'auto' : 'metadata'}
               onEnded={() => handleEnded(i)}
