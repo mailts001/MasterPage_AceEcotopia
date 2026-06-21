@@ -74,6 +74,16 @@ const DISTRICTS: DistrictEntry[] = [
                 zh: ['新加坡活动雷达','每日宁静评分™','呼吸练习','早间简报'] },
     citizenValue: { en: 'Daily wellness ritual + never miss an event', zh: '每日健康习惯＋不错过任何活动' },
   },
+  {
+    id: 'marketingos',
+    nameKey: 'd_marketing_name', tagKey: 'd_marketing_tag', descKey: 'd_marketing_desc',
+    icon: '📣',
+    color: 'from-rose-500/20 to-pink-500/20', border: 'border-rose-500/30', accent: 'text-rose-400',
+    visitHref: '/marketing', external: false, requiresAuth: false,
+    features: { en: ['AI video scripts','EN + Chinese voiceover','TikTok / IG / YT / LinkedIn','24h turnaround'],
+                zh: ['AI 视频脚本','英文与中文配音','TikTok / IG / YT / LinkedIn','24小时完成'] },
+    citizenValue: { en: '10 videos in 5 minutes — free beta', zh: '5 分钟生成 10 条视频——免费公测' },
+  },
 ]
 
 export default function DistrictsSection() {

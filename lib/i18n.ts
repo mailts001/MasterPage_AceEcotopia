@@ -14,7 +14,7 @@ export const strings = {
   // ── Hero ─────────────────────────────────────────────────────────
   hero_badge:     { en: 'AI Agents Active',      zh: 'AI 代理运行中' },
   hero_h1a:       { en: 'One Account.',           zh: '一个账户。' },
-  hero_h1b:       { en: 'Five AI Districts.',     zh: '五大智能区。' },
+  hero_h1b:       { en: 'Six AI Districts.',      zh: '六大智能区。' },
   hero_sub:       {
     en: 'X68 runs AI agents on property, stocks, flights, commerce and wellness — 24/7. You get alerts when something is worth acting on.',
     zh: 'X68 的 AI 代理全天候监测房产、股票、机票、电商与健康资讯。有价值的机会出现时，即时通知您。',
@@ -36,7 +36,7 @@ export const strings = {
   stat_alerts:     { en: 'Alerts Sent',           zh: '已发送提醒' },
 
   // ── Districts section ────────────────────────────────────────────
-  districts_h2a:  { en: 'Five',      zh: '五大' },
+  districts_h2a:  { en: 'Six',       zh: '六大' },
   districts_h2b:  { en: 'Districts', zh: '智能区' },
   districts_sub:  {
     en: 'Each district has AI agents running 24/7. As a citizen, you decide which ones work for you.',
@@ -81,6 +81,13 @@ export const strings = {
     zh: 'AI 推送符合您喜好的新加坡活动，追踪每日宁静评分，并发送含呼吸练习的早间健康简报。',
   },
 
+  d_marketing_name: { en: 'MarketingOS District',      zh: 'MarketingOS 营销区' },
+  d_marketing_tag:  { en: 'AI Video Marketing',         zh: 'AI 视频营销' },
+  d_marketing_desc: {
+    en: 'Submit your product and receive TikTok-ready EN + Chinese videos within 24h — AI writes the script, records the voiceover, and edits the final cut.',
+    zh: '提交产品资料，24小时内获得英文与中文双语短视频——AI 自动撰写脚本、配音并完成剪辑。',
+  },
+
   // ── How it works ─────────────────────────────────────────────────
   hiw_h2a:    { en: 'How',          zh: '如何' },
   hiw_h2b:    { en: 'Citizenship',  zh: '成为公民' },
@@ -113,13 +120,13 @@ export const strings = {
   cta_contact:     { en: 'Contact Us',        zh: '联系我们' },
 
   // ── Pricing features ─────────────────────────────────────────────
-  pf_alerts3:      { en: '3 alerts/month across all 5 districts',    zh: '每月 3 条提醒，覆盖全部 5 个智能区' },
+  pf_alerts3:      { en: '3 alerts/month across all 6 districts',    zh: '每月 3 条提醒，覆盖全部 6 个智能区' },
   pf_readonly:     { en: 'Read-only access to all district dashboards', zh: '只读访问所有智能区仪表板' },
   pf_watchlist5:   { en: 'Basic watchlist (up to 5 assets)',          zh: '基础自选列表（最多 5 项资产）' },
   pf_api100:       { en: '100 API calls/day (1 key)',                 zh: '每日 100 次 API 调用（1 个密钥）' },
   pf_credits50:    { en: '50 Nexus Credits on signup',               zh: '注册获赠 50 积分' },
   pf_refer:        { en: 'Earn credits by referring friends',         zh: '邀请好友赚取积分' },
-  pf_unlimited:    { en: 'Unlimited alerts — all 5 districts',       zh: '无限提醒——覆盖 5 个智能区' },
+  pf_unlimited:    { en: 'Unlimited alerts — all 6 districts',       zh: '无限提醒——覆盖 5 个智能区' },
   pf_telegram:     { en: 'Telegram instant delivery (before email)',  zh: 'Telegram 即时送达（优先于邮件）' },
   pf_watchlistU:   { en: 'Unlimited watchlist assets',               zh: '自选列表资产无上限' },
   pf_api10k:       { en: '10,000 API calls/day (3 keys)',            zh: '每日 10,000 次 API 调用（3 个密钥）' },
@@ -132,7 +139,7 @@ export const strings = {
   pf_api_bulk:     { en: 'Bulk API access',                          zh: '批量 API 访问' },
   // ── Register page ────────────────────────────────────────────────
   reg_already_title:  { en: "You're already a Citizen!",                        zh: '您已是公民！' },
-  reg_already_sub:    { en: 'Your X68 account covers all 5 districts — including', zh: '您的 X68 账户已覆盖全部 5 个智能区，包括' },
+  reg_already_sub:    { en: 'Your X68 account covers all 6 districts — including', zh: '您的 X68 账户已覆盖全部 6 个智能区，包括' },
   reg_already_note:   { en: 'No separate join needed. Head to your dashboard to access', zh: '无需单独加入。前往仪表板访问' },
   reg_already_note2:  { en: 'and configure your watchlist.',                    zh: '并配置您的自选列表。' },
   reg_go_dashboard:   { en: 'Go to Dashboard →',                                zh: '前往仪表板 →' },
@@ -171,7 +178,7 @@ export const strings = {
   dt_commerce_benefit:  { en: 'Get price gap signals across Shopee, Lazada & Amazon', zh: '获取 Shopee、Lazada 与亚马逊跨平台价差信号' },
   dt_default_name:      { en: 'X68',                  zh: 'X68' },
   dt_default_tag:       { en: 'AI Economic Ecosystem', zh: 'AI 经济生态系统' },
-  dt_default_benefit:   { en: 'Access all 5 districts — property, stocks, travel, commerce & wellness AI agents', zh: '访问全部 5 个智能区——房产、股票、旅行、电商与健康 AI 代理' },
+  dt_default_benefit:   { en: 'Access all 6 districts — property, stocks, travel, commerce, wellness & marketing AI agents', zh: '访问全部 6 个智能区——房产、股票、旅行、电商、健康与营销 AI 代理' },
 
 } as const
 
@@ -196,8 +203,12 @@ export const districtFeatures = {
     en: ['🛒 Multi-platform arbitrage signals','💹 Demand & supply gap analysis','📦 Net margin calculator (fees + shipping)','💰 50 Nexus Credits on signup','🔗 Earn 100 credits per referral'],
     zh: ['🛒 跨平台套利信号','💹 供需差距分析','📦 净利润计算器（含费用与运费）','💰 注册赠 50 积分','🔗 每次推荐赚 100 积分'],
   },
+  marketingos: {
+    en: ['🎬 AI-written video scripts','🎙️ Automatic EN + Chinese voiceover','📱 TikTok, IG Reels, YouTube Shorts, LinkedIn','⚡ 24h turnaround from submission','🔗 Optional affiliate link in video CTA'],
+    zh: ['🎬 AI 自动撰写视频脚本','🎙️ 英文与中文双语自动配音','📱 支持 TikTok、IG Reels、YouTube Shorts、LinkedIn','⚡ 提交后 24 小时内完成','🔗 可在视频 CTA 中加入联盟链接'],
+  },
   default: {
     en: ['🌐 Access all 5 AI districts','🔔 3 free alerts per month','💰 50 Nexus Credits on signup','🔗 Earn 100 credits per referral','👤 Citizen profile & watchlist'],
-    zh: ['🌐 访问全部 5 个智能区','🔔 每月 3 条免费提醒','💰 注册赠 50 积分','🔗 每次推荐赚 100 积分','👤 公民档案与自选列表'],
+    zh: ['🌐 访问全部 6 个智能区','🔔 每月 3 条免费提醒','💰 注册赠 50 积分','🔗 每次推荐赚 100 积分','👤 公民档案与自选列表'],
   },
 } as const
