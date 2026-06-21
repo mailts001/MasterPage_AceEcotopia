@@ -15,14 +15,15 @@ const ITEMS: Item[] = [
     answer: (
       <div className="space-y-3 text-sm text-gray-400 leading-relaxed">
         <p>AI agents monitor the things you already spend money on — property, stocks, flights, and products — 24/7. When a signal fires (price anomaly, squeeze setup, arbitrage gap, deal alert) you get notified instantly via <strong className="text-white">Telegram or email</strong> before the window closes.</p>
-        <p>Without X68 you'd need five different apps, manual price checking, and stock scanner subscriptions. Here it's one account, one Telegram, five districts all running in parallel.</p>
+        <p>Without X68 you'd need six different apps, manual price checking, and stock scanner subscriptions. Here it's one account, one Telegram, six districts all running in parallel.</p>
         <div className="grid grid-cols-2 gap-2 mt-3">
           {[
-            ['PropOS',     'Property price alerts, neighbourhood data'],
-            ['Financial',  'Stock signals, momentum picks, squeeze setups'],
-            ['NexusTravel','Cheapest flights/hotels, error fare alerts'],
-            ['E-commerce', 'Arbitrage gaps across Shopee, Amazon, Lazada'],
-            ['SerenityOS', 'Daily wellness score, SG events radar, morning brief'],
+            ['PropOS',       'Property price alerts, neighbourhood data'],
+            ['Financial',    'Stock signals, momentum picks, squeeze setups'],
+            ['NexusTravel',  'Cheapest flights/hotels, error fare alerts'],
+            ['E-commerce',   'Arbitrage gaps across Shopee, Amazon, Lazada'],
+            ['SerenityOS',   'Daily wellness score, SG events radar, morning brief'],
+            ['MarketingOS',  'AI video scripts + EN/ZH voiceover, TikTok-ready in 24h'],
           ].map(([d, desc]) => (
             <div key={d} className="bg-white/5 rounded-lg p-3">
               <div className="text-white text-xs font-semibold mb-1">{d}</div>
@@ -64,6 +65,12 @@ const ITEMS: Item[] = [
               who: 'Side hustle seller, dropshipper, or deal hunter',
               signals: 'Multi-AI analysis of price, demand, and supply gaps across 6 platforms. Best margin opportunities surfaced instantly.',
               action: 'Arbitrage between Shopee/Lazada/Amazon/Carousell — system calculates net margin after fees and shipping',
+            },
+            {
+              name: 'MarketingOS', color: 'text-rose-400', border: 'border-rose-500/30',
+              who: 'Shopee/Lazada seller, SME owner, or content creator',
+              signals: 'Submit product → AI generates hook, script, EN + Chinese voiceover, and final MP4 within 24h',
+              action: 'Post TikTok/IG/LinkedIn videos without a video team — free during beta',
             },
           ].map(d => (
             <div key={d.name} className={`border ${d.border} rounded-xl p-4 space-y-2`}>

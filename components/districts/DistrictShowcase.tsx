@@ -89,6 +89,23 @@ const DISTRICTS = [
     features: ['🌿 Daily Serenity Score™','📅 SG events radar (20+ events)','🫁 Guided breathing exercises','🎵 Ambient radio channels','📲 Morning Telegram wellness brief'],
     stat: { value: '30', label: 'Events live this month' },
   },
+  {
+    id:       'marketingos',
+    name:     'MarketingOS District',
+    tagline:  'AI Video Marketing',
+    icon:     '📣',
+    accent:   '#F43F5E',
+    accentCls:'text-rose-400',
+    borderCls:'border-rose-500/30',
+    video:    '/districts/serenity.mp4',   // placeholder — replace with /districts/marketingos.mp4 when ready
+    poster:   '/districts/serenity-poster.jpg', // placeholder
+    href:     '/marketing',
+    joinHref: '/marketing/submit',
+    externalLabel: 'Create a video →',
+    desc:     'Submit your product and receive TikTok-ready EN + Chinese videos within 24h. AI writes the script, records the voiceover, and edits the final cut.',
+    features: ['🎬 AI-written hook + video script','🎙️ EN + Chinese voiceover auto-generated','📱 TikTok, IG Reels, YouTube Shorts, LinkedIn','⚡ 24h turnaround from submission','🔗 Optional affiliate link in video CTA'],
+    stat: { value: '5 min', label: 'Avg generation time' },
+  },
 ]
 
 const REPLAY_DELAY_MS = 3000   // hold on last frame for 3s before replaying
