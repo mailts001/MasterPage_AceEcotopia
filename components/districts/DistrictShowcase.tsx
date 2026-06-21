@@ -97,8 +97,8 @@ const DISTRICTS = [
     accent:   '#F43F5E',
     accentCls:'text-rose-400',
     borderCls:'border-rose-500/30',
-    video:    '/districts/serenity.mp4',   // placeholder — replace with /districts/marketingos.mp4 when ready
-    poster:   '/districts/serenity-poster.jpg', // placeholder
+    video:    '/districts/marketingos.mp4',
+    poster:   '/districts/marketingos-poster.jpg',
     href:     '/marketing',
     joinHref: '/marketing/submit',
     externalLabel: 'Create a video →',
