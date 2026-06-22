@@ -46,6 +46,7 @@ export default function HeroSection() {
           <a href="#guide"   className="px-3 py-1.5 hover:text-white transition rounded-lg hover:bg-white/5">{t('nav_help')}</a>
           <a href="#city"    className="px-3 py-1.5 hover:text-white transition rounded-lg hover:bg-white/5">{t('nav_city')}</a>
           <a href="#pricing" className="px-3 py-1.5 hover:text-white transition rounded-lg hover:bg-white/5">{t('nav_pricing')}</a>
+          <a href="/humans"  className="px-3 py-1.5 hover:text-white transition rounded-lg hover:bg-white/5">{t('nav_humans')}</a>
 
           <span className="w-px h-4 bg-white/10 mx-1" />
 

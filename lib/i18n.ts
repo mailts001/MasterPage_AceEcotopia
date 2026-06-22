@@ -5,6 +5,7 @@ export type Locale = 'en' | 'zh'
 
 export const strings = {
   // ── Nav ──────────────────────────────────────────────────────────
+  nav_humans:     { en: 'Experts',  zh: '人类专家' },
   nav_help:       { en: 'Help',       zh: '帮助' },
   nav_city:       { en: 'Live City',  zh: '实时城市' },
   nav_pricing:    { en: 'Pricing',    zh: '价格' },
