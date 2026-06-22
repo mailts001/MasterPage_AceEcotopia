@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 // ---------------------------------------------------------------------------
@@ -185,7 +185,7 @@ export default function MarketingSubmitPage() {
   // ── Render ───────────────────────────────────────────────────────────────
 
   if (step === "submitting") return <LoadingScreen />;
-  if (step === "success")    return <SuccessScreen jobId={jobId} platform={form.platform} />;
+  if (step === "success")    return <SuccessScreen jobId={jobId} platform={form.platform} productName={form.product_name} />;
   if (step === "error")      return <ErrorScreen msg={errorMsg} onRetry={() => setStep("form")} />;
 
   return (
@@ -503,12 +503,24 @@ function LoadingScreen() {
   );
 }
 
-function SuccessScreen({ jobId, platform }: { jobId: string; platform: Platform }) {
+function SuccessScreen({ jobId, platform, productName }: { jobId: string; platform: Platform; productName: string }) {
   const [copied, setCopied] = useState(false);
   const platformLabels: Record<Platform, string> = {
     TT: "TikTok", IG: "Instagram Reels", YT: "YouTube Shorts", LI: "LinkedIn",
   };
   const statusUrl = `/marketing/status/${jobId}`;
+
+  // Save to localStorage so My Requests list can show this job
+  useEffect(() => {
+    try {
+      const key = "mos_jobs";
+      const existing: unknown[] = JSON.parse(localStorage.getItem(key) ?? "[]");
+      const entry = { id: jobId, product_name: productName, platform, created_at: new Date().toISOString() };
+      // Deduplicate by id
+      const updated = [entry, ...existing.filter((j: unknown) => (j as { id: string }).id !== jobId)].slice(0, 50);
+      localStorage.setItem(key, JSON.stringify(updated));
+    } catch { /* localStorage unavailable */ }
+  }, [jobId, platform, productName]);
 
   function copyJobId() {
     navigator.clipboard.writeText(jobId).then(() => {
@@ -595,12 +607,12 @@ function SuccessScreen({ jobId, platform }: { jobId: string; platform: Platform 
           >
             + Submit Another
           </a>
-          <button
-            onClick={copyJobId}
-            className="flex-1 py-3 rounded-xl border border-slate-700 hover:border-slate-600 text-slate-400 hover:text-white text-sm font-medium transition-colors"
+          <a
+            href="/marketing/status"
+            className="flex-1 text-center py-3 rounded-xl border border-slate-700 hover:border-slate-600 text-slate-400 hover:text-white text-sm font-medium transition-colors"
           >
-            {copied ? "✅ ID Copied" : "📋 Copy ID"}
-          </button>
+            📋 My Requests
+          </a>
         </div>
       </div>
     </div>

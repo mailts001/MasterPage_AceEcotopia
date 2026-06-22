@@ -77,6 +77,10 @@ export default function JobStatusPage() {
           ← MarketingOS
         </Link>
         <span className="text-slate-700">/</span>
+        <Link href="/marketing/status" className="text-slate-400 hover:text-white text-sm transition-colors">
+          {zh ? '我的请求' : 'My Requests'}
+        </Link>
+        <span className="text-slate-700">/</span>
         <span className="text-rose-400 text-sm font-semibold">
           {zh ? '视频状态' : 'Job Status'}
         </span>
