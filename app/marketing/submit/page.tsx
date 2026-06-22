@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 type Platform  = "TT" | "IG" | "YT" | "LI";
 type Tone      = "entertaining" | "professional" | "urgent" | "educational";
 type VideoType = "text_overlay" | "ai_unboxing" | "ai_demo";
+type BgMode    = "remove" | "keep";
 type Step      = "form" | "submitting" | "success" | "error";
 
 interface FormData {
@@ -18,6 +19,7 @@ interface FormData {
   platform:            Platform;
   tone:                Tone;
   video_type:          VideoType;
+  bg_mode:             BgMode;
   website_url:         string;
   price:               string;
   promo_code:          string;
@@ -25,6 +27,7 @@ interface FormData {
   affiliate_opted_in:  boolean;
   merchant_tg_id:      string;
   brand_color:         string;
+  brand_name:          string;
 }
 
 // ---------------------------------------------------------------------------
@@ -89,12 +92,20 @@ export default function MarketingSubmitPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // URL scraper state
+  const [scrapeUrl, setScrapeUrl]         = useState("");
+  const [scraping, setScraping]           = useState(false);
+  const [scrapeError, setScrapeError]     = useState("");
+  const [scrapeOk, setScrapeOk]           = useState(false);
+  const [scrapedImageUrl, setScrapedImageUrl] = useState<string | null>(null);
+
   const [form, setForm] = useState<FormData>({
     product_name:        "",
     product_description: "",
     platform:            "TT",
     tone:                "entertaining",
     video_type:          "text_overlay",
+    bg_mode:             "remove",
     website_url:         "",
     price:               "",
     promo_code:          "",
@@ -102,6 +113,7 @@ export default function MarketingSubmitPage() {
     affiliate_opted_in:  false,
     merchant_tg_id:      "",
     brand_color:         ACCENT,
+    brand_name:          "",
   });
 
   // ── Handlers ────────────────────────────────────────────────────────────
@@ -119,6 +131,42 @@ export default function MarketingSubmitPage() {
     }
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
+  }
+
+  async function handleScrape() {
+    if (!scrapeUrl.trim()) return;
+    setScraping(true);
+    setScrapeError("");
+    setScrapeOk(false);
+    try {
+      const url = scrapeUrl.trim().startsWith("http") ? scrapeUrl.trim() : `https://${scrapeUrl.trim()}`;
+      const resp = await fetch(`/api/marketing/scrape?url=${encodeURIComponent(url)}`);
+      const data = await resp.json();
+      if (!resp.ok || data.error) throw new Error(data.error ?? "Extraction failed");
+
+      // Auto-fill form fields — only overwrite if extracted value is non-empty
+      setForm((prev) => ({
+        ...prev,
+        product_name:        data.product_name        || prev.product_name,
+        product_description: data.product_description || prev.product_description,
+        brand_name:          data.brand_name          || prev.brand_name,
+        brand_color:         data.brand_color         || prev.brand_color,
+        website_url:         data.cta_url             || prev.website_url,
+        price:               data.price               || prev.price,
+      }));
+
+      // If an OG image was found, show it as preview (but don't auto-upload — user must confirm)
+      if (data.product_image_url) {
+        setImagePreview(data.product_image_url);
+        setScrapedImageUrl(data.product_image_url);
+      }
+
+      setScrapeOk(true);
+    } catch (err) {
+      setScrapeError((err as Error).message);
+    } finally {
+      setScraping(false);
+    }
   }
 
   async function uploadImage(file: File, tempId: string): Promise<string> {
@@ -148,12 +196,16 @@ export default function MarketingSubmitPage() {
       }
 
       // 2. Insert job with image URL already included — single INSERT, no UPDATE needed
+      //    If user didn't upload a file but we got an OG image from scraping, use that.
+      const finalImageUrl = imageUrl ?? scrapedImageUrl ?? null;
+
       const jobPayload = {
         product_name:        form.product_name.trim(),
         product_description: form.product_description.trim(),
         platform:            form.platform,
         tone:                form.tone,
         video_type:          form.video_type,
+        bg_mode:             form.bg_mode,
         website_url:         form.website_url.trim() || null,
         price:               form.price.trim() || null,
         promo_code:          form.promo_code.trim() || null,
@@ -161,7 +213,8 @@ export default function MarketingSubmitPage() {
         affiliate_opted_in:  form.affiliate_opted_in,
         merchant_tg_id:      form.merchant_tg_id.trim() || null,
         brand_color:         form.brand_color,
-        product_image_url:   imageUrl,
+        brand_name:          form.brand_name.trim() || null,
+        product_image_url:   finalImageUrl,
         status:              "pending",
       };
 
@@ -206,6 +259,46 @@ export default function MarketingSubmitPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+
+          {/* ── URL Auto-fill ──────────────────────────────────────────────── */}
+          <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/5 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🌐</span>
+              <div>
+                <p className="text-sm font-semibold text-indigo-300">Start from a URL</p>
+                <p className="text-xs text-slate-400">Paste your website, landing page, or Shopee listing — we&apos;ll auto-fill the form for you.</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={scrapeUrl}
+                onChange={(e) => { setScrapeUrl(e.target.value); setScrapeOk(false); setScrapeError(""); }}
+                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleScrape())}
+                placeholder="https://x68.sg  or  shopee.sg/your-product"
+                className={inputCls}
+              />
+              <button
+                type="button"
+                onClick={handleScrape}
+                disabled={!scrapeUrl.trim() || scraping}
+                className="shrink-0 px-4 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-400 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors whitespace-nowrap"
+              >
+                {scraping ? "⏳ Reading…" : "Auto-fill ✨"}
+              </button>
+            </div>
+            {scrapeError && (
+              <p className="text-xs text-rose-400">⚠️ {scrapeError}</p>
+            )}
+            {scrapeOk && (
+              <p className="text-xs text-green-400">
+                ✅ Form auto-filled from your page — review and adjust below before submitting.
+              </p>
+            )}
+            <p className="text-xs text-slate-600">
+              Works best on product landing pages, Shopee/Lazada listings, and static websites. You can edit everything after.
+            </p>
+          </div>
 
           {/* Product Name */}
           <Field label="Product Name" required>
@@ -285,6 +378,31 @@ export default function MarketingSubmitPage() {
               <p className="text-slate-600 pt-1">
                 AI auto-removes background for clean product animation. Plain backgrounds work best.
               </p>
+            </div>
+
+            {/* Background mode toggle */}
+            <div className="mt-3">
+              <p className="text-xs text-slate-400 font-semibold mb-2">Background handling</p>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { v: "remove", icon: "✂️", label: "AI Remove Background", hint: "Clean gradient backdrop — best for most products" },
+                  { v: "keep",   icon: "📷", label: "Keep My Background",   hint: "Use photo as-is — good for lifestyle shots" },
+                ] as { v: BgMode; icon: string; label: string; hint: string }[]).map((opt) => (
+                  <button
+                    key={opt.v}
+                    type="button"
+                    onClick={() => set("bg_mode", opt.v)}
+                    className={`p-2.5 rounded-xl border text-left transition-all ${
+                      form.bg_mode === opt.v
+                        ? "border-rose-500 bg-rose-500/10 text-white"
+                        : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600"
+                    }`}
+                  >
+                    <div className="text-xs font-semibold">{opt.icon} {opt.label}</div>
+                    <div className="text-xs opacity-60 mt-0.5">{opt.hint}</div>
+                  </button>
+                ))}
+              </div>
             </div>
           </Field>
 
