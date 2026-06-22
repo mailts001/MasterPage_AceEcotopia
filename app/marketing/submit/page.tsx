@@ -7,22 +7,24 @@ import { createClient } from "@/lib/supabase/client";
 // Types
 // ---------------------------------------------------------------------------
 
-type Platform = "TT" | "IG" | "YT" | "LI";
-type Tone = "entertaining" | "professional" | "urgent" | "educational";
-type Step = "form" | "submitting" | "success" | "error";
+type Platform  = "TT" | "IG" | "YT" | "LI";
+type Tone      = "entertaining" | "professional" | "urgent" | "educational";
+type VideoType = "text_overlay" | "ai_unboxing" | "ai_demo";
+type Step      = "form" | "submitting" | "success" | "error";
 
 interface FormData {
-  product_name: string;
+  product_name:        string;
   product_description: string;
-  platform: Platform;
-  tone: Tone;
-  website_url: string;
-  price: string;
-  promo_code: string;
-  affiliate_url: string;
-  affiliate_opted_in: boolean;
-  merchant_tg_id: string;
-  brand_color: string;
+  platform:            Platform;
+  tone:                Tone;
+  video_type:          VideoType;
+  website_url:         string;
+  price:               string;
+  promo_code:          string;
+  affiliate_url:       string;
+  affiliate_opted_in:  boolean;
+  merchant_tg_id:      string;
+  brand_color:         string;
 }
 
 // ---------------------------------------------------------------------------
@@ -43,6 +45,30 @@ const TONES: { value: Tone; label: string; emoji: string }[] = [
   { value: "educational",   label: "Educational",   emoji: "📚" },
 ];
 
+const VIDEO_TYPES: { value: VideoType; label: string; icon: string; desc: string; needsImage: boolean }[] = [
+  {
+    value:      "text_overlay",
+    label:      "Text Overlay Video",
+    icon:       "✏️",
+    desc:       "AI script + captions over your product photo. Fast, bilingual EN+ZH.",
+    needsImage: false,
+  },
+  {
+    value:      "ai_unboxing",
+    label:      "AI Unboxing Hook",
+    icon:       "📦",
+    desc:       "Product photo animates into a cinematic reveal. Requires product image.",
+    needsImage: true,
+  },
+  {
+    value:      "ai_demo",
+    label:      "AI Product Demo",
+    icon:       "🎬",
+    desc:       "AI generates a lifestyle demo clip showing your product in use.",
+    needsImage: false,
+  },
+];
+
 const ACCENT = "#F43F5E";
 const BUCKET = "marketing-assets";
 
@@ -61,17 +87,18 @@ export default function MarketingSubmitPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState<FormData>({
-    product_name:       "",
-    product_description:"",
-    platform:           "TT",
-    tone:               "entertaining",
-    website_url:        "",
-    price:              "",
-    promo_code:         "",
-    affiliate_url:      "",
-    affiliate_opted_in: false,
-    merchant_tg_id:     "",
-    brand_color:        ACCENT,
+    product_name:        "",
+    product_description: "",
+    platform:            "TT",
+    tone:                "entertaining",
+    video_type:          "text_overlay",
+    website_url:         "",
+    price:               "",
+    promo_code:          "",
+    affiliate_url:       "",
+    affiliate_opted_in:  false,
+    merchant_tg_id:      "",
+    brand_color:         ACCENT,
   });
 
   // ── Handlers ────────────────────────────────────────────────────────────
@@ -123,6 +150,7 @@ export default function MarketingSubmitPage() {
         product_description: form.product_description.trim(),
         platform:            form.platform,
         tone:                form.tone,
+        video_type:          form.video_type,
         website_url:         form.website_url.trim() || null,
         price:               form.price.trim() || null,
         promo_code:          form.promo_code.trim() || null,
@@ -265,6 +293,37 @@ export default function MarketingSubmitPage() {
             </div>
           </Field>
 
+          {/* Video Type */}
+          <Field label="Video Style">
+            <div className="space-y-2">
+              {VIDEO_TYPES.map((vt) => (
+                <button
+                  key={vt.value}
+                  type="button"
+                  onClick={() => set("video_type", vt.value)}
+                  className={`w-full p-3 rounded-xl border text-left transition-all ${
+                    form.video_type === vt.value
+                      ? "border-rose-500 bg-rose-500/10 text-white"
+                      : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{vt.icon}</span>
+                    <div>
+                      <div className="text-sm font-semibold">{vt.label}</div>
+                      <div className="text-xs opacity-70">{vt.desc}</div>
+                    </div>
+                    {vt.needsImage && (
+                      <span className="ml-auto text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full px-2 py-0.5">
+                        image required
+                      </span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </Field>
+
           {/* Optional fields — collapsible */}
           <details className="group">
             <summary className="cursor-pointer text-slate-400 text-sm font-medium hover:text-white transition-colors list-none flex items-center gap-2">
@@ -399,39 +458,104 @@ function LoadingScreen() {
 }
 
 function SuccessScreen({ jobId, platform }: { jobId: string; platform: Platform }) {
+  const [copied, setCopied] = useState(false);
   const platformLabels: Record<Platform, string> = {
     TT: "TikTok", IG: "Instagram Reels", YT: "YouTube Shorts", LI: "LinkedIn",
   };
+  const statusUrl = `/marketing/status/${jobId}`;
+
+  function copyJobId() {
+    navigator.clipboard.writeText(jobId).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
   return (
-    <div className="min-h-screen bg-[#080C18] flex items-center justify-center px-4">
-      <div className="max-w-md w-full text-center">
-        <div className="text-6xl mb-6">✅</div>
-        <h2 className="text-2xl font-black text-white mb-3">Request Submitted!</h2>
-        <p className="text-slate-400 mb-6">
-          Your {platformLabels[platform]} video request is pending review.
-          We&apos;ll notify you via Telegram once it&apos;s in production.
-        </p>
-        <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4 mb-6 text-left">
-          <p className="text-xs text-slate-500 mb-1">Job Reference</p>
-          <p className="text-xs font-mono text-slate-300 break-all">{jobId}</p>
-        </div>
-        <div className="space-y-3 text-sm text-slate-400">
-          <div className="flex items-center gap-2">
-            <span className="text-rose-400">⏳</span> Pending owner review
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-yellow-400">🎬</span> EN + 中文 video production (within 24h)
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-green-400">📲</span> Telegram download link sent to you
-          </div>
-        </div>
-        <a
-          href="/marketing/submit"
-          className="mt-8 inline-block px-6 py-3 bg-rose-500 hover:bg-rose-600 text-white font-semibold rounded-xl transition-colors"
-        >
-          Submit Another Product
+    <div className="min-h-screen bg-[#080C18] flex flex-col px-4 py-10">
+      {/* Back nav */}
+      <div className="max-w-md mx-auto w-full mb-6">
+        <a href="/marketing" className="text-slate-500 hover:text-slate-300 text-sm transition-colors">
+          ← Back to MarketingOS
         </a>
+      </div>
+
+      <div className="max-w-md mx-auto w-full flex-1 flex flex-col justify-center">
+        <div className="text-center mb-8">
+          <div className="text-6xl mb-4">🎬</div>
+          <h2 className="text-2xl font-black text-white mb-2">Request Submitted!</h2>
+          <p className="text-slate-400 text-sm">
+            Your {platformLabels[platform]} video is pending review. You&apos;ll get an update via Telegram once it&apos;s approved and in production.
+          </p>
+        </div>
+
+        {/* Job ID box — prominent with copy button */}
+        <div className="bg-slate-800/60 border border-rose-500/30 rounded-xl p-4 mb-6">
+          <p className="text-xs text-slate-500 mb-2 font-semibold uppercase tracking-wide">
+            📋 Your Job Reference ID
+          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-mono text-white break-all flex-1">{jobId}</p>
+            <button
+              onClick={copyJobId}
+              className="shrink-0 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs text-slate-300 font-medium transition-colors"
+            >
+              {copied ? "✅ Copied" : "Copy"}
+            </button>
+          </div>
+          <p className="text-xs text-slate-500 mt-2">
+            Save this ID — use it to check your video status anytime.
+          </p>
+        </div>
+
+        {/* Primary CTA — Check Status */}
+        <a
+          href={statusUrl}
+          className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-base transition-colors mb-3 shadow-lg shadow-rose-500/20"
+        >
+          🔍 Check Video Status
+        </a>
+
+        {/* Pipeline steps */}
+        <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl p-4 mb-6 space-y-3 text-sm">
+          <div className="flex items-start gap-3">
+            <span className="text-yellow-400 text-base mt-0.5">⏳</span>
+            <div>
+              <p className="text-white font-medium">Step 1 — Under review</p>
+              <p className="text-slate-500 text-xs">Owner approves within a few hours</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <span className="text-blue-400 text-base mt-0.5">🎬</span>
+            <div>
+              <p className="text-white font-medium">Step 2 — Video production</p>
+              <p className="text-slate-500 text-xs">EN + 中文 videos rendered automatically (within 24h)</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <span className="text-green-400 text-base mt-0.5">📲</span>
+            <div>
+              <p className="text-white font-medium">Step 3 — Download via Telegram</p>
+              <p className="text-slate-500 text-xs">Links sent to your Telegram, or check status page anytime</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Secondary actions */}
+        <div className="flex gap-3">
+          <a
+            href="/marketing/submit"
+            className="flex-1 text-center py-3 rounded-xl border border-slate-700 hover:border-slate-600 text-slate-400 hover:text-white text-sm font-medium transition-colors"
+          >
+            + Submit Another
+          </a>
+          <button
+            onClick={copyJobId}
+            className="flex-1 py-3 rounded-xl border border-slate-700 hover:border-slate-600 text-slate-400 hover:text-white text-sm font-medium transition-colors"
+          >
+            {copied ? "✅ ID Copied" : "📋 Copy ID"}
+          </button>
+        </div>
       </div>
     </div>
   );
