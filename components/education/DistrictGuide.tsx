@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 
 interface Item {
   q: string
@@ -214,11 +215,11 @@ export default function DistrictGuide() {
         </div>
 
         <div className="mt-10 text-center">
-          <a href="/citizen/register"
+          <Link href="/citizen/register"
             className="inline-flex items-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold px-8 py-3 rounded-xl hover:opacity-90 transition">
             Claim Your Citizenship — Free
             <span>→</span>
-          </a>
+          </Link>
           <p className="text-gray-600 text-xs mt-3">No credit card required · Cancel Telegram alerts anytime</p>
         </div>
       </div>

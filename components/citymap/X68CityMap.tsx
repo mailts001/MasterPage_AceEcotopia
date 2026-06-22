@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import PropOSDistrict from './PropOSDistrict'
 import FinancialDistrict from './FinancialDistrict'
 import NexusTravelDistrict from './NexusTravelDistrict'
@@ -227,12 +228,17 @@ function DistrictCard({
             <div className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full transition-all"
               style={{ width: `${district.health_score * 100}%` }} />
           </div>
-          <a href={href}
-            target={external ? '_blank' : undefined}
-            rel={external ? 'noopener noreferrer' : undefined}
-            className="text-xs text-gray-500 group-hover:text-white transition whitespace-nowrap">
-            {external ? 'Visit →' : 'Join →'}
-          </a>
+          {external ? (
+            <a href={href} target="_blank" rel="noopener noreferrer"
+              className="text-xs text-gray-500 group-hover:text-white transition whitespace-nowrap">
+              Visit →
+            </a>
+          ) : (
+            <Link href={href}
+              className="text-xs text-gray-500 group-hover:text-white transition whitespace-nowrap">
+              Join →
+            </Link>
+          )}
         </div>
       </div>
     </div>

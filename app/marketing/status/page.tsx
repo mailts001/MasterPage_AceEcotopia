@@ -12,6 +12,7 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 type JobStatus = "pending" | "queued" | "running" | "done" | "failed" | "rejected";
@@ -210,7 +211,7 @@ export default function MyRequestsPage() {
 
         {/* Nav */}
         <div className="flex items-center gap-2 mb-8 text-sm">
-          <a href="/marketing" className="text-slate-500 hover:text-slate-300 transition-colors">← MarketingOS</a>
+          <Link href="/marketing" className="text-slate-500 hover:text-slate-300 transition-colors">← MarketingOS</Link>
           <span className="text-slate-700">/</span>
           <span className="text-white font-medium">My Requests</span>
         </div>

@@ -194,10 +194,10 @@ export default async function CitizenDashboard() {
                   <p>• 100 bonus credits every month</p>
                 </div>
               </div>
-              <a href="/upgrade"
+              <Link href="/upgrade"
                 className="shrink-0 bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-5 py-2.5 rounded-lg transition text-sm whitespace-nowrap">
                 Upgrade $19/mo →
-              </a>
+              </Link>
             </div>
           </div>
         )}
@@ -211,7 +211,7 @@ export default async function CitizenDashboard() {
               const cardHref = locked ? '/upgrade' : d.href
               const isInternal = !locked && d.internal
               return (
-                <a
+                <Link
                   key={d.id}
                   href={cardHref}
                   target={isInternal ? undefined : '_blank'}
@@ -250,7 +250,7 @@ export default async function CitizenDashboard() {
                       🔒 Arbitrage signals require Citizen tier — direct commercial value
                     </p>
                   )}
-                </a>
+                </Link>
               )
             })}
           </div>

@@ -309,13 +309,19 @@ export default function DistrictShowcase() {
                 }}>
                 Join {d.icon} District →
               </Link>
-              <a href={d.href}
-                target={d.href.startsWith('http') ? '_blank' : undefined}
-                rel={d.href.startsWith('http') ? 'noopener noreferrer' : undefined}
-                className="text-sm text-slate-400 hover:text-white border border-white/10
-                  hover:border-white/25 px-6 py-3 rounded-xl transition">
-                {d.externalLabel}
-              </a>
+              {d.href.startsWith('http') ? (
+                <a href={d.href} target="_blank" rel="noopener noreferrer"
+                  className="text-sm text-slate-400 hover:text-white border border-white/10
+                    hover:border-white/25 px-6 py-3 rounded-xl transition">
+                  {d.externalLabel}
+                </a>
+              ) : (
+                <Link href={d.href}
+                  className="text-sm text-slate-400 hover:text-white border border-white/10
+                    hover:border-white/25 px-6 py-3 rounded-xl transition">
+                  {d.externalLabel}
+                </Link>
+              )}
             </div>
 
             {/* Next district hint */}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 
 export default function CreditsSpend({ credits }: { credits: number }) {
   const [spending, setSpending]         = useState<string | null>(null)
@@ -100,7 +101,7 @@ export default function CreditsSpend({ credits }: { credits: number }) {
     <div>
       <div className="flex items-center justify-between mb-1">
         <h2 className="text-base font-semibold">Nexus Credits</h2>
-        <a href="/upgrade" className="text-xs text-cyan-400 hover:underline">Get more →</a>
+        <Link href="/upgrade" className="text-xs text-cyan-400 hover:underline">Get more →</Link>
       </div>
       <p className="text-xs text-gray-600 mb-4">
         Balance: <span className="text-yellow-400 font-semibold font-mono">{currentCredits}</span> credits

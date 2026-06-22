@@ -15,6 +15,7 @@
  */
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 
 type Platform = "TT" | "IG" | "YT" | "LI";
 
@@ -152,7 +153,7 @@ export default function ConnectPage() {
 
         {/* Nav */}
         <div className="flex items-center gap-2 mb-8 text-sm">
-          <a href="/marketing" className="text-slate-500 hover:text-slate-300 transition-colors">← MarketingOS</a>
+          <Link href="/marketing" className="text-slate-500 hover:text-slate-300 transition-colors">← MarketingOS</Link>
           <span className="text-slate-700">/</span>
           <span className="text-white font-medium">Connect Accounts</span>
         </div>
@@ -248,9 +249,9 @@ export default function ConnectPage() {
         </div>
 
         <div className="mt-6 text-center">
-          <a href="/marketing/submit" className="text-sm text-slate-500 hover:text-slate-300 transition-colors">
+          <Link href="/marketing/submit" className="text-sm text-slate-500 hover:text-slate-300 transition-colors">
             → Submit a product for video generation
-          </a>
+          </Link>
         </div>
 
       </div>
