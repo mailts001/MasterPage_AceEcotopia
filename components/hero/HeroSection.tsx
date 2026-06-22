@@ -1,10 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import Link from 'next/link'
 import { useLocale } from '@/hooks/useLocale'
 
 export default function HeroSection() {
   const { t, locale, setLocale } = useLocale()
+
+  const scrollTo = useCallback((id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
+  }, [])
 
   const [stats, setStats] = useState([
     { id: 'props',    value: '0' },
@@ -43,10 +48,10 @@ export default function HeroSection() {
         <span className="text-sm font-bold gradient-text">X68</span>
 
         <div className="flex items-center gap-1 text-xs text-gray-500">
-          <a href="#guide"   className="px-3 py-1.5 hover:text-white transition rounded-lg hover:bg-white/5">{t('nav_help')}</a>
-          <a href="#city"    className="px-3 py-1.5 hover:text-white transition rounded-lg hover:bg-white/5">{t('nav_city')}</a>
-          <a href="#pricing" className="px-3 py-1.5 hover:text-white transition rounded-lg hover:bg-white/5">{t('nav_pricing')}</a>
-          <a href="/humans"  className="px-3 py-1.5 hover:text-white transition rounded-lg hover:bg-white/5">{t('nav_humans')}</a>
+          <button onClick={() => scrollTo('guide')}   className="px-3 py-1.5 hover:text-white transition rounded-lg hover:bg-white/5">{t('nav_help')}</button>
+          <button onClick={() => scrollTo('city')}    className="px-3 py-1.5 hover:text-white transition rounded-lg hover:bg-white/5">{t('nav_city')}</button>
+          <button onClick={() => scrollTo('pricing')} className="px-3 py-1.5 hover:text-white transition rounded-lg hover:bg-white/5">{t('nav_pricing')}</button>
+          <Link href="/humans"  className="px-3 py-1.5 hover:text-white transition rounded-lg hover:bg-white/5">{t('nav_humans')}</Link>
 
           <span className="w-px h-4 bg-white/10 mx-1" />
 
@@ -61,8 +66,8 @@ export default function HeroSection() {
 
           <span className="w-px h-4 bg-white/10 mx-1" />
 
-          <a href="/citizen/login"    className="px-3 py-1.5 hover:text-white transition">{t('nav_signin')}</a>
-          <a href="/citizen/register" className="bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition ml-1">{t('nav_join')}</a>
+          <Link href="/citizen/login"    className="px-3 py-1.5 hover:text-white transition">{t('nav_signin')}</Link>
+          <Link href="/citizen/register" className="bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition ml-1">{t('nav_join')}</Link>
         </div>
       </div>
 
@@ -102,14 +107,15 @@ export default function HeroSection() {
 
         {/* CTA buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-          <a href="/citizen/register"
+          <Link href="/citizen/register"
             className="px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold rounded-xl hover:opacity-90 transition-all hover:scale-105 text-lg">
             {t('hero_cta1')}
-          </a>
-          <a href="#districts"
+          </Link>
+          <button
+            onClick={() => scrollTo('districts')}
             className="px-8 py-4 border border-slate-600 text-slate-300 font-semibold rounded-xl hover:border-cyan-500 hover:text-cyan-400 transition-all text-lg">
             {t('hero_cta2')}
-          </a>
+          </button>
         </div>
 
         {/* Live stats bar */}

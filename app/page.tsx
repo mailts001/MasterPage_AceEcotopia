@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import HeroSection from '@/components/hero/HeroSection'
 import DistrictsSection from '@/components/districts/DistrictsSection'
 import ExpertRecruitmentStrip from '@/components/humans/ExpertRecruitmentStrip'
@@ -11,8 +12,10 @@ export default function HomePage() {
     <main>
       <HeroSection />
 
-      {/* All-4-district scroll showcase — pinned, video per district */}
-      <DistrictShowcase />
+      {/* All-district scroll showcase — pinned, video per district */}
+      <div id="districts">
+        <DistrictShowcase />
+      </div>
 
       <DistrictsSection />
 
@@ -40,9 +43,9 @@ export default function HomePage() {
               <div className="text-sm text-slate-600 mt-1">New Economic Verse</div>
             </div>
             <div className="flex gap-8 text-sm text-slate-500">
-              <a href="/developer" className="hover:text-cyan-400 transition-colors">Developer API</a>
-              <a href="#guide" className="hover:text-cyan-400 transition-colors">Help</a>
-              <a href="/citizen/register" className="hover:text-cyan-400 transition-colors">Join Free</a>
+              <Link href="/developer"              className="hover:text-cyan-400 transition-colors">Developer API</Link>
+              <Link href="/humans"                 className="hover:text-cyan-400 transition-colors">Experts</Link>
+              <Link href="/citizen/register"       className="hover:text-cyan-400 transition-colors">Join Free</Link>
               <a href="mailto:admin@aceecotopia.com" className="hover:text-cyan-400 transition-colors">Contact</a>
             </div>
           </div>

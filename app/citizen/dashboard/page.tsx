@@ -79,6 +79,19 @@ const DISTRICTS = [
     accentText: 'text-emerald-400',
     what: ['SG events & ticket alerts', 'Daily Serenity Score™ check-in', 'Ambient radio + breathing timer'],
   },
+  {
+    id: 'marketingos',
+    name: 'MarketingOS',
+    icon: '📣',
+    tagline: 'AI Video Marketing',
+    desc: 'Submit your product and receive TikTok-ready EN + Chinese videos within 24h. Free during beta.',
+    href: '/marketing',
+    internal: false,
+    citizenOnly: false,
+    accent: 'border-rose-500/30',
+    accentText: 'text-rose-400',
+    what: ['AI-written script + hook', 'EN + Chinese voiceover', 'TikTok / IG / YouTube / LinkedIn'],
+  },
 ]
 
 export default async function CitizenDashboard() {
