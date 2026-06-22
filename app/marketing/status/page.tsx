@@ -13,7 +13,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
 
 type JobStatus = "pending" | "queued" | "running" | "done" | "failed" | "rejected";
 
@@ -139,8 +138,6 @@ export default function MyRequestsPage() {
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [lookupId,    setLookupId]    = useState("");
 
-  const supabase = createClient();
-
   // Load saved stubs from localStorage
   useEffect(() => {
     try {
@@ -152,32 +149,30 @@ export default function MyRequestsPage() {
     }
   }, []);
 
-  // Fetch live statuses from Supabase
+  // Fetch live statuses via server-side API route (bypasses RLS)
   const fetchLive = useCallback(async () => {
     if (saved.length === 0) { setLoading(false); return; }
 
-    const { data, error } = await supabase
-      .from("marketing_jobs")
-      .select("id, product_name, platform, status, video_url, video_url_zh, created_at, completed_at")
-      .in("id", saved.map(j => j.id))
-      .order("created_at", { ascending: false });
-
-    if (!error && data) {
-      const map = new Map((data as LiveJob[]).map(j => [j.id, j]));
+    try {
+      const ids  = saved.map(j => j.id).join(",");
+      // Use the single-job route with batch ids param — any jobId slug works as path
+      const resp = await fetch(`/api/marketing/jobs/_batch?ids=${encodeURIComponent(ids)}`, { cache: "no-store" });
+      const data: LiveJob[] = resp.ok ? await resp.json() : [];
+      const map  = new Map(data.map(j => [j.id, j]));
       setLiveJobs(
         saved.map(s => map.get(s.id) ?? {
           ...s, status: "pending" as JobStatus,
           video_url: null, video_url_zh: null, completed_at: null,
         })
       );
-    } else {
+    } catch {
       setLiveJobs(
         saved.map(s => ({ ...s, status: "pending" as JobStatus, video_url: null, video_url_zh: null, completed_at: null }))
       );
     }
     setLastRefresh(new Date());
     setLoading(false);
-  }, [saved, supabase]);
+  }, [saved]);
 
   useEffect(() => { fetchLive(); }, [fetchLive]);
 

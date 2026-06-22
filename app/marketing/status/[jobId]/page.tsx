@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 import { useLocale } from '@/hooks/useLocale'
 
 type JobStatus = 'pending' | 'queued' | 'running' | 'done' | 'failed' | 'rejected'
@@ -42,19 +41,16 @@ export default function JobStatusPage() {
   const [notFound, setNotFound] = useState(false)
 
   async function fetchJob() {
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('marketing_jobs')
-      .select('id, product_name, platform, status, video_url, video_url_zh, created_at, completed_at, estimated_duration_seconds')
-      .eq('id', jobId)
-      .single()
-
-    if (error || !data) {
-      setNotFound(true)
-    } else {
-      setJob(data as Job)
+    try {
+      const resp = await fetch(`/api/marketing/jobs/${jobId}`, { cache: "no-store" });
+      if (resp.status === 404) { setNotFound(true); setLoading(false); return; }
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      setJob(data as Job);
+    } catch {
+      setNotFound(true);
     }
-    setLoading(false)
+    setLoading(false);
   }
 
   useEffect(() => {
