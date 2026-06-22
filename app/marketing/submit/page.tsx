@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -82,8 +81,6 @@ const ACCENT = "#F43F5E";
 // ---------------------------------------------------------------------------
 
 export default function MarketingSubmitPage() {
-  const supabase = createClient();
-
   const [step, setStep]           = useState<Step>("form");
   const [jobId, setJobId]         = useState("");
   const [errorMsg, setErrorMsg]   = useState("");
@@ -223,14 +220,15 @@ export default function MarketingSubmitPage() {
         status:              "pending",
       };
 
-      const { data: rows, error: insertErr } = await supabase
-        .from("marketing_jobs")
-        .insert(jobPayload)
-        .select("id")
-        .single();
-
-      if (insertErr || !rows) throw new Error(insertErr?.message ?? "Insert failed");
-      const newJobId = rows.id as string;
+      // Insert via server-side API route (service role key bypasses RLS)
+      const insertResp = await fetch("/api/marketing/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(jobPayload),
+      });
+      const insertData = await insertResp.json();
+      if (!insertResp.ok || insertData.error) throw new Error(insertData.error ?? "Insert failed");
+      const newJobId = insertData.id as string;
 
       setJobId(newJobId);
       setStep("success");
