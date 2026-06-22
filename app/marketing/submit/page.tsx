@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -76,20 +75,18 @@ const VIDEO_TYPES: { value: VideoType; label: string; icon: string; desc: string
 ];
 
 const ACCENT = "#F43F5E";
-const BUCKET = "marketing-assets";
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 export default function MarketingSubmitPage() {
-  const supabase = createClient();
-
   const [step, setStep]           = useState<Step>("form");
   const [jobId, setJobId]         = useState("");
   const [errorMsg, setErrorMsg]   = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageLandscape, setImageLandscape] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // URL scraper state
@@ -130,7 +127,13 @@ export default function MarketingSubmitPage() {
       return;
     }
     setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
+    const objectUrl = URL.createObjectURL(file);
+    setImagePreview(objectUrl);
+    setScrapedImageUrl(null); // clear any scraped image — user's upload takes priority
+    // Detect orientation
+    const img = new Image();
+    img.onload = () => setImageLandscape(img.naturalWidth > img.naturalHeight);
+    img.src = objectUrl;
   }
 
   async function handleScrape() {
@@ -170,15 +173,14 @@ export default function MarketingSubmitPage() {
   }
 
   async function uploadImage(file: File, tempId: string): Promise<string> {
-    // Always use lowercase .jpg extension to avoid case-sensitivity issues
-    const ext  = (file.name.split(".").pop() ?? "jpg").toLowerCase();
-    const path = `product-images/${tempId}/product.${ext}`;
-    const { error } = await supabase.storage
-      .from(BUCKET)
-      .upload(path, file, { upsert: true, contentType: file.type });
-    if (error) throw new Error(`Image upload failed: ${error.message}`);
-    const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-    return data.publicUrl;
+    // Upload via server-side API route (uses service role key to bypass RLS)
+    const fd = new FormData();
+    fd.append("file",  file);
+    fd.append("jobId", tempId);
+    const resp = await fetch("/api/marketing/upload", { method: "POST", body: fd });
+    const data = await resp.json();
+    if (!resp.ok || data.error) throw new Error(`Image upload failed: ${data.error ?? resp.statusText}`);
+    return data.url as string;
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -346,6 +348,17 @@ export default function MarketingSubmitPage() {
               onChange={handleImage}
               className="hidden"
             />
+            {/* Landscape orientation notice */}
+            {imageLandscape && (
+              <div className="mt-2 rounded-xl bg-amber-500/10 border border-amber-500/30 p-3 text-xs flex gap-2">
+                <span className="text-amber-400 shrink-0">📐</span>
+                <div className="text-amber-300">
+                  <span className="font-semibold">Landscape photo detected.</span>{" "}
+                  Your video will be 9:16 portrait (platform requirement). Your photo will be centred inside the frame with a matching blurred backdrop — it will look great. For a cleaner result, try <strong>AI Remove Background</strong> below.
+                </div>
+              </div>
+            )}
+
             {/* Photo guidelines */}
             <div className="mt-3 rounded-xl bg-slate-800/40 border border-slate-700/60 p-3 text-xs space-y-1.5">
               <p className="text-slate-400 font-semibold mb-2">📸 Tips for best video quality</p>
