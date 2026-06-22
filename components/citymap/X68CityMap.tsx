@@ -6,6 +6,7 @@ import FinancialDistrict from './FinancialDistrict'
 import NexusTravelDistrict from './NexusTravelDistrict'
 import EcommerceDistrict from './EcommerceDistrict'
 import SerenityDistrict from './SerenityDistrict'
+import MarketingOSDistrict from './MarketingOSDistrict'
 
 interface DistrictState {
   id: string
@@ -53,6 +54,7 @@ export default function X68CityMap() {
   const nexustravel = districts?.nexustravel ?? mockDistrict('nexustravel')
   const commerce    = districts?.commerce    ?? mockDistrict('commerce')
   const serenity    = districts?.serenity    ?? mockDistrict('serenity')
+  const marketingos = districts?.marketingos ?? mockDistrict('marketingos')
 
   return (
     <section className="py-24 px-4 border-t border-white/5">
@@ -74,7 +76,7 @@ export default function X68CityMap() {
 
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {[1,2,3,4,5].map(i => (
+            {[1,2,3,4,5,6].map(i => (
               <div key={i} className="h-48 rounded-xl bg-white/5 animate-pulse" />
             ))}
           </div>
@@ -151,6 +153,20 @@ export default function X68CityMap() {
                 activeMonitors={serenity.active_monitors}
               />
             </DistrictCard>
+
+            {/* MarketingOS */}
+            <DistrictCard
+              district={marketingos}
+              accent="rose"
+              href="/marketing"
+            >
+              <MarketingOSDistrict
+                healthScore={marketingos.health_score}
+                alertsToday={marketingos.alerts_today}
+                revenueTier={marketingos.revenue_tier}
+                activeMonitors={marketingos.active_monitors}
+              />
+            </DistrictCard>
           </div>
         )}
 
@@ -191,6 +207,7 @@ function DistrictCard({
     purple:  'border-purple-500/30 hover:border-purple-500/60',
     amber:   'border-amber-500/30 hover:border-amber-500/60',
     emerald: 'border-emerald-500/30 hover:border-emerald-500/60',
+    rose:    'border-rose-500/30 hover:border-rose-500/60',
   }
 
   return (
