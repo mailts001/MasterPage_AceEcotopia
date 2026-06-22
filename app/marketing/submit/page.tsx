@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -81,6 +82,8 @@ const ACCENT = "#F43F5E";
 // ---------------------------------------------------------------------------
 
 export default function MarketingSubmitPage() {
+  const supabase = createClient();
+
   const [step, setStep]           = useState<Step>("form");
   const [jobId, setJobId]         = useState("");
   const [errorMsg, setErrorMsg]   = useState("");
