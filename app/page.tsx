@@ -1,5 +1,6 @@
 import HeroSection from '@/components/hero/HeroSection'
 import DistrictsSection from '@/components/districts/DistrictsSection'
+import ExpertRecruitmentStrip from '@/components/humans/ExpertRecruitmentStrip'
 import X68CityMap from '@/components/citymap/X68CityMap'
 import DistrictGuide from '@/components/education/DistrictGuide'
 import DistrictShowcase from '@/components/districts/DistrictShowcase'
@@ -14,6 +15,9 @@ export default function HomePage() {
       <DistrictShowcase />
 
       <DistrictsSection />
+
+      {/* Expert recruitment strip — between districts and city map */}
+      <ExpertRecruitmentStrip />
 
       {/* City map — anchor for nav */}
       <div id="city">

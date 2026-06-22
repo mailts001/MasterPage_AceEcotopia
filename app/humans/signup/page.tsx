@@ -49,14 +49,26 @@ function SignupForm() {
     setError('')
     try {
       const supabase = createClient()
-      const { error: err } = await supabase
+
+      // 1. Insert into Supabase
+      const { data, error: err } = await supabase
         .from('human_experts')
         .insert({
           ...form,
           fee_per_session: parseFloat(form.fee_per_session) || 0,
           status: 'pending_review',
         })
+        .select('id')
+        .single()
       if (err) throw err
+
+      // 2. Trigger AI screening (non-blocking — we show success regardless)
+      fetch('/api/humans/screen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expertId: data.id, ...form }),
+      }).catch(() => {/* screening failure is silent to user */})
+
       setSubmitted(true)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
