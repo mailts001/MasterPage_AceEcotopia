@@ -31,11 +31,14 @@ interface FormData {
 // Constants
 // ---------------------------------------------------------------------------
 
-const PLATFORMS: { value: Platform; label: string; icon: string; desc: string }[] = [
-  { value: "TT", label: "TikTok",          icon: "🎵", desc: "60s+ for monetisation" },
-  { value: "IG", label: "Instagram Reels",  icon: "📸", desc: "15–90s, 3–5 hashtags"  },
-  { value: "YT", label: "YouTube Shorts",   icon: "▶️",  desc: "Under 60s, no min"    },
-  { value: "LI", label: "LinkedIn",         icon: "💼", desc: "Professional, 80% muted ok" },
+const PLATFORMS: {
+  value: Platform; label: string; icon: string; desc: string;
+  format: string; dims: string; length: string;
+}[] = [
+  { value: "TT", label: "TikTok",         icon: "🎵", desc: "60s+ for monetisation",      format: "9:16 Portrait", dims: "1080×1920", length: "15–60s" },
+  { value: "IG", label: "Instagram Reels",icon: "📸", desc: "15–90s, 3–5 hashtags",       format: "9:16 Portrait", dims: "1080×1920", length: "15–90s" },
+  { value: "YT", label: "YouTube Shorts", icon: "▶️", desc: "Under 60s, no minimum",      format: "9:16 Portrait", dims: "1080×1920", length: "≤60s"   },
+  { value: "LI", label: "LinkedIn",       icon: "💼", desc: "Professional, 80% muted ok", format: "9:16 Portrait", dims: "1080×1920", length: "15–30s" },
 ];
 
 const TONES: { value: Tone; label: string; emoji: string }[] = [
@@ -229,7 +232,7 @@ export default function MarketingSubmitPage() {
           </Field>
 
           {/* Product Image */}
-          <Field label="Product Image" hint="JPG/PNG/WEBP · max 10 MB · recommended 1:1 or 4:5">
+          <Field label="Product Image" hint="JPG/PNG/WEBP · max 10 MB">
             <div
               onClick={() => fileRef.current?.click()}
               className="border-2 border-dashed border-slate-700 hover:border-rose-500/50 rounded-xl p-6 cursor-pointer transition-colors text-center"
@@ -250,6 +253,39 @@ export default function MarketingSubmitPage() {
               onChange={handleImage}
               className="hidden"
             />
+            {/* Photo guidelines */}
+            <div className="mt-3 rounded-xl bg-slate-800/40 border border-slate-700/60 p-3 text-xs space-y-1.5">
+              <p className="text-slate-400 font-semibold mb-2">📸 Tips for best video quality</p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                <div className="flex items-start gap-1.5 text-green-400">
+                  <span className="shrink-0">✅</span>
+                  <span className="text-slate-400">Single product, centred in frame</span>
+                </div>
+                <div className="flex items-start gap-1.5">
+                  <span className="shrink-0 text-green-400">✅</span>
+                  <span className="text-slate-400">Plain / simple background</span>
+                </div>
+                <div className="flex items-start gap-1.5">
+                  <span className="shrink-0 text-green-400">✅</span>
+                  <span className="text-slate-400">Good lighting, no heavy shadows</span>
+                </div>
+                <div className="flex items-start gap-1.5">
+                  <span className="shrink-0 text-green-400">✅</span>
+                  <span className="text-slate-400">Min 800×800 px resolution</span>
+                </div>
+                <div className="flex items-start gap-1.5">
+                  <span className="shrink-0 text-rose-400">❌</span>
+                  <span className="text-slate-500">Cluttered / busy backgrounds</span>
+                </div>
+                <div className="flex items-start gap-1.5">
+                  <span className="shrink-0 text-rose-400">❌</span>
+                  <span className="text-slate-500">Watermarks or text overlays on photo</span>
+                </div>
+              </div>
+              <p className="text-slate-600 pt-1">
+                AI auto-removes background for clean product animation. Plain backgrounds work best.
+              </p>
+            </div>
           </Field>
 
           {/* Platform */}
@@ -267,10 +303,20 @@ export default function MarketingSubmitPage() {
                   }`}
                 >
                   <div className="text-lg mb-0.5">{p.icon} <span className="font-semibold text-sm">{p.label}</span></div>
-                  <div className="text-xs opacity-60">{p.desc}</div>
+                  <div className="text-xs opacity-60 mb-1">{p.desc}</div>
+                  {form.platform === p.value && (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      <span className="text-xs bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded-full px-2 py-0.5">{p.format}</span>
+                      <span className="text-xs bg-slate-700/60 text-slate-400 rounded-full px-2 py-0.5">{p.dims}</span>
+                      <span className="text-xs bg-slate-700/60 text-slate-400 rounded-full px-2 py-0.5">{p.length}</span>
+                    </div>
+                  )}
                 </button>
               ))}
             </div>
+            <p className="text-xs text-slate-600 mt-2">
+              📐 Video format is auto-selected for your platform — no extra settings needed.
+            </p>
           </Field>
 
           {/* Tone */}
