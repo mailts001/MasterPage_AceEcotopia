@@ -10,10 +10,11 @@ interface Props {
   healthScore: number
   alertsToday: number
   revenueTier: string
+  citizens: number
   activeMonitors: number
 }
 
-export default function SerenityDistrict({ healthScore, alertsToday, revenueTier, activeMonitors }: Props) {
+export default function SerenityDistrict({ healthScore, alertsToday, revenueTier, activeMonitors, citizens }: Props) {
   const h = healthScore
   const thriving = revenueTier === 'elite' || revenueTier === 'thriving'
   const ringOpacity = Math.max(0.3, h)
@@ -145,7 +146,7 @@ export default function SerenityDistrict({ healthScore, alertsToday, revenueTier
         style={{ background: 'linear-gradient(0deg, #0a0e1a, transparent)' }} />
 
       <div className="absolute top-2 right-2 text-right">
-        <div className="text-xs text-emerald-400 font-mono">{activeMonitors} citizens</div>
+        <div className="text-xs text-emerald-400 font-mono">{citizens} citizens</div>
         <div className="text-xs text-emerald-300/60">{alertsToday} events live</div>
       </div>
     </div>

@@ -154,6 +154,7 @@ export default function X68CityMap() {
                 alertsToday={serenity.alerts_today}
                 revenueTier={serenity.revenue_tier}
                 activeMonitors={serenity.active_monitors}
+                citizens={city?.total_citizens ?? 0}
               />
             </DistrictCard>
 
