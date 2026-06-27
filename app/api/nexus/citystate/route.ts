@@ -34,10 +34,9 @@ export async function GET(req: Request) {
   const db = adminDb()
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://master-page-ace-ecotopia.vercel.app'
 
-  // Total citizens
-  const { count: totalCitizens } = await db
-    .from('citizens')
-    .select('*', { count: 'exact', head: true })
+  // Total citizens — count from auth.users (service role required)
+  const { data: allUsers } = await db.auth.admin.listUsers({ perPage: 9999 })
+  const totalCitizens = allUsers?.users?.length ?? 0
 
   // Alerts fired today per district
   const today = new Date().toISOString().slice(0, 10)
@@ -131,5 +130,21 @@ export async function GET(req: Request) {
     },
   }
 
-  return NextResponse.json({ districts, total_citizens: citizens, generated_at: new Date().toISOString() })
+  // Unique IPs today and all-time
+  const today = new Date().toISOString().slice(0, 10)
+  const { count: uniqueIpsToday } = await db
+    .from('visitor_logs')
+    .select('*', { count: 'exact', head: true })
+    .eq('date', today)
+  const { count: uniqueIpsTotal } = await db
+    .from('visitor_logs')
+    .select('*', { count: 'exact', head: true })
+
+  return NextResponse.json({
+    districts,
+    total_citizens: citizens,
+    unique_ips_today: uniqueIpsToday ?? 0,
+    unique_ips_total: uniqueIpsTotal ?? 0,
+    generated_at: new Date().toISOString(),
+  })
 }

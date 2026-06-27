@@ -22,6 +22,8 @@ interface DistrictState {
 interface CityState {
   districts: Record<string, DistrictState>
   total_citizens: number
+  unique_ips_today: number
+  unique_ips_total: number
 }
 
 const TIER_LABEL: Record<string, { label: string; color: string }> = {
@@ -173,12 +175,14 @@ export default function X68CityMap() {
 
         {/* Global stats */}
         {city && (
-          <div className="mt-8 grid grid-cols-4 gap-4">
+          <div className="mt-8 grid grid-cols-3 md:grid-cols-6 gap-3">
             {[
-              { label: 'Total Citizens', value: city.total_citizens, color: 'text-cyan-400' },
+              { label: 'Citizens', value: city.total_citizens, color: 'text-cyan-400' },
               { label: 'Districts Live', value: Object.values(city.districts).filter(d => d.health_score > 0).length, color: 'text-green-400' },
               { label: 'Alerts Today', value: Object.values(city.districts).reduce((a, d) => a + d.alerts_today, 0), color: 'text-yellow-400' },
               { label: 'Monitors Active', value: Object.values(city.districts).reduce((a, d) => a + d.active_monitors, 0), color: 'text-purple-400' },
+              { label: 'Visitors Today', value: city.unique_ips_today, color: 'text-rose-400' },
+              { label: 'Total Visitors', value: city.unique_ips_total, color: 'text-orange-400' },
             ].map(s => (
               <div key={s.label} className="text-center bg-white/5 border border-white/10 rounded-xl p-4">
                 <div className={`text-2xl font-bold font-mono ${s.color}`}>{s.value}</div>
