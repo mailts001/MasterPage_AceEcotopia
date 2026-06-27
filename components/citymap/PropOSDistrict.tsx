@@ -8,14 +8,13 @@
  */
 
 interface Props {
-  citizens: number
   healthScore: number   // 0–1
   alertsToday: number
   revenueTier: string
   activeMonitors: number
 }
 
-export default function PropOSDistrict({ healthScore, alertsToday, revenueTier, activeMonitors, citizens }: Props) {
+export default function PropOSDistrict({ healthScore, alertsToday, revenueTier, activeMonitors }: Props) {
   const h = healthScore
   const lit = Math.min(alertsToday, 20)
   const elite = revenueTier === 'elite' || revenueTier === 'thriving'
@@ -107,7 +106,6 @@ export default function PropOSDistrict({ healthScore, alertsToday, revenueTier, 
 
       {/* Stats overlay */}
       <div className="absolute top-2 right-2 text-right">
-        <div className="text-xs text-blue-400 font-mono">{citizens} citizens</div>
         <div className="text-xs text-blue-400 font-mono">{activeMonitors} monitored</div>
         <div className="text-xs text-blue-300/60">{alertsToday} alerts today</div>
       </div>

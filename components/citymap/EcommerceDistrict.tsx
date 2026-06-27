@@ -7,7 +7,6 @@
  */
 
 interface Props {
-  citizens: number
   healthScore: number
   alertsToday: number
   revenueTier: string
@@ -32,7 +31,7 @@ const FLOWS = [
   { from: 4, to: 2, dur: 4 },
 ]
 
-export default function EcommerceDistrict({ healthScore, alertsToday, revenueTier, activeMonitors, citizens }: Props) {
+export default function EcommerceDistrict({ healthScore, alertsToday, revenueTier, activeMonitors }: Props) {
   const h = healthScore
   const litStalls = Math.round(alertsToday * 0.8)
   const activeFlows = Math.max(2, Math.round(FLOWS.length * h))
@@ -132,7 +131,6 @@ export default function EcommerceDistrict({ healthScore, alertsToday, revenueTie
         style={{ background: 'linear-gradient(0deg, #0a0e1a, transparent)' }} />
 
       <div className="absolute top-2 right-2 text-right">
-        <div className="text-xs text-amber-400 font-mono">{citizens} citizens</div>
         <div className="text-xs text-amber-400 font-mono">{activeMonitors} monitors</div>
         <div className="text-xs text-amber-300/60">{alertsToday} gaps found</div>
       </div>

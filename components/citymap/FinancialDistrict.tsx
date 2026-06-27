@@ -7,14 +7,13 @@
  */
 
 interface Props {
-  citizens: number
   healthScore: number
   alertsToday: number
   revenueTier: string
   activeMonitors: number
 }
 
-export default function FinancialDistrict({ healthScore, alertsToday, revenueTier, activeMonitors, citizens }: Props) {
+export default function FinancialDistrict({ healthScore, alertsToday, revenueTier, activeMonitors }: Props) {
   const h = healthScore
   const elite = revenueTier === 'elite' || revenueTier === 'thriving'
 
@@ -104,7 +103,6 @@ export default function FinancialDistrict({ healthScore, alertsToday, revenueTie
         style={{ background: 'linear-gradient(0deg, #0a0e1a, transparent)' }} />
 
       <div className="absolute top-8 right-2 text-right">
-        <div className="text-xs text-green-400 font-mono">{citizens} citizens</div>
         <div className="text-xs text-green-400 font-mono">{activeMonitors} signals</div>
         <div className="text-xs text-green-300/60">{alertsToday} fired today</div>
       </div>

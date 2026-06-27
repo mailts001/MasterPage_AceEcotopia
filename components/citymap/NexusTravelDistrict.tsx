@@ -7,7 +7,6 @@
  */
 
 interface Props {
-  citizens: number
   healthScore: number
   alertsToday: number
   revenueTier: string
@@ -32,7 +31,7 @@ const ROUTES = [
   { from: 2, to: 3 },
 ]
 
-export default function NexusTravelDistrict({ healthScore, alertsToday, revenueTier, activeMonitors, citizens }: Props) {
+export default function NexusTravelDistrict({ healthScore, alertsToday, revenueTier, activeMonitors }: Props) {
   const h = healthScore
   const activeRoutes = Math.max(2, Math.round(ROUTES.length * h))
   const elite = revenueTier === 'elite' || revenueTier === 'thriving'
@@ -114,7 +113,6 @@ export default function NexusTravelDistrict({ healthScore, alertsToday, revenueT
         style={{ background: 'linear-gradient(0deg, #0a0e1a, transparent)' }} />
 
       <div className="absolute top-2 right-2 text-right">
-        <div className="text-xs text-purple-400 font-mono">{citizens} citizens</div>
         <div className="text-xs text-purple-400 font-mono">{activeMonitors} routes</div>
         <div className="text-xs text-purple-300/60">{alertsToday} deals today</div>
       </div>
