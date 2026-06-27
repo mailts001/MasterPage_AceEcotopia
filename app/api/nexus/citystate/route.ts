@@ -131,7 +131,6 @@ export async function GET(req: Request) {
   }
 
   // Unique IPs today and all-time
-  const today = new Date().toISOString().slice(0, 10)
   const { count: uniqueIpsToday } = await db
     .from('visitor_logs')
     .select('*', { count: 'exact', head: true })
