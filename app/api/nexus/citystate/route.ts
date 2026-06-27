@@ -14,16 +14,16 @@ function adminDb() {
 }
 
 function healthScore(alerts: number, citizens: number, active: number): number {
-  const alertScore  = Math.min(alerts / 20, 1)   // 20 alerts = full score
-  const citizenScore = Math.min(citizens / 100, 1) // 100 citizens = full score
-  const activeScore  = Math.min(active / 50, 1)   // 50 active = full score
+  const alertScore   = Math.min(alerts / 5, 1)    // 5 alerts = full
+  const citizenScore = Math.min(citizens / 10, 1) // 10 citizens = full
+  const activeScore  = Math.min(active / 10, 1)   // 10 monitors = full
   return Math.round(((alertScore + citizenScore + activeScore) / 3) * 100) / 100
 }
 
-function revenueTier(subs: number): 'seed' | 'growing' | 'thriving' | 'elite' {
-  if (subs >= 50) return 'elite'
-  if (subs >= 20) return 'thriving'
-  if (subs >= 5)  return 'growing'
+function revenueTier(citizens: number): 'seed' | 'growing' | 'thriving' | 'elite' {
+  if (citizens >= 100) return 'elite'
+  if (citizens >= 20)  return 'thriving'
+  if (citizens >= 5)   return 'growing'
   return 'seed'
 }
 
@@ -53,12 +53,6 @@ export async function GET(req: Request) {
     alertsByDistrict[r.district] = (alertsByDistrict[r.district] ?? 0) + 1
   })
 
-  // Subscriptions per district (proxy: just use total for now)
-  const { count: totalSubs } = await db
-    .from('subscriptions')
-    .select('*', { count: 'exact', head: true })
-    .eq('status', 'active')
-
   // Fetch live signal data from each district
   const districtSignals: Record<string, { active_monitors: number; alerts_today: number }> = {}
   const districtIds = ['propos', 'aceeconomy', 'nexustravel', 'commerce']
@@ -76,7 +70,6 @@ export async function GET(req: Request) {
   )
 
   const citizens = totalCitizens ?? 0
-  const subs = totalSubs ?? 0
 
   const districts = {
     propos: {
@@ -86,11 +79,10 @@ export async function GET(req: Request) {
       citizens,
       alerts_today: alertsByDistrict['propos'] ?? districtSignals['propos']?.alerts_today ?? 0,
       active_monitors: districtSignals['propos']?.active_monitors ?? 0,
-      subscriptions: subs,
       health_score: healthScore(
         alertsByDistrict['propos'] ?? 0, citizens, districtSignals['propos']?.active_monitors ?? 0
       ),
-      revenue_tier: revenueTier(subs),
+      revenue_tier: revenueTier(citizens),
     },
     aceeconomy: {
       id: 'aceeconomy',
@@ -99,11 +91,10 @@ export async function GET(req: Request) {
       citizens,
       alerts_today: alertsByDistrict['aceeconomy'] ?? districtSignals['aceeconomy']?.alerts_today ?? 0,
       active_monitors: districtSignals['aceeconomy']?.active_monitors ?? 0,
-      subscriptions: subs,
       health_score: healthScore(
         alertsByDistrict['aceeconomy'] ?? 0, citizens, districtSignals['aceeconomy']?.active_monitors ?? 0
       ),
-      revenue_tier: revenueTier(subs),
+      revenue_tier: revenueTier(citizens),
     },
     nexustravel: {
       id: 'nexustravel',
@@ -112,11 +103,10 @@ export async function GET(req: Request) {
       citizens,
       alerts_today: alertsByDistrict['nexustravel'] ?? districtSignals['nexustravel']?.alerts_today ?? 0,
       active_monitors: districtSignals['nexustravel']?.active_monitors ?? 0,
-      subscriptions: subs,
       health_score: healthScore(
         alertsByDistrict['nexustravel'] ?? 0, citizens, districtSignals['nexustravel']?.active_monitors ?? 0
       ),
-      revenue_tier: revenueTier(subs),
+      revenue_tier: revenueTier(citizens),
     },
     commerce: {
       id: 'commerce',
@@ -125,11 +115,30 @@ export async function GET(req: Request) {
       citizens,
       alerts_today: alertsByDistrict['commerce'] ?? districtSignals['commerce']?.alerts_today ?? 0,
       active_monitors: districtSignals['commerce']?.active_monitors ?? 0,
-      subscriptions: subs,
       health_score: healthScore(
         alertsByDistrict['commerce'] ?? 0, citizens, districtSignals['commerce']?.active_monitors ?? 0
       ),
-      revenue_tier: revenueTier(subs),
+      revenue_tier: revenueTier(citizens),
+    },
+    serenity: {
+      id: 'serenity',
+      name: 'SerenityOS',
+      style: 'zen_garden',
+      citizens,
+      alerts_today: alertsByDistrict['serenity'] ?? 0,
+      active_monitors: districtSignals['serenity']?.active_monitors ?? 0,
+      health_score: healthScore(alertsByDistrict['serenity'] ?? 0, citizens, 0),
+      revenue_tier: revenueTier(citizens),
+    },
+    marketingos: {
+      id: 'marketingos',
+      name: 'MarketingOS',
+      style: 'media_hub',
+      citizens,
+      alerts_today: alertsByDistrict['marketingos'] ?? 0,
+      active_monitors: districtSignals['marketingos']?.active_monitors ?? 0,
+      health_score: healthScore(alertsByDistrict['marketingos'] ?? 0, citizens, 0),
+      revenue_tier: revenueTier(citizens),
     },
   }
 
