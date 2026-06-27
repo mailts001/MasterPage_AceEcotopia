@@ -35,8 +35,11 @@ export async function GET(req: Request) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://master-page-ace-ecotopia.vercel.app'
 
   // Total citizens — count from auth.users (service role required)
-  const { data: allUsers } = await db.auth.admin.listUsers({ perPage: 9999 })
-  const totalCitizens = allUsers?.users?.length ?? 0
+  let totalCitizens = 0
+  try {
+    const { data } = await db.auth.admin.listUsers({ perPage: 9999 })
+    totalCitizens = data?.users?.length ?? 0
+  } catch { /* fallback to 0 */ }
 
   // Alerts fired today per district
   const today = new Date().toISOString().slice(0, 10)
