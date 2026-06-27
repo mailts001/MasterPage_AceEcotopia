@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
 const NEXUS_KEY = process.env.NEXUS_API_KEY || 'changeme'
+
+function adminDb() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 const DISTRICTS = [
   { id: 'propos', url: process.env.PROPOS_URL },
@@ -31,8 +39,12 @@ export async function GET() {
     })
   )
 
-  // Citizens count from Supabase (placeholder for now)
-  const citizens = 0
+  // Citizens count from auth.users
+  let citizens = 0
+  try {
+    const { data } = await adminDb().auth.admin.listUsers({ perPage: 9999 })
+    citizens = data?.users?.length ?? 0
+  } catch { /* fallback to 0 */ }
 
   return NextResponse.json({ properties, signals, citizens, alerts })
 }
