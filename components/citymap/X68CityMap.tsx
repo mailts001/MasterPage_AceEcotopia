@@ -52,6 +52,8 @@ export default function X68CityMap() {
     active_monitors: 0, revenue_tier: 'seed',
   })
 
+  const citizens    = city?.total_citizens ?? 0
+
   const propos      = districts?.propos      ?? mockDistrict('propos')
   const aceeconomy  = districts?.aceeconomy  ?? mockDistrict('aceeconomy')
   const nexustravel = districts?.nexustravel ?? mockDistrict('nexustravel')
@@ -97,6 +99,7 @@ export default function X68CityMap() {
                 alertsToday={propos.alerts_today}
                 revenueTier={propos.revenue_tier}
                 activeMonitors={propos.active_monitors}
+                citizens={citizens}
               />
             </DistrictCard>
 
@@ -111,6 +114,7 @@ export default function X68CityMap() {
                 alertsToday={aceeconomy.alerts_today}
                 revenueTier={aceeconomy.revenue_tier}
                 activeMonitors={aceeconomy.active_monitors}
+                citizens={citizens}
               />
             </DistrictCard>
 
@@ -126,6 +130,7 @@ export default function X68CityMap() {
                 alertsToday={nexustravel.alerts_today}
                 revenueTier={nexustravel.revenue_tier}
                 activeMonitors={nexustravel.active_monitors}
+                citizens={citizens}
               />
             </DistrictCard>
 
@@ -140,6 +145,7 @@ export default function X68CityMap() {
                 alertsToday={commerce.alerts_today}
                 revenueTier={commerce.revenue_tier}
                 activeMonitors={commerce.active_monitors}
+                citizens={citizens}
               />
             </DistrictCard>
 
@@ -154,6 +160,7 @@ export default function X68CityMap() {
                 alertsToday={serenity.alerts_today}
                 revenueTier={serenity.revenue_tier}
                 activeMonitors={serenity.active_monitors}
+                citizens={citizens}
               />
             </DistrictCard>
 
@@ -168,6 +175,7 @@ export default function X68CityMap() {
                 alertsToday={marketingos.alerts_today}
                 revenueTier={marketingos.revenue_tier}
                 activeMonitors={marketingos.active_monitors}
+                citizens={citizens}
               />
             </DistrictCard>
           </div>

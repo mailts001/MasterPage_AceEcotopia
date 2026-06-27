@@ -7,13 +7,14 @@
  */
 
 interface Props {
+  citizens: number
   healthScore: number
   alertsToday: number
   revenueTier: string
   activeMonitors: number
 }
 
-export default function MarketingOSDistrict({ healthScore, alertsToday, revenueTier, activeMonitors }: Props) {
+export default function MarketingOSDistrict({ healthScore, alertsToday, revenueTier, activeMonitors, citizens }: Props) {
   const h = healthScore
   const thriving = revenueTier === 'elite' || revenueTier === 'thriving'
   const ringOpacity = Math.max(0.3, h)
@@ -166,6 +167,7 @@ export default function MarketingOSDistrict({ healthScore, alertsToday, revenueT
         style={{ background: 'linear-gradient(0deg, #0a0e1a, transparent)' }} />
 
       <div className="absolute top-2 right-2 text-right">
+        <div className="text-xs text-rose-400 font-mono">{citizens} citizens</div>
         <div className="text-xs text-rose-400 font-mono">{activeMonitors} merchants</div>
         <div className="text-xs text-rose-300/60">{alertsToday} videos today</div>
       </div>
