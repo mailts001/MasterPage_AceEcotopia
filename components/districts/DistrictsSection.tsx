@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useLocale } from '@/hooks/useLocale'
 
 interface DistrictData {
@@ -21,6 +22,9 @@ type DistrictEntry = {
   requiresAuth: boolean      // show "Join to Access" instead of "Visit"
   features: { en: string[]; zh: string[] }
   citizenValue: { en: string; zh: string }
+  secondaryHref?: string
+  secondaryLabel?: { en: string; zh: string }
+  secondaryExternal?: boolean
 }
 
 const DISTRICTS: DistrictEntry[] = [
@@ -83,6 +87,19 @@ const DISTRICTS: DistrictEntry[] = [
     features: { en: ['AI video scripts','EN + Chinese voiceover','TikTok / IG / YT / LinkedIn','24h turnaround'],
                 zh: ['AI 视频脚本','英文与中文配音','TikTok / IG / YT / LinkedIn','24小时完成'] },
     citizenValue: { en: '10 videos in 5 minutes — free beta', zh: '5 分钟生成 10 条视频——免费公测' },
+  },
+  {
+    id: 'careergenome',
+    nameKey: 'd_careergenome_name', tagKey: 'd_careergenome_tag', descKey: 'd_careergenome_desc',
+    icon: '🧬',
+    color: 'from-indigo-500/20 to-violet-500/20', border: 'border-indigo-500/30', accent: 'text-indigo-400',
+    visitHref: 'https://career-genome.vercel.app', external: true, requiresAuth: false,
+    features: { en: ['Career Genome interview','Trajectory Simulator','Hiring cycle prediction','Recruiter search (B2B)'],
+                zh: ['职业基因访谈','路径模拟器','招聘周期预测','招聘方搜索（B2B）'] },
+    citizenValue: { en: 'Discover your Career Genome — free sample', zh: '探索您的职业基因——免费体验' },
+    secondaryHref: 'https://career-genome.vercel.app/recruiters',
+    secondaryLabel: { en: 'For Recruiters →', zh: '招聘方入口 →' },
+    secondaryExternal: true,
   },
 ]
 
@@ -171,14 +188,44 @@ export default function DistrictsSection() {
 
                 <div className={`text-xs font-medium ${district.accent} mb-4`}>✦ {citizenValue}</div>
 
-                <a
-                  href={district.visitHref}
-                  target={district.external ? '_blank' : undefined}
-                  rel={district.external ? 'noopener noreferrer' : undefined}
-                  className={`inline-flex items-center gap-2 text-sm font-medium ${district.accent} hover:opacity-80 transition-opacity`}
-                >
-                  {district.requiresAuth ? t('districts_join') : t('districts_visit')}
-                </a>
+                <div className="flex flex-wrap items-center gap-4">
+                  {district.external ? (
+                    <a
+                      href={district.visitHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`inline-flex items-center gap-2 text-sm font-medium ${district.accent} hover:opacity-80 transition-opacity`}
+                    >
+                      {district.requiresAuth ? t('districts_join') : t('districts_visit')}
+                    </a>
+                  ) : (
+                    <Link
+                      href={district.visitHref}
+                      className={`inline-flex items-center gap-2 text-sm font-medium ${district.accent} hover:opacity-80 transition-opacity`}
+                    >
+                      {district.requiresAuth ? t('districts_join') : t('districts_visit')}
+                    </Link>
+                  )}
+                  {district.secondaryHref && district.secondaryLabel && (
+                    district.secondaryExternal ? (
+                      <a
+                        href={district.secondaryHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-300 transition-colors"
+                      >
+                        {district.secondaryLabel[locale]}
+                      </a>
+                    ) : (
+                      <Link
+                        href={district.secondaryHref}
+                        className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-300 transition-colors"
+                      >
+                        {district.secondaryLabel[locale]}
+                      </Link>
+                    )
+                  )}
+                </div>
               </div>
             )
           })}

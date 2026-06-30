@@ -92,6 +92,19 @@ const DISTRICTS = [
     accentText: 'text-rose-400',
     what: ['AI-written script + hook', 'EN + Chinese voiceover', 'TikTok / IG / YouTube / LinkedIn'],
   },
+  {
+    id: 'careergenome',
+    name: 'CareerGenome',
+    icon: '🧬',
+    tagline: 'Career Intelligence',
+    desc: 'AI narrative interview maps your Career Genome across 10 dimensions and simulates trajectory paths.',
+    href: 'https://career-genome.vercel.app',
+    internal: false,
+    citizenOnly: false,
+    accent: 'border-indigo-500/30',
+    accentText: 'text-indigo-400',
+    what: ['Career Genome interview', 'Trajectory Simulator', 'Hiring cycle prediction'],
+  },
 ]
 
 export default async function CitizenDashboard() {

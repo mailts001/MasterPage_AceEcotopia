@@ -140,6 +140,16 @@ export async function GET(req: Request) {
       health_score: healthScore(alertsByDistrict['marketingos'] ?? 0, citizens, 0),
       revenue_tier: revenueTier(citizens),
     },
+    careergenome: {
+      id: 'careergenome',
+      name: 'CareerGenome',
+      style: 'genome_lab',
+      citizens,
+      alerts_today: alertsByDistrict['careergenome'] ?? 0,
+      active_monitors: districtSignals['careergenome']?.active_monitors ?? 0,
+      health_score: healthScore(alertsByDistrict['careergenome'] ?? 0, citizens, 0),
+      revenue_tier: revenueTier(citizens),
+    },
   }
 
   // Unique IPs today and all-time

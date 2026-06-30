@@ -106,6 +106,23 @@ const DISTRICTS = [
     features: ['🎬 AI-written hook + video script','🎙️ EN + Chinese voiceover auto-generated','📱 TikTok, IG Reels, YouTube Shorts, LinkedIn','⚡ 24h turnaround from submission','🔗 Optional affiliate link in video CTA'],
     stat: { value: '5 min', label: 'Avg generation time' },
   },
+  {
+    id:       'careergenome',
+    name:     'CareerGenome District',
+    tagline:  'Career Intelligence',
+    icon:     '🧬',
+    accent:   '#6366F1',
+    accentCls:'text-indigo-400',
+    borderCls:'border-indigo-500/30',
+    video:    '/districts/careergenome.mp4',
+    poster:   '/districts/careergenome-poster.jpg',
+    href:     'https://career-genome.vercel.app/recruiters',
+    joinHref: 'https://career-genome.vercel.app',
+    externalLabel: 'For Recruiters →',
+    desc:     'AI narrative interview maps your Career Genome across 10 dimensions, simulates trajectory paths, and predicts hiring cycles before roles are posted. Recruiters get B2B candidate search.',
+    features: ['🧬 AI narrative interview → Career Genome','🗺️ Trajectory Simulator with probability scores','📡 Hiring cycle prediction before roles post','👔 Recruiter search access (B2B)','💼 For senior/executive professionals'],
+    stat: { value: '10', label: 'Genome dimensions scored' },
+  },
 ]
 
 const REPLAY_DELAY_MS = 3000   // hold on last frame for 3s before replaying
@@ -300,15 +317,27 @@ export default function DistrictShowcase() {
 
             {/* CTAs */}
             <div className="flex flex-wrap gap-3">
-              <Link href={d.joinHref}
-                className="text-sm font-bold text-black px-6 py-3 rounded-xl
-                  hover:opacity-90 transition shadow-lg"
-                style={{
-                  background: `linear-gradient(135deg, ${d.accent}, ${d.accent}bb)`,
-                  boxShadow: `0 4px 24px ${d.accent}44`,
-                }}>
-                Join {d.icon} District →
-              </Link>
+              {d.joinHref.startsWith('http') ? (
+                <a href={d.joinHref} target="_blank" rel="noopener noreferrer"
+                  className="text-sm font-bold text-black px-6 py-3 rounded-xl
+                    hover:opacity-90 transition shadow-lg"
+                  style={{
+                    background: `linear-gradient(135deg, ${d.accent}, ${d.accent}bb)`,
+                    boxShadow: `0 4px 24px ${d.accent}44`,
+                  }}>
+                  Join {d.icon} District →
+                </a>
+              ) : (
+                <Link href={d.joinHref}
+                  className="text-sm font-bold text-black px-6 py-3 rounded-xl
+                    hover:opacity-90 transition shadow-lg"
+                  style={{
+                    background: `linear-gradient(135deg, ${d.accent}, ${d.accent}bb)`,
+                    boxShadow: `0 4px 24px ${d.accent}44`,
+                  }}>
+                  Join {d.icon} District →
+                </Link>
+              )}
               {d.href.startsWith('http') ? (
                 <a href={d.href} target="_blank" rel="noopener noreferrer"
                   className="text-sm text-slate-400 hover:text-white border border-white/10

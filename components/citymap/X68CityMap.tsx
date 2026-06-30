@@ -8,6 +8,7 @@ import NexusTravelDistrict from './NexusTravelDistrict'
 import EcommerceDistrict from './EcommerceDistrict'
 import SerenityDistrict from './SerenityDistrict'
 import MarketingOSDistrict from './MarketingOSDistrict'
+import CareerGenomeDistrict from './CareerGenomeDistrict'
 
 interface DistrictState {
   id: string
@@ -58,6 +59,7 @@ export default function X68CityMap() {
   const commerce    = districts?.commerce    ?? mockDistrict('commerce')
   const serenity    = districts?.serenity    ?? mockDistrict('serenity')
   const marketingos = districts?.marketingos ?? mockDistrict('marketingos')
+  const careergenome = districts?.careergenome ?? mockDistrict('careergenome')
 
   return (
     <section className="py-24 px-4 border-t border-white/5">
@@ -79,7 +81,7 @@ export default function X68CityMap() {
 
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {[1,2,3,4,5,6].map(i => (
+            {[1,2,3,4,5,6,7].map(i => (
               <div key={i} className="h-48 rounded-xl bg-white/5 animate-pulse" />
             ))}
           </div>
@@ -171,6 +173,21 @@ export default function X68CityMap() {
                 activeMonitors={marketingos.active_monitors}
               />
             </DistrictCard>
+
+            {/* CareerGenome — direct public access */}
+            <DistrictCard
+              district={careergenome}
+              accent="indigo"
+              href="https://career-genome.vercel.app"
+              external
+            >
+              <CareerGenomeDistrict
+                healthScore={careergenome.health_score}
+                alertsToday={careergenome.alerts_today}
+                revenueTier={careergenome.revenue_tier}
+                activeMonitors={careergenome.active_monitors}
+              />
+            </DistrictCard>
           </div>
         )}
 
@@ -214,6 +231,7 @@ function DistrictCard({
     amber:   'border-amber-500/30 hover:border-amber-500/60',
     emerald: 'border-emerald-500/30 hover:border-emerald-500/60',
     rose:    'border-rose-500/30 hover:border-rose-500/60',
+    indigo:  'border-indigo-500/30 hover:border-indigo-500/60',
   }
 
   return (
