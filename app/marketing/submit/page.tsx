@@ -51,39 +51,33 @@ const TONES: { value: Tone; label: string; emoji: string }[] = [
   { value: "educational",   label: "Educational",   emoji: "📚" },
 ];
 
-const VIDEO_TYPES: { value: VideoType; label: string; icon: string; desc: string; needsImage: boolean; needsFace?: boolean; badge?: string }[] = [
+const VIDEO_TYPES: { value: VideoType; label: string; icon: string; desc: string; needsImage: boolean; needsFace?: boolean; badge?: string; cost?: string }[] = [
   {
     value:      "text_overlay",
-    label:      "Text Overlay Video",
+    label:      "Animated Caption Video",
     icon:       "✏️",
-    desc:       "AI script + animated captions over your product photo. Fast, free, bilingual EN+ZH.",
+    desc:       "AI writes script + captions, animated over your product photo. Fast, bilingual EN+ZH. Always works.",
     needsImage: false,
     badge:      "FREE",
+    cost:       "No cost",
   },
   {
     value:      "ai_unboxing",
-    label:      "AI Unboxing Hook",
+    label:      "AI Product Reveal",
     icon:       "📦",
-    desc:       "Product photo animates into a cinematic reveal with AI video generation.",
+    desc:       "Your product photo comes alive — cinematic float, reveal, and zoom. Best for clean product shots.",
     needsImage: true,
     badge:      "AI",
+    cost:       "~$0.02–0.05",
   },
   {
     value:      "ai_demo",
-    label:      "AI Lifestyle Demo",
+    label:      "AI Lifestyle Scene",
     icon:       "🎬",
-    desc:       "AI generates a lifestyle clip showing your product being used in a real setting.",
+    desc:       "AI generates a lifestyle video of someone using your product in a real-world setting.",
     needsImage: false,
     badge:      "AI",
-  },
-  {
-    value:      "avatar_ad",
-    label:      "Face / Avatar Ad",
-    icon:       "🎙️",
-    desc:       "Upload your photo — AI animates your face reading the script with lip sync. UGC-style.",
-    needsImage: false,
-    needsFace:  true,
-    badge:      "UGC",
+    cost:       "~$0.02–0.05",
   },
 ];
 
@@ -530,63 +524,35 @@ export default function MarketingSubmitPage() {
                         : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600"
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{vt.icon}</span>
-                      <div className="flex-1">
-                        <div className="text-sm font-semibold">{vt.label}</div>
-                        <div className="text-xs opacity-70">{vt.desc}</div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-xl mt-0.5">{vt.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-semibold">{vt.label}</span>
+                          {vt.badge && (
+                            <span className={`text-xs border rounded-full px-2 py-0.5 ${badgeColor[vt.badge] ?? ""}`}>
+                              {vt.badge}
+                            </span>
+                          )}
+                          {vt.needsImage && (
+                            <span className="text-xs bg-slate-700/60 text-slate-400 rounded-full px-2 py-0.5">
+                              photo req.
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs opacity-60 mt-0.5">{vt.desc}</div>
                       </div>
-                      <div className="flex gap-1 shrink-0">
-                        {vt.badge && (
-                          <span className={`text-xs border rounded-full px-2 py-0.5 ${badgeColor[vt.badge] ?? ""}`}>
-                            {vt.badge}
-                          </span>
-                        )}
-                        {vt.needsImage && (
-                          <span className="text-xs bg-slate-700/60 text-slate-400 rounded-full px-2 py-0.5">
-                            photo req.
-                          </span>
-                        )}
-                        {vt.needsFace && (
-                          <span className="text-xs bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-full px-2 py-0.5">
-                            face req.
-                          </span>
-                        )}
-                      </div>
+                      {vt.cost && (
+                        <span className="shrink-0 text-xs text-slate-500 font-mono whitespace-nowrap mt-0.5">
+                          {vt.cost}
+                        </span>
+                      )}
                     </div>
                   </button>
                 );
               })}
             </div>
 
-            {/* Face photo upload — shown only for avatar_ad */}
-            {form.video_type === "avatar_ad" && (
-              <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/5 p-4 space-y-3">
-                <p className="text-sm font-semibold text-rose-300">🎙️ Your Face / Spokesperson Photo</p>
-                <p className="text-xs text-slate-400">
-                  Upload a clear front-facing photo. AI will animate your face reading the script with lip sync.
-                  Plain background, good lighting, neutral expression works best.
-                </p>
-                <div
-                  onClick={() => faceRef.current?.click()}
-                  className="border-2 border-dashed border-rose-500/30 hover:border-rose-500/60 rounded-xl p-5 cursor-pointer transition-colors text-center"
-                >
-                  {facePreview ? (
-                    <img src={facePreview} alt="face preview" className="h-36 mx-auto rounded-lg object-cover" />
-                  ) : (
-                    <div className="text-slate-500 text-sm">
-                      <div className="text-3xl mb-2">🤳</div>
-                      <span>Click to upload face / portrait photo</span>
-                    </div>
-                  )}
-                </div>
-                <input ref={faceRef} type="file" accept="image/*" onChange={handleFaceImage} className="hidden" />
-                <div className="text-xs text-slate-600 space-y-0.5">
-                  <p>✅ Front-facing, looking at camera · ✅ Plain or simple background · ✅ Good lighting</p>
-                  <p>❌ Sunglasses · ❌ Heavy filters · ❌ Multiple people in frame</p>
-                </div>
-              </div>
-            )}
           </Field>
 
           {/* Optional fields — collapsible */}
