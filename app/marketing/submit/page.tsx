@@ -8,7 +8,7 @@ import { useState, useRef, useEffect } from "react";
 
 type Platform  = "TT" | "IG" | "YT" | "LI";
 type Tone      = "entertaining" | "professional" | "urgent" | "educational";
-type VideoType = "text_overlay" | "ai_unboxing" | "ai_demo";
+type VideoType = "text_overlay" | "ai_unboxing" | "ai_demo" | "avatar_ad";
 type BgMode    = "remove" | "keep";
 type Step      = "form" | "submitting" | "success" | "error";
 
@@ -19,6 +19,7 @@ interface FormData {
   tone:                Tone;
   video_type:          VideoType;
   bg_mode:             BgMode;
+  face_image_url:      string;
   website_url:         string;
   price:               string;
   promo_code:          string;
@@ -50,27 +51,39 @@ const TONES: { value: Tone; label: string; emoji: string }[] = [
   { value: "educational",   label: "Educational",   emoji: "📚" },
 ];
 
-const VIDEO_TYPES: { value: VideoType; label: string; icon: string; desc: string; needsImage: boolean }[] = [
+const VIDEO_TYPES: { value: VideoType; label: string; icon: string; desc: string; needsImage: boolean; needsFace?: boolean; badge?: string }[] = [
   {
     value:      "text_overlay",
     label:      "Text Overlay Video",
     icon:       "✏️",
-    desc:       "AI script + captions over your product photo. Fast, bilingual EN+ZH.",
+    desc:       "AI script + animated captions over your product photo. Fast, free, bilingual EN+ZH.",
     needsImage: false,
+    badge:      "FREE",
   },
   {
     value:      "ai_unboxing",
     label:      "AI Unboxing Hook",
     icon:       "📦",
-    desc:       "Product photo animates into a cinematic reveal. Requires product image.",
+    desc:       "Product photo animates into a cinematic reveal with AI video generation.",
     needsImage: true,
+    badge:      "AI",
   },
   {
     value:      "ai_demo",
-    label:      "AI Product Demo",
+    label:      "AI Lifestyle Demo",
     icon:       "🎬",
-    desc:       "AI generates a lifestyle demo clip showing your product in use.",
+    desc:       "AI generates a lifestyle clip showing your product being used in a real setting.",
     needsImage: false,
+    badge:      "AI",
+  },
+  {
+    value:      "avatar_ad",
+    label:      "Face / Avatar Ad",
+    icon:       "🎙️",
+    desc:       "Upload your photo — AI animates your face reading the script with lip sync. UGC-style.",
+    needsImage: false,
+    needsFace:  true,
+    badge:      "UGC",
   },
 ];
 
@@ -87,7 +100,10 @@ export default function MarketingSubmitPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageLandscape, setImageLandscape] = useState(false);
+  const [facePreview, setFacePreview] = useState<string | null>(null);
+  const [faceFile, setFaceFile]       = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const faceRef = useRef<HTMLInputElement>(null);
 
   // URL scraper state
   const [scrapeUrl, setScrapeUrl]         = useState("");
@@ -103,6 +119,7 @@ export default function MarketingSubmitPage() {
     tone:                "entertaining",
     video_type:          "text_overlay",
     bg_mode:             "remove",
+    face_image_url:      "",
     website_url:         "",
     price:               "",
     promo_code:          "",
@@ -134,6 +151,14 @@ export default function MarketingSubmitPage() {
     const img = new Image();
     img.onload = () => setImageLandscape(img.naturalWidth > img.naturalHeight);
     img.src = objectUrl;
+  }
+
+  function handleFaceImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) { alert("Image must be under 10 MB"); return; }
+    setFaceFile(file);
+    setFacePreview(URL.createObjectURL(file));
   }
 
   async function handleScrape() {
@@ -197,6 +222,19 @@ export default function MarketingSubmitPage() {
         imageUrl = await uploadImage(imageFile, tempId);
       }
 
+      // Upload face image if avatar_ad selected
+      let faceUrl: string | null = null;
+      if (faceFile && form.video_type === "avatar_ad") {
+        const faceTempId = crypto.randomUUID();
+        const faceFd = new FormData();
+        faceFd.append("file",  faceFile);
+        faceFd.append("jobId", `faces/${faceTempId}`);
+        const faceResp = await fetch("/api/marketing/upload", { method: "POST", body: faceFd });
+        const faceData = await faceResp.json();
+        if (!faceResp.ok || faceData.error) throw new Error(`Face upload failed: ${faceData.error}`);
+        faceUrl = faceData.url as string;
+      }
+
       // 2. Insert job with image URL already included — single INSERT, no UPDATE needed
       //    If user didn't upload a file but we got an OG image from scraping, use that.
       const finalImageUrl = imageUrl ?? scrapedImageUrl ?? null;
@@ -217,6 +255,7 @@ export default function MarketingSubmitPage() {
         brand_color:         form.brand_color,
         brand_name:          form.brand_name.trim() || null,
         product_image_url:   finalImageUrl,
+        face_image_url:      faceUrl,
         status:              "pending",
       };
 
@@ -474,32 +513,80 @@ export default function MarketingSubmitPage() {
           {/* Video Type */}
           <Field label="Video Style">
             <div className="space-y-2">
-              {VIDEO_TYPES.map((vt) => (
-                <button
-                  key={vt.value}
-                  type="button"
-                  onClick={() => set("video_type", vt.value)}
-                  className={`w-full p-3 rounded-xl border text-left transition-all ${
-                    form.video_type === vt.value
-                      ? "border-rose-500 bg-rose-500/10 text-white"
-                      : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{vt.icon}</span>
-                    <div>
-                      <div className="text-sm font-semibold">{vt.label}</div>
-                      <div className="text-xs opacity-70">{vt.desc}</div>
+              {VIDEO_TYPES.map((vt) => {
+                const badgeColor: Record<string, string> = {
+                  FREE: "bg-green-500/20 text-green-400 border-green-500/30",
+                  AI:   "bg-indigo-500/20 text-indigo-400 border-indigo-500/30",
+                  UGC:  "bg-amber-500/20 text-amber-400 border-amber-500/30",
+                };
+                return (
+                  <button
+                    key={vt.value}
+                    type="button"
+                    onClick={() => set("video_type", vt.value)}
+                    className={`w-full p-3 rounded-xl border text-left transition-all ${
+                      form.video_type === vt.value
+                        ? "border-rose-500 bg-rose-500/10 text-white"
+                        : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{vt.icon}</span>
+                      <div className="flex-1">
+                        <div className="text-sm font-semibold">{vt.label}</div>
+                        <div className="text-xs opacity-70">{vt.desc}</div>
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        {vt.badge && (
+                          <span className={`text-xs border rounded-full px-2 py-0.5 ${badgeColor[vt.badge] ?? ""}`}>
+                            {vt.badge}
+                          </span>
+                        )}
+                        {vt.needsImage && (
+                          <span className="text-xs bg-slate-700/60 text-slate-400 rounded-full px-2 py-0.5">
+                            photo req.
+                          </span>
+                        )}
+                        {vt.needsFace && (
+                          <span className="text-xs bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-full px-2 py-0.5">
+                            face req.
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    {vt.needsImage && (
-                      <span className="ml-auto text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full px-2 py-0.5">
-                        image required
-                      </span>
-                    )}
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
+
+            {/* Face photo upload — shown only for avatar_ad */}
+            {form.video_type === "avatar_ad" && (
+              <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/5 p-4 space-y-3">
+                <p className="text-sm font-semibold text-rose-300">🎙️ Your Face / Spokesperson Photo</p>
+                <p className="text-xs text-slate-400">
+                  Upload a clear front-facing photo. AI will animate your face reading the script with lip sync.
+                  Plain background, good lighting, neutral expression works best.
+                </p>
+                <div
+                  onClick={() => faceRef.current?.click()}
+                  className="border-2 border-dashed border-rose-500/30 hover:border-rose-500/60 rounded-xl p-5 cursor-pointer transition-colors text-center"
+                >
+                  {facePreview ? (
+                    <img src={facePreview} alt="face preview" className="h-36 mx-auto rounded-lg object-cover" />
+                  ) : (
+                    <div className="text-slate-500 text-sm">
+                      <div className="text-3xl mb-2">🤳</div>
+                      <span>Click to upload face / portrait photo</span>
+                    </div>
+                  )}
+                </div>
+                <input ref={faceRef} type="file" accept="image/*" onChange={handleFaceImage} className="hidden" />
+                <div className="text-xs text-slate-600 space-y-0.5">
+                  <p>✅ Front-facing, looking at camera · ✅ Plain or simple background · ✅ Good lighting</p>
+                  <p>❌ Sunglasses · ❌ Heavy filters · ❌ Multiple people in frame</p>
+                </div>
+              </div>
+            )}
           </Field>
 
           {/* Optional fields — collapsible */}
