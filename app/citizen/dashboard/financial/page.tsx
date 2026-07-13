@@ -48,6 +48,42 @@ interface Picks {
   error?: string
 }
 
+interface GaSignal {
+  symbol: string
+  action: string
+  price: number
+  confidence: number
+  stop: number
+  target: number
+  scores: { trend: number; momentum: number; volume: number; volatility: number }
+  ts: string
+}
+
+interface CongressTrade {
+  symbol: string
+  score: number
+  type: string
+  detail: string
+  date: string
+}
+
+interface Intel {
+  generated_at: string | null
+  market_regime: string
+  regime_bias: string
+  regime_notes: string[]
+  ic_suitable: boolean
+  best_strategy: { name: string; win_rate: number; sharpe: number | null; avg_pnl: number; count: number } | null
+  strategy_label: string
+  rationale: string
+  ga_signals: GaSignal[]
+  hot_sectors: string[]
+  bearish_symbols: string[]
+  defensive: string[]
+  congress_trades: CongressTrade[]
+  error?: string
+}
+
 function ScoreBar({ score, max = 10 }: { score: number; max?: number }) {
   const pct = Math.min(100, (score / max) * 100)
   const color = pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-yellow-500' : 'bg-red-500'
@@ -143,9 +179,11 @@ function EmptyState({ label }: { label: string }) {
 
 export default function FinancialDashboard() {
   const [picks, setPicks]           = useState<Picks | null>(null)
+  const [intel, setIntel]           = useState<Intel | null>(null)
   const [watchlist, setWatchlist]   = useState<string[]>([])
   const [loading, setLoading]       = useState(true)
-  const [tab, setTab]               = useState<'momentum'|'squeeze'|'positions'>('momentum')
+  const [intelLoading, setIntelLoading] = useState(true)
+  const [tab, setTab]               = useState<'momentum'|'squeeze'|'intel'>('momentum')
 
   useEffect(() => {
     Promise.all([
@@ -159,6 +197,10 @@ export default function FinancialDashboard() {
       setWatchlist(tickers)
       setLoading(false)
     })
+    fetch('/api/nexus/financial/intel').then(r => r.json()).then(d => {
+      setIntel(d)
+      setIntelLoading(false)
+    }).catch(() => setIntelLoading(false))
   }, [])
 
   const bullish       = picks?.bullish ?? []
@@ -219,6 +261,7 @@ export default function FinancialDashboard() {
           {([
             { key: 'momentum', label: `📈 Momentum (${allMomentum.length})` },
             { key: 'squeeze',  label: `⚡ Squeeze (${squeezes.length})` },
+            { key: 'intel',    label: '📡 GA Intel' },
           ] as const).map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`flex-1 text-xs py-2 rounded-lg transition font-medium ${
@@ -232,48 +275,221 @@ export default function FinancialDashboard() {
         </div>
 
         {/* Signal cards */}
-        {loading ? (
-          <div className="grid md:grid-cols-2 gap-4">
-            {[1,2,3,4].map(i => <div key={i} className="h-40 rounded-xl bg-white/5 animate-pulse" />)}
-          </div>
-        ) : tab === 'momentum' ? (
-          <div className="grid md:grid-cols-2 gap-4">
-            {allMomentum.length === 0
-              ? <EmptyState label="momentum" />
-              : allMomentum.map(t => (
-                  <TickerCard key={t.symbol} t={t} watchlisted={watchlist.includes(t.symbol)} />
-                ))
-            }
-          </div>
-        ) : (
-          <div className="grid md:grid-cols-2 gap-4">
-            {squeezes.length === 0
-              ? <EmptyState label="squeeze" />
-              : squeezes.map((s, i) => (
-                  <div key={i} className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-white font-mono text-sm">{s.symbol}</span>
-                        {watchlist.includes(s.symbol) && (
-                          <span className="text-[10px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded-full border border-cyan-500/30">⭐ watchlist</span>
-                        )}
+        {tab === 'momentum' ? (
+          loading ? (
+            <div className="grid md:grid-cols-2 gap-4">
+              {[1,2,3,4].map(i => <div key={i} className="h-40 rounded-xl bg-white/5 animate-pulse" />)}
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-4">
+              {allMomentum.length === 0
+                ? <EmptyState label="momentum" />
+                : allMomentum.map(t => (
+                    <TickerCard key={t.symbol} t={t} watchlisted={watchlist.includes(t.symbol)} />
+                  ))
+              }
+            </div>
+          )
+        ) : tab === 'squeeze' ? (
+          loading ? (
+            <div className="grid md:grid-cols-2 gap-4">
+              {[1,2].map(i => <div key={i} className="h-32 rounded-xl bg-white/5 animate-pulse" />)}
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-4">
+              {squeezes.length === 0
+                ? <EmptyState label="squeeze" />
+                : squeezes.map((s, i) => (
+                    <div key={i} className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white font-mono text-sm">{s.symbol}</span>
+                          {watchlist.includes(s.symbol) && (
+                            <span className="text-[10px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded-full border border-cyan-500/30">⭐ watchlist</span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full">
+                          {s.type ?? 'Squeeze'}
+                        </span>
                       </div>
-                      <span className="text-[10px] text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full">
-                        {s.type ?? 'Squeeze'}
-                      </span>
+                      {s.price && <div className="text-sm font-mono text-slate-300 mb-2">${s.price?.toFixed(2)}</div>}
+                      {s.signals && s.signals.length > 0 && (
+                        <ul className="space-y-0.5">
+                          {s.signals.map((sig, j) => (
+                            <li key={j} className="text-[10px] text-purple-300 flex gap-1"><span>⚡</span>{sig}</li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
-                    {s.price && <div className="text-sm font-mono text-slate-300 mb-2">${s.price?.toFixed(2)}</div>}
-                    {s.signals && s.signals.length > 0 && (
-                      <ul className="space-y-0.5">
-                        {s.signals.map((sig, j) => (
-                          <li key={j} className="text-[10px] text-purple-300 flex gap-1"><span>⚡</span>{sig}</li>
-                        ))}
-                      </ul>
-                    )}
+                  ))
+              }
+            </div>
+          )
+        ) : (
+          /* ── GA Intel Tab ── */
+          intelLoading ? (
+            <div className="space-y-4">
+              {[1,2,3].map(i => <div key={i} className="h-28 rounded-xl bg-white/5 animate-pulse" />)}
+            </div>
+          ) : !intel ? (
+            <EmptyState label="intel" />
+          ) : (
+            <div className="space-y-6">
+
+              {/* Market Regime + GA Recommendation */}
+              <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-mono text-cyan-400 uppercase tracking-widest">Market Regime</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${
+                        intel.regime_bias === 'bullish' ? 'border-green-500/40 bg-green-500/10 text-green-400' :
+                        intel.regime_bias === 'bearish' ? 'border-red-500/40 bg-red-500/10 text-red-400' :
+                        'border-slate-500/40 bg-slate-500/10 text-slate-400'
+                      }`}>{intel.regime_bias}</span>
+                    </div>
+                    <div className="text-xl font-bold text-white">{intel.market_regime}</div>
                   </div>
-                ))
-            }
-          </div>
+                  {intel.best_strategy && (
+                    <div className="text-right">
+                      <div className="text-xs text-slate-500 mb-0.5">GA Best Strategy</div>
+                      <div className="text-sm font-bold text-green-400">{intel.strategy_label}</div>
+                      {intel.best_strategy.sharpe && (
+                        <div className="text-[10px] text-slate-500">Sharpe {intel.best_strategy.sharpe} · {intel.best_strategy.win_rate.toFixed(0)}% win</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <p className="text-sm text-slate-300 leading-relaxed mb-3">{intel.rationale}</p>
+                {intel.regime_notes.length > 0 && (
+                  <ul className="space-y-0.5">
+                    {intel.regime_notes.map((n, i) => (
+                      <li key={i} className="text-[11px] text-slate-500">{n}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {/* GA Shadow Signals */}
+              {intel.ga_signals.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-xs font-mono text-indigo-400 uppercase tracking-widest">GA Evolution Picks</span>
+                    <span className="text-[10px] text-slate-600 border border-slate-700 rounded px-1.5 py-0.5">paper-traded · not live</span>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-3">
+                    {intel.ga_signals.map((s, i) => {
+                      const confPct = Math.round(s.confidence * 100)
+                      const upside = s.target && s.price ? ((s.target - s.price) / s.price * 100).toFixed(1) : null
+                      const downside = s.stop && s.price ? ((s.price - s.stop) / s.price * 100).toFixed(1) : null
+                      return (
+                        <div key={i} className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-white font-mono text-sm">{s.symbol}</span>
+                              <span className="text-[10px] text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 rounded-full">{s.action}</span>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm font-mono text-white">${s.price.toFixed(2)}</div>
+                              <div className={`text-[10px] font-mono ${confPct >= 65 ? 'text-green-400' : confPct >= 50 ? 'text-yellow-400' : 'text-slate-500'}`}>
+                                {confPct}% conf
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 mb-2">
+                            <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full ${confPct >= 65 ? 'bg-green-500' : confPct >= 50 ? 'bg-yellow-500' : 'bg-slate-500'}`}
+                                style={{ width: `${confPct}%` }} />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-[10px]">
+                            {upside && <div><span className="text-slate-600">Target </span><span className="text-green-400 font-mono">+{upside}%</span></div>}
+                            {downside && <div><span className="text-slate-600">Stop </span><span className="text-red-400 font-mono">-{downside}%</span></div>}
+                          </div>
+                          <div className="grid grid-cols-4 gap-1 mt-2">
+                            {Object.entries(s.scores).map(([k, v]) => (
+                              <div key={k} className="text-center">
+                                <div className="text-[9px] text-slate-600 capitalize">{k}</div>
+                                <div className={`text-[10px] font-mono ${Number(v) >= 0.7 ? 'text-green-400' : Number(v) >= 0.4 ? 'text-yellow-400' : 'text-slate-500'}`}>
+                                  {(Number(v) * 100).toFixed(0)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Sector Rotation */}
+              <div className="grid md:grid-cols-3 gap-3">
+                {intel.hot_sectors.length > 0 && (
+                  <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-4">
+                    <div className="text-[10px] text-green-400 font-mono uppercase tracking-widest mb-2">Hot Sectors</div>
+                    <div className="flex flex-wrap gap-1">
+                      {intel.hot_sectors.map(s => (
+                        <span key={s} className="text-xs bg-green-500/10 text-green-300 border border-green-500/20 px-2 py-0.5 rounded-full font-mono">{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {intel.bearish_symbols.length > 0 && (
+                  <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+                    <div className="text-[10px] text-red-400 font-mono uppercase tracking-widest mb-2">Avoid / Underperform</div>
+                    <div className="flex flex-wrap gap-1">
+                      {intel.bearish_symbols.map(s => (
+                        <span key={s} className="text-xs bg-red-500/10 text-red-300 border border-red-500/20 px-2 py-0.5 rounded-full font-mono">{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {intel.defensive.length > 0 && (
+                  <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-4">
+                    <div className="text-[10px] text-yellow-400 font-mono uppercase tracking-widest mb-2">Defensive Hedge</div>
+                    <div className="flex flex-wrap gap-1">
+                      {intel.defensive.map(s => (
+                        <span key={s} className="text-xs bg-yellow-500/10 text-yellow-300 border border-yellow-500/20 px-2 py-0.5 rounded-full font-mono">{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Congress / Insider Trades */}
+              {intel.congress_trades.length > 0 && (
+                <div>
+                  <div className="text-xs font-mono text-amber-400 uppercase tracking-widest mb-3">Congress &amp; Insider Trades</div>
+                  <div className="space-y-2">
+                    {intel.congress_trades.slice(0, 8).map((c, i) => (
+                      <div key={i} className="flex items-center justify-between rounded-lg border border-amber-500/15 bg-amber-500/5 px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold text-white font-mono text-sm w-14">{c.symbol}</span>
+                          <div>
+                            <div className="text-xs text-slate-300">{c.detail}</div>
+                            <div className="text-[10px] text-slate-600">{c.date}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono border ${
+                            c.type === 'CONGRESS_BUY' ? 'text-green-400 border-green-500/30 bg-green-500/10' :
+                            'text-red-400 border-red-500/30 bg-red-500/10'
+                          }`}>{c.type === 'CONGRESS_BUY' ? 'BUY' : 'SELL'}</span>
+                          <span className="text-[10px] text-amber-400 font-mono">score {c.score}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-slate-700 mt-2">Source: public congressional disclosure filings. Not investment advice.</p>
+                </div>
+              )}
+
+              {intel.generated_at && (
+                <p className="text-[10px] text-slate-700">GA Intel generated: {new Date(intel.generated_at).toLocaleString('en-SG', { dateStyle: 'medium', timeStyle: 'short' })}</p>
+              )}
+            </div>
+          )
         )}
 
         {/* Watchlist CTA */}
