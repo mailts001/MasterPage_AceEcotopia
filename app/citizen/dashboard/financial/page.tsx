@@ -117,6 +117,22 @@ interface Intel {
   error?: string
 }
 
+type Market = 'US' | 'HK' | 'ETF'
+
+interface SectorRotation { sector: string; etf: string; d5: number; d22: number }
+interface EtfPick extends BullishTicker {
+  etf_type?: string
+  top_holdings?: { symbol: string; chg_1d: number }[]
+  chg_1m?: number
+}
+interface EtfData {
+  timestamp: string | null
+  bullish: EtfPick[]
+  bearish: EtfPick[]
+  neutral: EtfPick[]
+  sector_rotation: SectorRotation[]
+}
+
 function ScoreBar({ score, max = 10 }: { score: number; max?: number }) {
   const pct = Math.min(100, (score / max) * 100)
   const color = pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-yellow-500' : 'bg-red-500'
@@ -213,10 +229,13 @@ function EmptyState({ label }: { label: string }) {
 export default function FinancialDashboard() {
   const [picks, setPicks]           = useState<Picks | null>(null)
   const [intel, setIntel]           = useState<Intel | null>(null)
+  const [etfData, setEtfData]       = useState<EtfData | null>(null)
   const [watchlist, setWatchlist]   = useState<string[]>([])
   const [loading, setLoading]       = useState(true)
   const [intelLoading, setIntelLoading] = useState(true)
   const [tab, setTab]               = useState<'momentum'|'squeeze'|'intel'>('momentum')
+  const [market, setMarket]         = useState<Market>('US')
+  const [marketLoading, setMarketLoading] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -235,6 +254,21 @@ export default function FinancialDashboard() {
       setIntelLoading(false)
     }).catch(() => setIntelLoading(false))
   }, [])
+
+  async function switchMarket(m: Market) {
+    if (m === market) return
+    setMarket(m)
+    if (m === 'US') return // already loaded
+    setMarketLoading(true)
+    try {
+      const res = await fetch(`/api/nexus/financial/picks?market=${m}`)
+      const data = await res.json()
+      if (m === 'HK') setPicks(data)
+      if (m === 'ETF') setEtfData(data)
+    } finally {
+      setMarketLoading(false)
+    }
+  }
 
   const bullish       = picks?.bullish ?? []
   const squeezes      = [...(picks?.squeeze_alerts ?? []), ...(picks?.spike_alerts ?? [])]
@@ -289,7 +323,26 @@ export default function FinancialDashboard() {
           ))}
         </div>
 
-        {/* Tabs */}
+        {/* Market selector */}
+        <div className="flex gap-2">
+          {([
+            { key: 'US',  label: '🇺🇸 US Market' },
+            { key: 'HK',  label: '🇭🇰 Hong Kong' },
+            { key: 'ETF', label: '🌏 Global ETFs' },
+          ] as const).map(m => (
+            <button key={m.key} onClick={() => switchMarket(m.key)}
+              className={`text-xs px-4 py-2 rounded-lg border transition font-medium ${
+                market === m.key
+                  ? 'bg-white/10 border-white/20 text-white'
+                  : 'border-white/8 text-slate-500 hover:text-slate-300 hover:border-white/15'
+              }`}>
+              {m.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Tabs — US only */}
+        {market === 'US' && (
         <div className="flex gap-1 bg-white/5 border border-white/10 rounded-xl p-1">
           {([
             { key: 'momentum', label: `📈 Momentum (${allMomentum.length})` },
@@ -306,9 +359,187 @@ export default function FinancialDashboard() {
             </button>
           ))}
         </div>
+        )}
 
-        {/* Signal cards */}
-        {tab === 'momentum' ? (
+        {/* ── HK CONTENT ── */}
+        {market === 'HK' && (
+          marketLoading ? (
+            <div className="space-y-4">
+              {[1,2,3].map(i => <div key={i} className="h-24 rounded-xl bg-white/5 animate-pulse" />)}
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* HK scanner picks */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs font-mono text-cyan-400 uppercase tracking-widest">HK Momentum Picks</span>
+                  {picks?.timestamp && <span className="text-[10px] text-slate-600">Last scan: {new Date(picks.timestamp).toLocaleString('en-SG', { dateStyle: 'short', timeStyle: 'short' })}</span>}
+                </div>
+                {(picks?.scanner_picks?.length ?? 0) === 0 ? (
+                  <div className="border border-dashed border-white/10 rounded-xl p-8 text-center">
+                    <p className="text-slate-600 text-sm mb-1">No HK picks right now</p>
+                    <p className="text-slate-700 text-xs">HK scanner runs at 9 AM SGT on weekdays</p>
+                  </div>
+                ) : (
+                  <div className="grid md:grid-cols-2 gap-3">
+                    {picks!.scanner_picks.map((p, i) => (
+                      <div key={i} className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-white font-mono text-sm">{p.symbol}</span>
+                            {watchlist.includes(p.symbol) && (
+                              <span className="text-[10px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded-full border border-cyan-500/30">⭐ watchlist</span>
+                            )}
+                          </div>
+                          {p.price && <span className="text-sm font-mono text-slate-300">HK${p.price.toFixed(2)}</span>}
+                        </div>
+                        {p.rsi && <div className="text-[10px] text-slate-500 mb-1">RSI {p.rsi.toFixed(0)} · Score {p.score ?? '—'}/10</div>}
+                        {(p.signals?.length ?? 0) > 0 && (
+                          <ul className="space-y-0.5">
+                            {p.signals!.map((s, j) => (
+                              <li key={j} className="text-[10px] text-cyan-300 flex gap-1"><span>✓</span>{s}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* HK squeeze alerts */}
+              {(picks?.squeeze_alerts?.length ?? 0) > 0 && (
+                <div>
+                  <div className="text-xs font-mono text-purple-400 uppercase tracking-widest mb-3">HK Squeeze Alerts</div>
+                  <div className="grid md:grid-cols-2 gap-3">
+                    {picks!.squeeze_alerts.map((s, i) => (
+                      <div key={i} className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-bold text-white font-mono text-sm">{s.symbol}</span>
+                          <span className="text-[10px] text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full">{s.type ?? 'Squeeze'}</span>
+                        </div>
+                        {s.price && <div className="text-sm font-mono text-slate-300 mb-2">HK${s.price.toFixed(2)}</div>}
+                        {(s.signals?.length ?? 0) > 0 && (
+                          <ul className="space-y-0.5">
+                            {s.signals!.map((sig, j) => <li key={j} className="text-[10px] text-purple-300 flex gap-1"><span>⚡</span>{sig}</li>)}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <p className="text-[10px] text-slate-700">HK scanner covers: 700, 9618, 9999, 3690, 1024, 2382, 2318 and more. 9988 excluded (position conflict).</p>
+            </div>
+          )
+        )}
+
+        {/* ── ETF CONTENT ── */}
+        {market === 'ETF' && (
+          marketLoading ? (
+            <div className="space-y-4">
+              {[1,2,3].map(i => <div key={i} className="h-24 rounded-xl bg-white/5 animate-pulse" />)}
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Sector Rotation Heatmap */}
+              {(etfData?.sector_rotation?.length ?? 0) > 0 && (
+                <div>
+                  <div className="text-xs font-mono text-slate-400 uppercase tracking-widest mb-3">Sector Rotation (5d / 22d)</div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {etfData!.sector_rotation.map((r, i) => {
+                      const d5Color = r.d5 > 1 ? 'text-green-400' : r.d5 < -1 ? 'text-red-400' : 'text-slate-400'
+                      const d22Color = r.d22 > 3 ? 'text-green-400' : r.d22 < -3 ? 'text-red-400' : 'text-slate-400'
+                      const bg = r.d5 > 1 ? 'border-green-500/20 bg-green-500/5' : r.d5 < -1 ? 'border-red-500/20 bg-red-500/5' : 'border-white/8 bg-white/3'
+                      return (
+                        <div key={i} className={`rounded-lg border ${bg} p-3`}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs text-white font-medium">{r.sector}</span>
+                            <span className="text-[9px] text-slate-600 font-mono">{r.etf}</span>
+                          </div>
+                          <div className="flex gap-2">
+                            <div><span className="text-[9px] text-slate-600">5d </span><span className={`text-[10px] font-mono font-bold ${d5Color}`}>{r.d5 > 0 ? '+' : ''}{r.d5.toFixed(1)}%</span></div>
+                            <div><span className="text-[9px] text-slate-600">22d </span><span className={`text-[10px] font-mono font-bold ${d22Color}`}>{r.d22 > 0 ? '+' : ''}{r.d22.toFixed(1)}%</span></div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+              {/* Bullish ETFs */}
+              {(etfData?.bullish?.length ?? 0) > 0 && (
+                <div>
+                  <div className="text-xs font-mono text-green-400 uppercase tracking-widest mb-3">Bullish Sector ETFs</div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {etfData!.bullish.map((e, i) => (
+                      <div key={i} className="rounded-xl border border-green-500/20 bg-green-500/5 p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <span className="font-bold text-white font-mono text-sm">{e.symbol}</span>
+                            {e.squeeze && <span className="ml-2 text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full border border-purple-500/30">⚡ squeeze</span>}
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-mono text-white">${e.price?.toFixed(2)}</div>
+                            <div className={`text-[10px] font-mono ${e.chg_1d >= 0 ? 'text-green-400' : 'text-red-400'}`}>{e.chg_1d >= 0 ? '+' : ''}{e.chg_1d?.toFixed(2)}% today</div>
+                          </div>
+                        </div>
+                        <ScoreBar score={e.bull_score} />
+                        <div className="mt-2 space-y-0.5">
+                          {e.bull_reasons?.slice(0, 3).map((r, j) => (
+                            <div key={j} className="text-[10px] text-green-300 flex gap-1"><span>✓</span>{r}</div>
+                          ))}
+                        </div>
+                        {(e as EtfPick).top_holdings && (e as EtfPick).top_holdings!.length > 0 && (
+                          <div className="mt-3 pt-2 border-t border-white/5">
+                            <div className="text-[9px] text-slate-600 mb-1 uppercase">Top holdings</div>
+                            <div className="flex flex-wrap gap-1">
+                              {(e as EtfPick).top_holdings!.slice(0, 5).map((h, j) => (
+                                <span key={j} className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${h.chg_1d >= 0 ? 'border-green-500/20 bg-green-500/8 text-green-300' : 'border-red-500/20 bg-red-500/8 text-red-300'}`}>
+                                  {h.symbol} {h.chg_1d >= 0 ? '+' : ''}{h.chg_1d.toFixed(1)}%
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Bearish ETFs */}
+              {(etfData?.bearish?.length ?? 0) > 0 && (
+                <div>
+                  <div className="text-xs font-mono text-red-400 uppercase tracking-widest mb-3">Bearish / Avoid</div>
+                  <div className="grid md:grid-cols-2 gap-3">
+                    {etfData!.bearish.map((e, i) => (
+                      <div key={i} className="rounded-xl border border-red-500/15 bg-red-500/5 p-4">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-bold text-white font-mono text-sm">{e.symbol}</span>
+                          <div className={`text-[10px] font-mono ${e.chg_1d < 0 ? 'text-red-400' : 'text-slate-400'}`}>{e.chg_1d >= 0 ? '+' : ''}{e.chg_1d?.toFixed(2)}%</div>
+                        </div>
+                        <div className="mt-1 space-y-0.5">
+                          {e.bear_reasons?.slice(0, 2).map((r, j) => (
+                            <div key={j} className="text-[10px] text-red-300 flex gap-1"><span>✗</span>{r}</div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {(etfData?.bullish?.length ?? 0) === 0 && (etfData?.bearish?.length ?? 0) === 0 && (
+                <div className="border border-dashed border-white/10 rounded-xl p-8 text-center">
+                  <p className="text-slate-600 text-sm">ETF screener data unavailable</p>
+                  <p className="text-slate-700 text-xs mt-1">ETF scan runs nightly at 9 PM SGT</p>
+                </div>
+              )}
+              <p className="text-[10px] text-slate-700">US sector ETFs only (XLK, XLV, XLF, XBI, etc.). AI-generated signals. Not financial advice.</p>
+            </div>
+          )
+        )}
+
+        {/* ── US SIGNAL CARDS ── */}
+        {market === 'US' && (tab === 'momentum' ? (
           loading ? (
             <div className="grid md:grid-cols-2 gap-4">
               {[1,2,3,4].map(i => <div key={i} className="h-40 rounded-xl bg-white/5 animate-pulse" />)}
@@ -678,7 +909,7 @@ export default function FinancialDashboard() {
             </div>
             )
           })()
-        )}
+        ))}
 
         {/* Watchlist CTA */}
         {watchlist.length === 0 && !loading && (
