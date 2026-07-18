@@ -67,19 +67,52 @@ interface CongressTrade {
   date: string
 }
 
+interface IronCondor {
+  symbol: string
+  short_put: number; long_put: number; short_call: number; long_call: number
+  expiry: string; dte: number
+  net_credit: number; credit_per_contract: number; max_loss_per_contract: number
+  lower_breakeven: number; upper_breakeven: number
+  prob_profit_pct: number; annual_yield_pct: number
+  iv_rank: number; current_price: number
+}
+
+interface OptionsRec {
+  strategy: string; short: string; rationale: string
+  suitable_for: string; avoid: string; emoji: string
+}
+
 interface Intel {
-  generated_at: string | null
-  market_regime: string
-  regime_bias: string
-  regime_notes: string[]
-  ic_suitable: boolean
+  // regime
+  regime: string
+  regime_score: number
+  regime_signals: string[]
+  regime_updated: string | null
+  commentary: string
+  entry_allowed: boolean
+  size_multiplier: number
+  halt_strategies: string[]
+  // internals
+  vix: number | null; vix_5d_chg: number | null; spy_5d: number | null
+  breadth_pct: number | null
+  defensive_outperforming: boolean
+  rotation_signals: string[]
+  options_stress: boolean; options_signals: string[]
+  // news
+  news_sentiment: number | null; news_summary: string; news_headline_count: number
+  news_bearish: { title: string; score: number; theme: string }[]
+  news_bullish: { title: string; score: number; theme: string }[]
+  shock_event: boolean
+  // options
+  options_recommendation: OptionsRec
+  iron_condors: IronCondor[]
+  options_summary: { total_opportunities: number; iron_condors: number; avg_yield_pct: number }
+  options_scanned_at: string | null
+  // ga
+  ga_signals: GaSignal[]; hot_sectors: string[]; bearish_symbols: string[]; defensive: string[]
   best_strategy: { name: string; win_rate: number; sharpe: number | null; avg_pnl: number; count: number } | null
   strategy_label: string
-  rationale: string
-  ga_signals: GaSignal[]
-  hot_sectors: string[]
-  bearish_symbols: string[]
-  defensive: string[]
+  // congress
   congress_trades: CongressTrade[]
   error?: string
 }
@@ -329,52 +362,220 @@ export default function FinancialDashboard() {
           /* ── GA Intel Tab ── */
           intelLoading ? (
             <div className="space-y-4">
-              {[1,2,3].map(i => <div key={i} className="h-28 rounded-xl bg-white/5 animate-pulse" />)}
+              {[1,2,3,4].map(i => <div key={i} className="h-28 rounded-xl bg-white/5 animate-pulse" />)}
             </div>
           ) : !intel ? (
             <EmptyState label="intel" />
-          ) : (
-            <div className="space-y-6">
+          ) : (() => {
+            const regimeColor = {
+              BULL: { border: 'border-green-500/30', bg: 'bg-green-500/8', text: 'text-green-400', badge: 'border-green-500/40 bg-green-500/10 text-green-400' },
+              CAUTION: { border: 'border-yellow-500/30', bg: 'bg-yellow-500/8', text: 'text-yellow-400', badge: 'border-yellow-500/40 bg-yellow-500/10 text-yellow-400' },
+              WARNING: { border: 'border-orange-500/40', bg: 'bg-orange-500/8', text: 'text-orange-400', badge: 'border-orange-500/40 bg-orange-500/10 text-orange-400' },
+              DANGER:  { border: 'border-red-500/40',    bg: 'bg-red-500/8',    text: 'text-red-400',    badge: 'border-red-500/40 bg-red-500/10 text-red-400' },
+            }[intel.regime] ?? { border: 'border-slate-500/30', bg: 'bg-slate-500/8', text: 'text-slate-400', badge: 'border-slate-500/40 bg-slate-500/10 text-slate-400' }
 
-              {/* Market Regime + GA Recommendation */}
-              <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-5">
+            return (
+            <div className="space-y-5">
+
+              {/* ── REGIME BANNER ── */}
+              <div className={`rounded-xl border ${regimeColor.border} ${regimeColor.bg} p-5`}>
                 <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-mono text-cyan-400 uppercase tracking-widest">Market Regime</span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${
-                        intel.regime_bias === 'bullish' ? 'border-green-500/40 bg-green-500/10 text-green-400' :
-                        intel.regime_bias === 'bearish' ? 'border-red-500/40 bg-red-500/10 text-red-400' :
-                        'border-slate-500/40 bg-slate-500/10 text-slate-400'
-                      }`}>{intel.regime_bias}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{intel.options_recommendation?.emoji ?? '⚪'}</span>
+                    <div>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className={`text-lg font-bold ${regimeColor.text}`}>{intel.regime}</span>
+                        <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${regimeColor.badge}`}>
+                          {intel.regime_score}/10 signals
+                        </span>
+                        {!intel.entry_allowed && (
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border border-red-500/40 bg-red-500/10 text-red-400">ENTRIES HALTED</span>
+                        )}
+                        {intel.entry_allowed && intel.size_multiplier < 1 && (
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border border-orange-500/40 bg-orange-500/10 text-orange-400">
+                            {Math.round(intel.size_multiplier * 100)}% size
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-300">{intel.commentary}</p>
                     </div>
-                    <div className="text-xl font-bold text-white">{intel.market_regime}</div>
                   </div>
-                  {intel.best_strategy && (
-                    <div className="text-right">
-                      <div className="text-xs text-slate-500 mb-0.5">GA Best Strategy</div>
-                      <div className="text-sm font-bold text-green-400">{intel.strategy_label}</div>
-                      {intel.best_strategy.sharpe && (
-                        <div className="text-[10px] text-slate-500">Sharpe {intel.best_strategy.sharpe} · {intel.best_strategy.win_rate.toFixed(0)}% win</div>
-                      )}
+                  <div className="text-right shrink-0 ml-4">
+                    <div className="text-[10px] text-slate-600 mb-1">VIX</div>
+                    <div className={`text-lg font-bold font-mono ${intel.vix_5d_chg && intel.vix_5d_chg > 15 ? 'text-orange-400' : 'text-slate-300'}`}>
+                      {intel.vix?.toFixed(1)}
                     </div>
-                  )}
+                    {intel.vix_5d_chg && (
+                      <div className="text-[10px] font-mono text-orange-400">+{intel.vix_5d_chg.toFixed(1)}% 5d</div>
+                    )}
+                  </div>
                 </div>
-                <p className="text-sm text-slate-300 leading-relaxed mb-3">{intel.rationale}</p>
-                {intel.regime_notes.length > 0 && (
-                  <ul className="space-y-0.5">
-                    {intel.regime_notes.map((n, i) => (
-                      <li key={i} className="text-[11px] text-slate-500">{n}</li>
+
+                {/* Regime signals */}
+                {intel.regime_signals.length > 0 && (
+                  <ul className="space-y-1 mb-3">
+                    {intel.regime_signals.map((s, i) => (
+                      <li key={i} className="flex items-start gap-2 text-[11px] text-slate-400">
+                        <span className="text-orange-500 mt-0.5 shrink-0">▲</span>{s}
+                      </li>
                     ))}
                   </ul>
                 )}
+
+                {/* Halted strategies */}
+                {intel.halt_strategies.length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] text-slate-600">Halted:</span>
+                    {intel.halt_strategies.map(s => (
+                      <span key={s} className="text-[10px] font-mono px-2 py-0.5 rounded border border-red-500/20 bg-red-500/8 text-red-400">{s}</span>
+                    ))}
+                    <span className="text-[10px] text-slate-600 ml-1">· Only MeanReversion + Squeeze active</span>
+                  </div>
+                )}
               </div>
 
-              {/* GA Shadow Signals */}
+              {/* ── MARKET INTERNALS ROW ── */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { label: 'SPY 5d', value: intel.spy_5d != null ? `${intel.spy_5d > 0 ? '+' : ''}${intel.spy_5d.toFixed(2)}%` : '—', color: intel.spy_5d != null && intel.spy_5d < 0 ? 'text-red-400' : 'text-green-400' },
+                  { label: 'Breadth', value: intel.breadth_pct != null ? `${intel.breadth_pct.toFixed(0)}%` : '—', color: intel.breadth_pct != null && intel.breadth_pct < 50 ? 'text-red-400' : 'text-green-400' },
+                  { label: 'SKEW', value: intel.options_signals.length > 0 ? `${intel.options_signals[0].match(/\d+/)?.[0] ?? '—'}` : '—', color: intel.options_stress ? 'text-orange-400' : 'text-slate-400' },
+                  { label: 'Defensive', value: intel.defensive_outperforming ? 'Outperforming' : 'Normal', color: intel.defensive_outperforming ? 'text-orange-400' : 'text-slate-400' },
+                ].map(m => (
+                  <div key={m.label} className="rounded-lg border border-white/8 bg-white/3 p-3 text-center">
+                    <div className={`text-sm font-bold font-mono ${m.color}`}>{m.value}</div>
+                    <div className="text-[10px] text-slate-600 mt-0.5">{m.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* ── NEWS SENTIMENT ── */}
+              <div className="rounded-xl border border-slate-700/50 bg-white/3 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-mono text-slate-400 uppercase tracking-widest">News Sentiment</span>
+                  <div className="flex items-center gap-2">
+                    {intel.shock_event && (
+                      <span className="text-[10px] text-red-400 border border-red-500/30 bg-red-500/10 px-2 py-0.5 rounded-full font-mono">⚡ SHOCK EVENT</span>
+                    )}
+                    <span className={`text-sm font-bold font-mono ${intel.news_sentiment != null && intel.news_sentiment < -0.1 ? 'text-red-400' : intel.news_sentiment != null && intel.news_sentiment > 0.1 ? 'text-green-400' : 'text-slate-400'}`}>
+                      {intel.news_sentiment != null ? intel.news_sentiment.toFixed(2) : '—'}
+                    </span>
+                    <span className="text-[10px] text-slate-600">/ {intel.news_headline_count} headlines</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-500 mb-3">{intel.news_summary}</p>
+                {intel.news_bearish.length > 0 && (
+                  <div className="space-y-1.5">
+                    {intel.news_bearish.map((n, i) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <span className="text-[9px] text-red-500 mt-1 shrink-0 font-mono">{n.score.toFixed(1)}</span>
+                        <div>
+                          <div className="text-[10px] text-red-300 leading-snug">{n.title}</div>
+                          <div className="text-[9px] text-slate-600">{n.theme}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {intel.news_bullish.length > 0 && (
+                  <div className="space-y-1.5 mt-3 border-t border-white/5 pt-3">
+                    {intel.news_bullish.map((n, i) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <span className="text-[9px] text-green-500 mt-1 shrink-0 font-mono">+{n.score.toFixed(1)}</span>
+                        <div className="text-[10px] text-green-300 leading-snug">{n.title}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* ── OPTIONS STRATEGY RECOMMENDATION ── */}
+              {intel.options_recommendation && (
+                <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/5 p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <div className="text-[10px] text-cyan-400 font-mono uppercase tracking-widest mb-1">Recommended Options Strategy</div>
+                      <div className="text-base font-bold text-white">{intel.options_recommendation.short}</div>
+                      <div className="text-xs text-slate-400 mt-0.5">{intel.options_recommendation.strategy}</div>
+                    </div>
+                    <span className="text-2xl">{intel.options_recommendation.emoji}</span>
+                  </div>
+                  <p className="text-sm text-slate-300 leading-relaxed mb-3">{intel.options_recommendation.rationale}</p>
+                  <div className="grid md:grid-cols-2 gap-3">
+                    <div className="rounded-lg bg-green-500/5 border border-green-500/15 p-3">
+                      <div className="text-[9px] text-green-500 font-mono uppercase tracking-widest mb-1">Suitable for</div>
+                      <p className="text-[11px] text-slate-300 leading-snug">{intel.options_recommendation.suitable_for}</p>
+                    </div>
+                    <div className="rounded-lg bg-red-500/5 border border-red-500/15 p-3">
+                      <div className="text-[9px] text-red-500 font-mono uppercase tracking-widest mb-1">Avoid</div>
+                      <p className="text-[11px] text-slate-300 leading-snug">{intel.options_recommendation.avoid}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── IRON CONDOR SETUPS ── */}
+              {intel.iron_condors.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-xs font-mono text-purple-400 uppercase tracking-widest">Live Iron Condor Setups</span>
+                    <span className="text-[10px] text-slate-600 border border-slate-700 rounded px-1.5 py-0.5">
+                      {intel.iron_condors.length} opportunities · avg {intel.options_summary?.avg_yield_pct?.toFixed(0)}% ann. yield
+                    </span>
+                  </div>
+                  <div className="grid md:grid-cols-3 gap-3">
+                    {intel.iron_condors.map((ic, i) => (
+                      <div key={i} className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-bold text-white font-mono text-sm">{ic.symbol}</span>
+                          <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
+                            ic.prob_profit_pct >= 80 ? 'text-green-400 border-green-500/30 bg-green-500/10' :
+                            'text-yellow-400 border-yellow-500/30 bg-yellow-500/10'
+                          }`}>{ic.prob_profit_pct}% PoP</span>
+                        </div>
+                        {/* Strikes */}
+                        <div className="text-[10px] text-slate-500 font-mono mb-2">
+                          <span className="text-red-400">{ic.long_put}</span>
+                          <span className="text-slate-700"> / </span>
+                          <span className="text-green-400">{ic.short_put}</span>
+                          <span className="text-slate-600"> ··· </span>
+                          <span className="text-green-400">{ic.short_call}</span>
+                          <span className="text-slate-700"> / </span>
+                          <span className="text-red-400">{ic.long_call}</span>
+                        </div>
+                        <div className="text-[9px] text-slate-600 font-mono mb-3">
+                          Current ${ic.current_price?.toFixed(2)} · {ic.dte}d to {ic.expiry}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <div className="text-[9px] text-slate-600 uppercase">Credit</div>
+                            <div className="text-xs font-bold text-green-400 font-mono">${ic.credit_per_contract}/contract</div>
+                          </div>
+                          <div>
+                            <div className="text-[9px] text-slate-600 uppercase">Max loss</div>
+                            <div className="text-xs font-bold text-red-400 font-mono">${ic.max_loss_per_contract}</div>
+                          </div>
+                          <div>
+                            <div className="text-[9px] text-slate-600 uppercase">Breakevens</div>
+                            <div className="text-[10px] text-slate-400 font-mono">{ic.lower_breakeven} – {ic.upper_breakeven}</div>
+                          </div>
+                          <div>
+                            <div className="text-[9px] text-slate-600 uppercase">IV Rank</div>
+                            <div className={`text-xs font-mono font-bold ${ic.iv_rank > 50 ? 'text-orange-400' : 'text-slate-400'}`}>{ic.iv_rank?.toFixed(1)}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-slate-700 mt-2">Iron Condor strikes are AI-generated. Verify fills and margin requirements before trading. Not financial advice.</p>
+                </div>
+              )}
+
+              {/* ── GA EVOLUTION PICKS ── */}
               {intel.ga_signals.length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xs font-mono text-indigo-400 uppercase tracking-widest">GA Evolution Picks</span>
+                    <span className="text-xs font-mono text-indigo-400 uppercase tracking-widest">GA Evolution Equity Picks</span>
                     <span className="text-[10px] text-slate-600 border border-slate-700 rounded px-1.5 py-0.5">paper-traded · not live</span>
                   </div>
                   <div className="grid md:grid-cols-2 gap-3">
@@ -391,28 +592,21 @@ export default function FinancialDashboard() {
                             </div>
                             <div className="text-right">
                               <div className="text-sm font-mono text-white">${s.price.toFixed(2)}</div>
-                              <div className={`text-[10px] font-mono ${confPct >= 65 ? 'text-green-400' : confPct >= 50 ? 'text-yellow-400' : 'text-slate-500'}`}>
-                                {confPct}% conf
-                              </div>
+                              <div className={`text-[10px] font-mono ${confPct >= 65 ? 'text-green-400' : confPct >= 50 ? 'text-yellow-400' : 'text-slate-500'}`}>{confPct}% conf</div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1 mb-2">
-                            <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
-                              <div className={`h-full rounded-full ${confPct >= 65 ? 'bg-green-500' : confPct >= 50 ? 'bg-yellow-500' : 'bg-slate-500'}`}
-                                style={{ width: `${confPct}%` }} />
-                            </div>
+                          <div className="h-1 bg-white/10 rounded-full overflow-hidden mb-2">
+                            <div className={`h-full rounded-full ${confPct >= 65 ? 'bg-green-500' : confPct >= 50 ? 'bg-yellow-500' : 'bg-slate-500'}`} style={{ width: `${confPct}%` }} />
                           </div>
-                          <div className="grid grid-cols-2 gap-2 text-[10px]">
+                          <div className="grid grid-cols-2 gap-2 text-[10px] mb-2">
                             {upside && <div><span className="text-slate-600">Target </span><span className="text-green-400 font-mono">+{upside}%</span></div>}
                             {downside && <div><span className="text-slate-600">Stop </span><span className="text-red-400 font-mono">-{downside}%</span></div>}
                           </div>
-                          <div className="grid grid-cols-4 gap-1 mt-2">
+                          <div className="grid grid-cols-4 gap-1">
                             {Object.entries(s.scores).map(([k, v]) => (
                               <div key={k} className="text-center">
                                 <div className="text-[9px] text-slate-600 capitalize">{k}</div>
-                                <div className={`text-[10px] font-mono ${Number(v) >= 0.7 ? 'text-green-400' : Number(v) >= 0.4 ? 'text-yellow-400' : 'text-slate-500'}`}>
-                                  {(Number(v) * 100).toFixed(0)}
-                                </div>
+                                <div className={`text-[10px] font-mono ${Number(v) >= 0.7 ? 'text-green-400' : Number(v) >= 0.4 ? 'text-yellow-400' : 'text-slate-500'}`}>{(Number(v) * 100).toFixed(0)}</div>
                               </div>
                             ))}
                           </div>
@@ -423,25 +617,21 @@ export default function FinancialDashboard() {
                 </div>
               )}
 
-              {/* Sector Rotation */}
+              {/* ── SECTOR ROTATION ── */}
               <div className="grid md:grid-cols-3 gap-3">
                 {intel.hot_sectors.length > 0 && (
                   <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-4">
                     <div className="text-[10px] text-green-400 font-mono uppercase tracking-widest mb-2">Hot Sectors</div>
                     <div className="flex flex-wrap gap-1">
-                      {intel.hot_sectors.map(s => (
-                        <span key={s} className="text-xs bg-green-500/10 text-green-300 border border-green-500/20 px-2 py-0.5 rounded-full font-mono">{s}</span>
-                      ))}
+                      {intel.hot_sectors.map(s => <span key={s} className="text-xs bg-green-500/10 text-green-300 border border-green-500/20 px-2 py-0.5 rounded-full font-mono">{s}</span>)}
                     </div>
                   </div>
                 )}
                 {intel.bearish_symbols.length > 0 && (
                   <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
-                    <div className="text-[10px] text-red-400 font-mono uppercase tracking-widest mb-2">Avoid / Underperform</div>
+                    <div className="text-[10px] text-red-400 font-mono uppercase tracking-widest mb-2">Avoid</div>
                     <div className="flex flex-wrap gap-1">
-                      {intel.bearish_symbols.map(s => (
-                        <span key={s} className="text-xs bg-red-500/10 text-red-300 border border-red-500/20 px-2 py-0.5 rounded-full font-mono">{s}</span>
-                      ))}
+                      {intel.bearish_symbols.map(s => <span key={s} className="text-xs bg-red-500/10 text-red-300 border border-red-500/20 px-2 py-0.5 rounded-full font-mono">{s}</span>)}
                     </div>
                   </div>
                 )}
@@ -449,20 +639,18 @@ export default function FinancialDashboard() {
                   <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-4">
                     <div className="text-[10px] text-yellow-400 font-mono uppercase tracking-widest mb-2">Defensive Hedge</div>
                     <div className="flex flex-wrap gap-1">
-                      {intel.defensive.map(s => (
-                        <span key={s} className="text-xs bg-yellow-500/10 text-yellow-300 border border-yellow-500/20 px-2 py-0.5 rounded-full font-mono">{s}</span>
-                      ))}
+                      {intel.defensive.map(s => <span key={s} className="text-xs bg-yellow-500/10 text-yellow-300 border border-yellow-500/20 px-2 py-0.5 rounded-full font-mono">{s}</span>)}
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Congress / Insider Trades */}
+              {/* ── CONGRESS TRADES ── */}
               {intel.congress_trades.length > 0 && (
                 <div>
                   <div className="text-xs font-mono text-amber-400 uppercase tracking-widest mb-3">Congress &amp; Insider Trades</div>
                   <div className="space-y-2">
-                    {intel.congress_trades.slice(0, 8).map((c, i) => (
+                    {intel.congress_trades.slice(0, 6).map((c, i) => (
                       <div key={i} className="flex items-center justify-between rounded-lg border border-amber-500/15 bg-amber-500/5 px-4 py-3">
                         <div className="flex items-center gap-3">
                           <span className="font-bold text-white font-mono text-sm w-14">{c.symbol}</span>
@@ -472,10 +660,9 @@ export default function FinancialDashboard() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono border ${
-                            c.type === 'CONGRESS_BUY' ? 'text-green-400 border-green-500/30 bg-green-500/10' :
-                            'text-red-400 border-red-500/30 bg-red-500/10'
-                          }`}>{c.type === 'CONGRESS_BUY' ? 'BUY' : 'SELL'}</span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono border ${c.type === 'CONGRESS_BUY' ? 'text-green-400 border-green-500/30 bg-green-500/10' : 'text-red-400 border-red-500/30 bg-red-500/10'}`}>
+                            {c.type === 'CONGRESS_BUY' ? 'BUY' : 'SELL'}
+                          </span>
                           <span className="text-[10px] text-amber-400 font-mono">score {c.score}</span>
                         </div>
                       </div>
@@ -485,11 +672,12 @@ export default function FinancialDashboard() {
                 </div>
               )}
 
-              {intel.generated_at && (
-                <p className="text-[10px] text-slate-700">GA Intel generated: {new Date(intel.generated_at).toLocaleString('en-SG', { dateStyle: 'medium', timeStyle: 'short' })}</p>
+              {intel.regime_updated && (
+                <p className="text-[10px] text-slate-700">Regime updated: {new Date(intel.regime_updated).toLocaleString('en-SG', { dateStyle: 'medium', timeStyle: 'short' })}</p>
               )}
             </div>
-          )
+            )
+          })()
         )}
 
         {/* Watchlist CTA */}
