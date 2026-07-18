@@ -117,7 +117,7 @@ interface Intel {
   error?: string
 }
 
-type Market = 'US' | 'HK' | 'ETF'
+type Market = 'US' | 'HK' | 'JP' | 'SG' | 'ETF'
 
 interface SectorRotation { sector: string; etf: string; d5: number; d22: number }
 interface EtfPick extends BullishTicker {
@@ -263,8 +263,8 @@ export default function FinancialDashboard() {
     try {
       const res = await fetch(`/api/nexus/financial/picks?market=${m}`)
       const data = await res.json()
-      if (m === 'HK') setPicks(data)
       if (m === 'ETF') setEtfData(data)
+      else setPicks(data)
     } finally {
       setMarketLoading(false)
     }
@@ -326,9 +326,11 @@ export default function FinancialDashboard() {
         {/* Market selector */}
         <div className="flex gap-2">
           {([
-            { key: 'US',  label: '🇺🇸 US Market' },
-            { key: 'HK',  label: '🇭🇰 Hong Kong' },
-            { key: 'ETF', label: '🌏 Global ETFs' },
+            { key: 'US',  label: '🇺🇸 US' },
+            { key: 'HK',  label: '🇭🇰 HK' },
+            { key: 'JP',  label: '🇯🇵 Japan' },
+            { key: 'SG',  label: '🇸🇬 Singapore' },
+            { key: 'ETF', label: '🌏 ETFs' },
           ] as const).map(m => (
             <button key={m.key} onClick={() => switchMarket(m.key)}
               className={`text-xs px-4 py-2 rounded-lg border transition font-medium ${
@@ -361,77 +363,85 @@ export default function FinancialDashboard() {
         </div>
         )}
 
-        {/* ── HK CONTENT ── */}
-        {market === 'HK' && (
-          marketLoading ? (
-            <div className="space-y-4">
-              {[1,2,3].map(i => <div key={i} className="h-24 rounded-xl bg-white/5 animate-pulse" />)}
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {/* HK scanner picks */}
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-xs font-mono text-cyan-400 uppercase tracking-widest">HK Momentum Picks</span>
-                  {picks?.timestamp && <span className="text-[10px] text-slate-600">Last scan: {new Date(picks.timestamp).toLocaleString('en-SG', { dateStyle: 'short', timeStyle: 'short' })}</span>}
-                </div>
-                {(picks?.scanner_picks?.length ?? 0) === 0 ? (
-                  <div className="border border-dashed border-white/10 rounded-xl p-8 text-center">
-                    <p className="text-slate-600 text-sm mb-1">No HK picks right now</p>
-                    <p className="text-slate-700 text-xs">HK scanner runs at 9 AM SGT on weekdays</p>
+        {/* ── ASIA / REGIONAL MARKET CONTENT (HK | JP | SG) ── */}
+        {(market === 'HK' || market === 'JP' || market === 'SG') && (() => {
+          const META: Record<string, { label: string; currency: string; scanTime: string; note: string }> = {
+            HK:  { label: 'HK Momentum Picks',    currency: 'HK$', scanTime: '9 AM SGT weekdays',    note: 'Covers Hang Seng blue chips + tech. 9988 excluded (position conflict).' },
+            JP:  { label: 'Japan Momentum Picks',  currency: '¥',   scanTime: '12:15 AM SGT weekdays', note: 'Covers Nikkei 225 blue chips: Sony, Toyota, SoftBank, Nintendo, MUFG and more.' },
+            SG:  { label: 'Singapore Momentum Picks', currency: 'S$', scanTime: '9:15 AM SGT weekdays', note: 'Covers STI components + major REITs: DBS, OCBC, CapitaLand, Ascendas.' },
+          }
+          const m = META[market]
+          return (
+            marketLoading ? (
+              <div className="space-y-4">
+                {[1,2,3].map(i => <div key={i} className="h-24 rounded-xl bg-white/5 animate-pulse" />)}
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Scanner picks */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-xs font-mono text-cyan-400 uppercase tracking-widest">{m.label}</span>
+                    {picks?.timestamp && <span className="text-[10px] text-slate-600">Last scan: {new Date(picks.timestamp).toLocaleString('en-SG', { dateStyle: 'short', timeStyle: 'short' })}</span>}
                   </div>
-                ) : (
-                  <div className="grid md:grid-cols-2 gap-3">
-                    {picks!.scanner_picks.map((p, i) => (
-                      <div key={i} className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-white font-mono text-sm">{p.symbol}</span>
-                            {watchlist.includes(p.symbol) && (
-                              <span className="text-[10px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded-full border border-cyan-500/30">⭐ watchlist</span>
-                            )}
+                  {(picks?.scanner_picks?.length ?? 0) === 0 ? (
+                    <div className="border border-dashed border-white/10 rounded-xl p-8 text-center">
+                      <p className="text-slate-600 text-sm mb-1">No {market} picks right now</p>
+                      <p className="text-slate-700 text-xs">Scanner runs at {m.scanTime}</p>
+                    </div>
+                  ) : (
+                    <div className="grid md:grid-cols-2 gap-3">
+                      {picks!.scanner_picks.map((p, i) => (
+                        <div key={i} className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-white font-mono text-sm">{p.symbol}</span>
+                              {watchlist.includes(p.symbol) && (
+                                <span className="text-[10px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded-full border border-cyan-500/30">⭐ watchlist</span>
+                              )}
+                            </div>
+                            {p.price && <span className="text-sm font-mono text-slate-300">{m.currency}{p.price.toFixed(2)}</span>}
                           </div>
-                          {p.price && <span className="text-sm font-mono text-slate-300">HK${p.price.toFixed(2)}</span>}
+                          {p.rsi && <div className="text-[10px] text-slate-500 mb-1">RSI {p.rsi.toFixed(0)} · Score {p.score ?? '—'}/10</div>}
+                          {(p.signals?.length ?? 0) > 0 && (
+                            <ul className="space-y-0.5">
+                              {p.signals!.map((s, j) => (
+                                <li key={j} className="text-[10px] text-cyan-300 flex gap-1"><span>✓</span>{s}</li>
+                              ))}
+                            </ul>
+                          )}
                         </div>
-                        {p.rsi && <div className="text-[10px] text-slate-500 mb-1">RSI {p.rsi.toFixed(0)} · Score {p.score ?? '—'}/10</div>}
-                        {(p.signals?.length ?? 0) > 0 && (
-                          <ul className="space-y-0.5">
-                            {p.signals!.map((s, j) => (
-                              <li key={j} className="text-[10px] text-cyan-300 flex gap-1"><span>✓</span>{s}</li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {/* Squeeze alerts */}
+                {(picks?.squeeze_alerts?.length ?? 0) > 0 && (
+                  <div>
+                    <div className="text-xs font-mono text-purple-400 uppercase tracking-widest mb-3">{market} Squeeze Alerts</div>
+                    <div className="grid md:grid-cols-2 gap-3">
+                      {picks!.squeeze_alerts.map((s, i) => (
+                        <div key={i} className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-bold text-white font-mono text-sm">{s.symbol}</span>
+                            <span className="text-[10px] text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full">{s.type ?? 'Squeeze'}</span>
+                          </div>
+                          {s.price && <div className="text-sm font-mono text-slate-300 mb-2">{m.currency}{s.price.toFixed(2)}</div>}
+                          {(s.signals?.length ?? 0) > 0 && (
+                            <ul className="space-y-0.5">
+                              {s.signals!.map((sig, j) => <li key={j} className="text-[10px] text-purple-300 flex gap-1"><span>⚡</span>{sig}</li>)}
+                            </ul>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
+                <p className="text-[10px] text-slate-700">{m.note}</p>
               </div>
-              {/* HK squeeze alerts */}
-              {(picks?.squeeze_alerts?.length ?? 0) > 0 && (
-                <div>
-                  <div className="text-xs font-mono text-purple-400 uppercase tracking-widest mb-3">HK Squeeze Alerts</div>
-                  <div className="grid md:grid-cols-2 gap-3">
-                    {picks!.squeeze_alerts.map((s, i) => (
-                      <div key={i} className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-bold text-white font-mono text-sm">{s.symbol}</span>
-                          <span className="text-[10px] text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full">{s.type ?? 'Squeeze'}</span>
-                        </div>
-                        {s.price && <div className="text-sm font-mono text-slate-300 mb-2">HK${s.price.toFixed(2)}</div>}
-                        {(s.signals?.length ?? 0) > 0 && (
-                          <ul className="space-y-0.5">
-                            {s.signals!.map((sig, j) => <li key={j} className="text-[10px] text-purple-300 flex gap-1"><span>⚡</span>{sig}</li>)}
-                          </ul>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <p className="text-[10px] text-slate-700">HK scanner covers: 700, 9618, 9999, 3690, 1024, 2382, 2318 and more. 9988 excluded (position conflict).</p>
-            </div>
+            )
           )
-        )}
+        })()}
 
         {/* ── ETF CONTENT ── */}
         {market === 'ETF' && (
