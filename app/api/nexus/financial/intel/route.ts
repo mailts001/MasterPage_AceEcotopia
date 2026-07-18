@@ -14,18 +14,25 @@ export async function GET() {
     return NextResponse.json(data)
   } catch (e) {
     return NextResponse.json({
-      generated_at: null,
-      market_regime: 'Unknown',
-      regime_bias: 'neutral',
-      regime_notes: [],
-      ic_suitable: false,
-      best_strategy: null,
-      strategy_label: 'Unknown',
-      rationale: 'Intel data temporarily unavailable.',
-      ga_signals: [],
-      hot_sectors: [],
-      bearish_symbols: [],
-      defensive: [],
+      // regime
+      regime: 'UNKNOWN', regime_score: 0, regime_signals: [], regime_updated: null,
+      commentary: 'Intel data temporarily unavailable.', entry_allowed: true,
+      size_multiplier: 1.0, halt_strategies: [],
+      // internals
+      vix: null, vix_5d_chg: null, spy_5d: null, breadth_pct: null,
+      defensive_outperforming: false, rotation_signals: [],
+      options_stress: false, options_signals: [],
+      // news
+      news_sentiment: null, news_summary: '', news_headline_count: 0,
+      news_bearish: [], news_bullish: [], shock_event: false,
+      // options
+      options_recommendation: null, iron_condors: [],
+      options_summary: { total_opportunities: 0, iron_condors: 0, avg_yield_pct: 0 },
+      options_scanned_at: null,
+      // ga
+      ga_signals: [], hot_sectors: [], bearish_symbols: [], defensive: [],
+      best_strategy: null, strategy_label: 'Unknown',
+      // congress
       congress_trades: [],
       error: String(e),
     })

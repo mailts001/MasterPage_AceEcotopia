@@ -412,7 +412,7 @@ export default function FinancialDashboard() {
                 </div>
 
                 {/* Regime signals */}
-                {intel.regime_signals.length > 0 && (
+                {(intel.regime_signals?.length ?? 0) > 0 && (
                   <ul className="space-y-1 mb-3">
                     {intel.regime_signals.map((s, i) => (
                       <li key={i} className="flex items-start gap-2 text-[11px] text-slate-400">
@@ -423,7 +423,7 @@ export default function FinancialDashboard() {
                 )}
 
                 {/* Halted strategies */}
-                {intel.halt_strategies.length > 0 && (
+                {(intel.halt_strategies?.length ?? 0) > 0 && (
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[10px] text-slate-600">Halted:</span>
                     {intel.halt_strategies.map(s => (
@@ -439,7 +439,7 @@ export default function FinancialDashboard() {
                 {[
                   { label: 'SPY 5d', value: intel.spy_5d != null ? `${intel.spy_5d > 0 ? '+' : ''}${intel.spy_5d.toFixed(2)}%` : '—', color: intel.spy_5d != null && intel.spy_5d < 0 ? 'text-red-400' : 'text-green-400' },
                   { label: 'Breadth', value: intel.breadth_pct != null ? `${intel.breadth_pct.toFixed(0)}%` : '—', color: intel.breadth_pct != null && intel.breadth_pct < 50 ? 'text-red-400' : 'text-green-400' },
-                  { label: 'SKEW', value: intel.options_signals.length > 0 ? `${intel.options_signals[0].match(/\d+/)?.[0] ?? '—'}` : '—', color: intel.options_stress ? 'text-orange-400' : 'text-slate-400' },
+                  { label: 'SKEW', value: (intel.options_signals?.length ?? 0) > 0 ? `${intel.options_signals[0].match(/\d+/)?.[0] ?? '—'}` : '—', color: intel.options_stress ? 'text-orange-400' : 'text-slate-400' },
                   { label: 'Defensive', value: intel.defensive_outperforming ? 'Outperforming' : 'Normal', color: intel.defensive_outperforming ? 'text-orange-400' : 'text-slate-400' },
                 ].map(m => (
                   <div key={m.label} className="rounded-lg border border-white/8 bg-white/3 p-3 text-center">
@@ -464,7 +464,7 @@ export default function FinancialDashboard() {
                   </div>
                 </div>
                 <p className="text-[11px] text-slate-500 mb-3">{intel.news_summary}</p>
-                {intel.news_bearish.length > 0 && (
+                {(intel.news_bearish?.length ?? 0) > 0 && (
                   <div className="space-y-1.5">
                     {intel.news_bearish.map((n, i) => (
                       <div key={i} className="flex items-start gap-2">
@@ -477,7 +477,7 @@ export default function FinancialDashboard() {
                     ))}
                   </div>
                 )}
-                {intel.news_bullish.length > 0 && (
+                {(intel.news_bullish?.length ?? 0) > 0 && (
                   <div className="space-y-1.5 mt-3 border-t border-white/5 pt-3">
                     {intel.news_bullish.map((n, i) => (
                       <div key={i} className="flex items-start gap-2">
@@ -515,7 +515,7 @@ export default function FinancialDashboard() {
               )}
 
               {/* ── IRON CONDOR SETUPS ── */}
-              {intel.iron_condors.length > 0 && (
+              {(intel.iron_condors?.length ?? 0) > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-xs font-mono text-purple-400 uppercase tracking-widest">Live Iron Condor Setups</span>
@@ -572,7 +572,7 @@ export default function FinancialDashboard() {
               )}
 
               {/* ── GA EVOLUTION PICKS ── */}
-              {intel.ga_signals.length > 0 && (
+              {(intel.ga_signals?.length ?? 0) > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-xs font-mono text-indigo-400 uppercase tracking-widest">GA Evolution Equity Picks</span>
@@ -619,7 +619,7 @@ export default function FinancialDashboard() {
 
               {/* ── SECTOR ROTATION ── */}
               <div className="grid md:grid-cols-3 gap-3">
-                {intel.hot_sectors.length > 0 && (
+                {(intel.hot_sectors?.length ?? 0) > 0 && (
                   <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-4">
                     <div className="text-[10px] text-green-400 font-mono uppercase tracking-widest mb-2">Hot Sectors</div>
                     <div className="flex flex-wrap gap-1">
@@ -627,7 +627,7 @@ export default function FinancialDashboard() {
                     </div>
                   </div>
                 )}
-                {intel.bearish_symbols.length > 0 && (
+                {(intel.bearish_symbols?.length ?? 0) > 0 && (
                   <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
                     <div className="text-[10px] text-red-400 font-mono uppercase tracking-widest mb-2">Avoid</div>
                     <div className="flex flex-wrap gap-1">
@@ -635,7 +635,7 @@ export default function FinancialDashboard() {
                     </div>
                   </div>
                 )}
-                {intel.defensive.length > 0 && (
+                {(intel.defensive?.length ?? 0) > 0 && (
                   <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-4">
                     <div className="text-[10px] text-yellow-400 font-mono uppercase tracking-widest mb-2">Defensive Hedge</div>
                     <div className="flex flex-wrap gap-1">
@@ -646,7 +646,7 @@ export default function FinancialDashboard() {
               </div>
 
               {/* ── CONGRESS TRADES ── */}
-              {intel.congress_trades.length > 0 && (
+              {(intel.congress_trades?.length ?? 0) > 0 && (
                 <div>
                   <div className="text-xs font-mono text-amber-400 uppercase tracking-widest mb-3">Congress &amp; Insider Trades</div>
                   <div className="space-y-2">
