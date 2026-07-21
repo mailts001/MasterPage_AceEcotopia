@@ -1,6 +1,6 @@
 # X68 新国度 — System Maintenance Guide
 
-Last updated: 2026-07-15
+Last updated: 2026-07-21
 
 ---
 
@@ -93,8 +93,12 @@ curl -H 'x-nexus-key: x68-nexus-internal-2024' http://localhost:8505/api/nexus/i
 | Endpoint | Purpose | Cache |
 |---|---|---|
 | `GET /api/nexus/signals` | District stats for citystate | live |
-| `GET /api/nexus/picks` | Momentum + squeeze signals | live |
-| `GET /api/nexus/intel` | GA strategy rec + congress trades + regime | 15 min |
+| `GET /api/nexus/picks?market=US` | US momentum + squeeze signals (default) | live |
+| `GET /api/nexus/picks?market=HK` | HK scanner picks + squeeze (9 AM SGT) | live |
+| `GET /api/nexus/picks?market=JP` | Japan (TSE) picks + squeeze (12:15 AM SGT) | live |
+| `GET /api/nexus/picks?market=SG` | Singapore (SGX) picks + squeeze (9:15 AM SGT) | live |
+| `GET /api/nexus/picks?market=ETF` | US sector ETF screener + sector rotation | live |
+| `GET /api/nexus/intel` | Full regime intel: GA signals, options rec, congress trades, news | 15 min |
 | `GET /api/nexus/signal-history` | Signal history export | live |
 | `GET /api/nexus/commerce` | Commerce arbitrage opportunities | live |
 | `GET /health` | Health check | live |
@@ -117,20 +121,50 @@ curl -H 'x-nexus-key: x68-nexus-internal-2024' http://localhost:8505/api/nexus/i
 
 ---
 
+## Financial District — Market Coverage
+
+### Multi-market selector (added 2026-07-21)
+The dashboard has a 5-region market selector: 🇺🇸 US | 🇭🇰 HK | 🇯🇵 Japan | 🇸🇬 Singapore | 🌏 ETFs
+
+All APAC markets read from the same `scanner_results.json` on VPS, filtered by the `market` field. The `save_scanner_results()` function in `scanner.py` merges picks per-market so they coexist in the file.
+
+**Cron schedule (SGT):**
+| Market | Scanner | Squeeze |
+|---|---|---|
+| US | 9 PM Mon–Fri | 8:30 PM (T1), 9:40 PM (T2) |
+| HK | 9 AM Mon–Fri | 9 AM (T1) |
+| JP (TSE) | 12:15 AM Mon–Fri | 11:45 PM (T1) |
+| SG (SGX) | 9:15 AM Mon–Fri | — |
+
+**Watchlists:**
+- HK: Hang Seng blue chips + tech (9988 EXCLUDED — pre-existing short)
+- JP: 30 Nikkei 225 blue chips — Sony (6758.T), Toyota (7203.T), SoftBank (9984.T), Nintendo (7974.T), MUFG (8306.T) and more
+- SG: STI components + major REITs — DBS (D05.SI), OCBC (O39.SI), CapitaLand (C31.SI), Ascendas (A17U.SI) and more
+
+**ETF tab** pulls `etf_screener.json` (US sector ETFs: XLK, XLV, XLF, XBI etc. with top holdings) and `market_pulse.json` (12-sector rotation heatmap, 5d/22d performance).
+
+---
+
 ## Financial District — GA Intel Tab
 
-Added 2026-07-15. The "📡 GA Intel" tab surfaces live data from the upgraded trading system:
+Added 2026-07-15, upgraded 2026-07-21. The "📡 GA Intel" tab surfaces live signals from the upgraded trading system's 10-signal market regime engine:
 
-**Data sources (all on VPS):**
-- `macro_report.json` → market regime (Transitional / Bullish / Bearish) + IC suitability
+**Data sources (all on VPS `logs/`):**
+- `market_regime.json` → 10-signal regime (BULL/CAUTION/WARNING/DANGER), VIX, breadth, SPY 5d, rotation signals
+- `news_sentiment.json` → scored headlines, bullish/bearish, shock event flag
+- `options_scan.json` → Iron Condor setups with strikes, PoP%, credit, breakevens, IV rank
 - `ga_shadow_signals.jsonl` → GA evolution paper-trade signals (confidence, stop, target, 4-factor scores)
 - `ga_recommended_symbols.json` → hot sectors / bearish / defensive breakdown
 - `rebalance_suggestion.json` → best-performing strategy by Sharpe ratio
 - `congress_signals.json` → congressional + insider trade disclosures
 
-**How rationale is generated:** `nexus_api.py → /api/nexus/intel` builds a plain-English rationale from regime + best strategy. No LLM — deterministic string construction from live data.
+**OPTIONS_MAP (regime → strategy recommendation):**
+- BULL → Wheel Strategy (covered calls + CSPs)
+- CAUTION → Iron Condors + Bull Put Spreads
+- WARNING → Iron Condors (skew higher) + Protective Puts, 40% size
+- DANGER → Protective Puts + Collars only
 
-**To update strategy labels:** edit the `strategy_map` dict in `/root/trading/nexus_api.py` (the `intel` function).
+**To update strategy labels:** edit the `strategy_label_map` dict in `/root/trading/nexus_api.py` (the `intel` function).
 
 ---
 
@@ -249,6 +283,9 @@ git push origin main
 | Districts Live < 7 | Missing district in citystate route | Add to `districts` object in `citystate/route.ts` |
 | Financial tab empty | VPS API down | `systemctl restart financial_nexus` on VPS |
 | GA Intel 404 | `financial_nexus` running old code before `__main__` fix | Ensure `/api/nexus/intel` route is above `if __name__` in `nexus_api.py` |
+| HK/JP/SG tab always empty | Scanner hasn't run yet (outside market hours) | Expected — each market only populates after its cron runs; check `scanner_results.json` `last_updated` field |
+| ETF tab empty | `etf_screener.json` missing or stale | Check file exists on VPS; ETF scan is part of US nightly scan at 9 PM SGT |
+| Intel tab TypeError crash | Missing fields in fallback response | All arrays must have `?? []` defaults in both `route.ts` fallback AND component optional chaining |
 | Visitor count stuck | `increment_visits` RPC missing | Re-run SQL above in Supabase SQL editor |
 | Build error: duplicate `today` | Re-introduced duplicate `const today` in citystate route | Check `citystate/route.ts` — only one `const today` per function scope |
 | CareerGenome links 404 | Wrong path used | Citizen CTA = `/interview`, Recruiter CTA = `/for-recruiters/search` |
