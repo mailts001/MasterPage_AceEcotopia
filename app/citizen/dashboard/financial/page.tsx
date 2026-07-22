@@ -5,6 +5,7 @@ import Link from 'next/link'
 
 interface BullishTicker {
   symbol: string
+  name?: string
   price: number
   chg_1d: number
   chg_5d: number
@@ -25,6 +26,8 @@ interface BullishTicker {
 
 interface ScannerPick {
   symbol: string
+  name?: string
+  sector?: string
   price?: number
   signals?: string[]
   rsi?: number
@@ -33,9 +36,26 @@ interface ScannerPick {
 
 interface SqueezeAlert {
   symbol: string
+  name?: string
   type?: string
   price?: number
   signals?: string[]
+}
+
+interface MarketIndex {
+  sym: string
+  name: string
+  price: number
+  d1: number
+  d5: number
+  d22: number
+}
+
+interface Mover {
+  symbol: string
+  name?: string
+  chg: number
+  price: number
 }
 
 interface Picks {
@@ -45,6 +65,8 @@ interface Picks {
   scanner_picks: ScannerPick[]
   squeeze_alerts: SqueezeAlert[]
   spike_alerts: SqueezeAlert[]
+  indices?: MarketIndex[]
+  movers?: { gainers: Mover[]; losers: Mover[] }
   error?: string
 }
 
@@ -133,6 +155,78 @@ interface EtfData {
   sector_rotation: SectorRotation[]
 }
 
+function IndicesStrip({ indices }: { indices: MarketIndex[] }) {
+  if (!indices.length) return null
+  return (
+    <div className="flex flex-wrap gap-2">
+      {indices.map(idx => (
+        <div key={idx.sym} className="flex items-center gap-2 bg-white/4 border border-white/8 rounded-lg px-3 py-2">
+          <div>
+            <div className="text-[10px] text-slate-500">{idx.name}</div>
+            <div className="text-xs font-mono text-white font-medium">{idx.price.toLocaleString()}</div>
+          </div>
+          <div className="text-right">
+            <div className={`text-[10px] font-mono font-bold ${idx.d1 >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              {idx.d1 >= 0 ? '+' : ''}{idx.d1.toFixed(2)}% 1d
+            </div>
+            <div className={`text-[10px] font-mono ${idx.d22 >= 0 ? 'text-green-400/60' : 'text-red-400/60'}`}>
+              {idx.d22 >= 0 ? '+' : ''}{idx.d22.toFixed(1)}% 1m
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function MoversPanel({ movers, currency }: { movers: { gainers: Mover[]; losers: Mover[] }; currency: string }) {
+  const gainers = movers.gainers?.slice(0, 5) ?? []
+  const losers  = movers.losers?.slice(0, 5) ?? []
+  if (!gainers.length && !losers.length) return null
+  return (
+    <div className="grid md:grid-cols-2 gap-3">
+      {gainers.length > 0 && (
+        <div className="rounded-xl border border-green-500/15 bg-green-500/5 p-4">
+          <div className="text-[10px] text-green-400 font-mono uppercase tracking-widest mb-2">Today&apos;s Gainers</div>
+          <div className="space-y-1.5">
+            {gainers.map((m, i) => (
+              <div key={i} className="flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-mono font-bold text-white">{m.symbol}</span>
+                  {m.name && <span className="text-[10px] text-slate-500 ml-1.5">{m.name}</span>}
+                </div>
+                <div className="text-right">
+                  <span className="text-xs font-mono text-green-400 font-bold">+{m.chg.toFixed(2)}%</span>
+                  <span className="text-[10px] text-slate-600 ml-1.5">{currency}{m.price.toLocaleString()}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {losers.length > 0 && (
+        <div className="rounded-xl border border-red-500/15 bg-red-500/5 p-4">
+          <div className="text-[10px] text-red-400 font-mono uppercase tracking-widest mb-2">Today&apos;s Losers</div>
+          <div className="space-y-1.5">
+            {losers.map((m, i) => (
+              <div key={i} className="flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-mono font-bold text-white">{m.symbol}</span>
+                  {m.name && <span className="text-[10px] text-slate-500 ml-1.5">{m.name}</span>}
+                </div>
+                <div className="text-right">
+                  <span className="text-xs font-mono text-red-400 font-bold">{m.chg.toFixed(2)}%</span>
+                  <span className="text-[10px] text-slate-600 ml-1.5">{currency}{m.price.toLocaleString()}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ScoreBar({ score, max = 10 }: { score: number; max?: number }) {
   const pct = Math.min(100, (score / max) * 100)
   const color = pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-yellow-500' : 'bg-red-500'
@@ -157,8 +251,9 @@ function TickerCard({ t, watchlisted }: { t: BullishTicker; watchlisted: boolean
   return (
     <div className={`rounded-xl border ${signalColor} p-4 transition`}>
       <div className="flex items-start justify-between mb-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="font-bold text-white text-sm font-mono">{t.symbol}</span>
+          {t.name && <span className="text-[10px] text-slate-500">{t.name}</span>}
           {watchlisted && <span className="text-[10px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded-full border border-cyan-500/30">⭐ watchlist</span>}
           {t.squeeze && <span className="text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded-full border border-purple-500/30">⚡ squeeze</span>}
           {t.spike_signal && <span className="text-[10px] bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded-full border border-orange-500/30">🚀 spike</span>}
@@ -228,6 +323,7 @@ function EmptyState({ label }: { label: string }) {
 
 export default function FinancialDashboard() {
   const [picks, setPicks]           = useState<Picks | null>(null)
+  const [usPicks, setUsPicks]       = useState<Picks | null>(null)
   const [intel, setIntel]           = useState<Intel | null>(null)
   const [etfData, setEtfData]       = useState<EtfData | null>(null)
   const [watchlist, setWatchlist]   = useState<string[]>([])
@@ -243,6 +339,7 @@ export default function FinancialDashboard() {
       fetch('/api/citizen/watchlist').then(r => r.json()).catch(() => []),
     ]).then(([p, wl]) => {
       setPicks(p)
+      setUsPicks(p)
       const tickers = (Array.isArray(wl) ? wl : [])
         .filter((a: { district: string }) => a.district === 'aceeconomy')
         .map((a: { asset_id: string }) => a.asset_id)
@@ -258,7 +355,7 @@ export default function FinancialDashboard() {
   async function switchMarket(m: Market) {
     if (m === market) return
     setMarket(m)
-    if (m === 'US') return // already loaded
+    if (m === 'US') { setPicks(usPicks); return }
     setMarketLoading(true)
     try {
       const res = await fetch(`/api/nexus/financial/picks?market=${m}`)
@@ -343,6 +440,11 @@ export default function FinancialDashboard() {
           ))}
         </div>
 
+        {/* Indices strip — shown for all markets when data available */}
+        {!loading && !marketLoading && (picks?.indices?.length ?? 0) > 0 && market !== 'ETF' && (
+          <IndicesStrip indices={picks!.indices!} />
+        )}
+
         {/* Tabs — US only */}
         {market === 'US' && (
         <div className="flex gap-1 bg-white/5 border border-white/10 rounded-xl p-1">
@@ -378,6 +480,11 @@ export default function FinancialDashboard() {
               </div>
             ) : (
               <div className="space-y-6">
+                {/* Daily movers */}
+                {picks?.movers && (
+                  <MoversPanel movers={picks.movers} currency={m.currency} />
+                )}
+
                 {/* Scanner picks */}
                 <div>
                   <div className="flex items-center gap-2 mb-3">
@@ -394,13 +501,16 @@ export default function FinancialDashboard() {
                       {picks!.scanner_picks.map((p, i) => (
                         <div key={i} className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
                           <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-white font-mono text-sm">{p.symbol}</span>
-                              {watchlist.includes(p.symbol) && (
-                                <span className="text-[10px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded-full border border-cyan-500/30">⭐ watchlist</span>
-                              )}
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-white font-mono text-sm">{p.symbol}</span>
+                                {watchlist.includes(p.symbol) && (
+                                  <span className="text-[10px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded-full border border-cyan-500/30">⭐</span>
+                                )}
+                              </div>
+                              {p.name && <div className="text-[10px] text-slate-500 mt-0.5">{p.name}</div>}
                             </div>
-                            {p.price && <span className="text-sm font-mono text-slate-300">{m.currency}{p.price.toFixed(2)}</span>}
+                            {p.price && <span className="text-sm font-mono text-slate-300 shrink-0">{m.currency}{p.price.toFixed(2)}</span>}
                           </div>
                           {p.rsi && <div className="text-[10px] text-slate-500 mb-1">RSI {p.rsi.toFixed(0)} · Score {p.score ?? '—'}/10</div>}
                           {(p.signals?.length ?? 0) > 0 && (
@@ -415,6 +525,7 @@ export default function FinancialDashboard() {
                     </div>
                   )}
                 </div>
+
                 {/* Squeeze alerts */}
                 {(picks?.squeeze_alerts?.length ?? 0) > 0 && (
                   <div>
@@ -423,8 +534,11 @@ export default function FinancialDashboard() {
                       {picks!.squeeze_alerts.map((s, i) => (
                         <div key={i} className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="font-bold text-white font-mono text-sm">{s.symbol}</span>
-                            <span className="text-[10px] text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full">{s.type ?? 'Squeeze'}</span>
+                            <div>
+                              <span className="font-bold text-white font-mono text-sm">{s.symbol}</span>
+                              {s.name && <div className="text-[10px] text-slate-500 mt-0.5">{s.name}</div>}
+                            </div>
+                            <span className="text-[10px] text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full shrink-0">{s.type ?? 'Squeeze'}</span>
                           </div>
                           {s.price && <div className="text-sm font-mono text-slate-300 mb-2">{m.currency}{s.price.toFixed(2)}</div>}
                           {(s.signals?.length ?? 0) > 0 && (
@@ -551,17 +665,23 @@ export default function FinancialDashboard() {
         {/* ── US SIGNAL CARDS ── */}
         {market === 'US' && (tab === 'momentum' ? (
           loading ? (
-            <div className="grid md:grid-cols-2 gap-4">
-              {[1,2,3,4].map(i => <div key={i} className="h-40 rounded-xl bg-white/5 animate-pulse" />)}
+            <div className="space-y-4">
+              <div className="grid md:grid-cols-2 gap-4">
+                {[1,2,3,4].map(i => <div key={i} className="h-40 rounded-xl bg-white/5 animate-pulse" />)}
+              </div>
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 gap-4">
-              {allMomentum.length === 0
-                ? <EmptyState label="momentum" />
-                : allMomentum.map(t => (
-                    <TickerCard key={t.symbol} t={t} watchlisted={watchlist.includes(t.symbol)} />
-                  ))
-              }
+            <div className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-4">
+                {allMomentum.length === 0
+                  ? <EmptyState label="momentum" />
+                  : allMomentum.map(t => (
+                      <TickerCard key={t.symbol} t={t} watchlisted={watchlist.includes(t.symbol)} />
+                    ))
+                }
+              </div>
+              {/* US movers */}
+              {usPicks?.movers && <MoversPanel movers={usPicks.movers} currency="$" />}
             </div>
           )
         ) : tab === 'squeeze' ? (
