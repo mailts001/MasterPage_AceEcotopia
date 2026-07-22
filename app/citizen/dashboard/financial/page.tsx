@@ -22,6 +22,11 @@ interface BullishTicker {
   spike_signal: boolean
   options_note?: string
   options?: { ivr_approx?: number; put_call_ratio?: number }
+  fib_r1?: number | null
+  fib_r2?: number | null
+  fib_s1?: number | null
+  fib_s2?: number | null
+  atr_trail_stop?: number | null
 }
 
 interface ScannerPick {
@@ -35,6 +40,13 @@ interface ScannerPick {
   recommendation?: string
   volume_ratio?: number
   change_pct?: number
+  fib_r1?: number | null
+  fib_r2?: number | null
+  fib_s1?: number | null
+  fib_s2?: number | null
+  atr_trail_stop?: number | null
+  high_52w?: number | null
+  low_52w?: number | null
 }
 
 interface SqueezeAlert {
@@ -278,11 +290,18 @@ function WeakeningSection({ picks, currency = '$' }: { picks: ScannerPick[]; cur
               </div>
               {(p.price ?? 0) > 0 && <span className="text-sm font-mono text-slate-300 shrink-0">{currency}{p.price!.toFixed(2)}</span>}
             </div>
-            <div className="flex gap-3 text-[10px]">
+            <div className="flex gap-3 text-[10px] flex-wrap">
               {p.rsi && <span><span className="text-slate-600">RSI </span><span className={`font-mono font-bold ${p.rsi < 35 ? 'text-red-400' : p.rsi > 60 ? 'text-orange-400' : 'text-slate-400'}`}>{p.rsi.toFixed(0)}</span></span>}
-              {p.volume_ratio && <span><span className="text-slate-600">Vol </span><span className="font-mono text-slate-400">{p.volume_ratio.toFixed(1)}×</span></span>}
+              {p.volume_ratio && <span><span className="text-slate-600">Vol Surge </span><span className="font-mono text-slate-400">{p.volume_ratio.toFixed(1)}×</span></span>}
               {(p.change_pct ?? 0) !== 0 && <span><span className="text-slate-600">1d </span><span className={`font-mono font-bold ${(p.change_pct ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>{(p.change_pct ?? 0) > 0 ? '+' : ''}{p.change_pct!.toFixed(2)}%</span></span>}
             </div>
+            {(p.fib_s1 || p.fib_s2) && (
+              <div className="mt-2 pt-2 border-t border-white/5 flex gap-3 text-[10px] flex-wrap">
+                <span className="text-slate-600 shrink-0">Fib support / queue</span>
+                {p.fib_s1 && <span className="text-amber-400 font-mono">{currency}{p.fib_s1.toFixed(2)} <span className="text-slate-600">S1</span></span>}
+                {p.fib_s2 && <span className="text-amber-300 font-mono">{currency}{p.fib_s2.toFixed(2)} <span className="text-slate-600">S2</span></span>}
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -415,9 +434,24 @@ function TickerCard({ t, watchlisted }: { t: BullishTicker; watchlisted: boolean
         <ScoreBar score={t.bull_score} />
       </div>
 
+      {/* Fibonacci key levels */}
+      {(t.fib_r1 || t.fib_r2) && (
+        <div className="mt-2 pt-2 border-t border-white/5 flex gap-3 text-[10px] flex-wrap">
+          <span className="text-slate-600 shrink-0">TP targets</span>
+          {t.fib_r1 && <span className="text-green-400 font-mono">${t.fib_r1.toFixed(2)} <span className="text-slate-600">R1</span></span>}
+          {t.fib_r2 && <span className="text-green-300 font-mono">${t.fib_r2.toFixed(2)} <span className="text-slate-600">R2</span></span>}
+        </div>
+      )}
+      {t.atr_trail_stop != null && t.atr_trail_stop > 0 && (
+        <div className="mt-1 flex gap-2 text-[10px]">
+          <span className="text-slate-600">ATR stop</span>
+          <span className="text-red-400 font-mono">${t.atr_trail_stop.toFixed(2)}</span>
+        </div>
+      )}
+
       {/* Expand reasons */}
-      <button onClick={() => setOpen(!open)} className="text-[10px] text-slate-600 hover:text-slate-400 transition">
-        {open ? '▲ hide reasons' : `▼ ${t.bull_reasons?.length ?? 0} bull signals`}
+      <button onClick={() => setOpen(!open)} className="text-[10px] text-slate-600 hover:text-slate-400 transition mt-2 block">
+        {open ? '▲ hide signals' : `▼ ${t.bull_reasons?.length ?? 0} bull signals`}
       </button>
       {open && (
         <ul className="mt-2 space-y-0.5">
@@ -656,11 +690,26 @@ export default function FinancialDashboard() {
                             </div>
                             {(p.price ?? 0) > 0 && <span className="text-sm font-mono text-slate-300 shrink-0">{m.currency}{p.price!.toFixed(2)}</span>}
                           </div>
-                          <div className="flex gap-3 text-[10px]">
+                          <div className="flex gap-3 text-[10px] flex-wrap">
                             {p.rsi && <span><span className="text-slate-600">RSI </span><span className={`font-mono font-bold ${p.rsi > 70 ? 'text-red-400' : p.rsi < 40 ? 'text-green-400' : 'text-cyan-400'}`}>{p.rsi.toFixed(0)}</span></span>}
-                            {p.volume_ratio && <span><span className="text-slate-600">Vol </span><span className={`font-mono font-bold ${p.volume_ratio > 1.5 ? 'text-yellow-400' : 'text-slate-400'}`}>{p.volume_ratio.toFixed(1)}×</span></span>}
+                            {p.volume_ratio && <span><span className="text-slate-600">Vol Surge </span><span className={`font-mono font-bold ${p.volume_ratio > 1.5 ? 'text-yellow-400' : 'text-slate-400'}`}>{p.volume_ratio.toFixed(1)}×</span></span>}
                             {(p.change_pct ?? 0) !== 0 && <span><span className="text-slate-600">1d </span><span className={`font-mono font-bold ${(p.change_pct ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>{(p.change_pct ?? 0) >= 0 ? '+' : ''}{p.change_pct!.toFixed(2)}%</span></span>}
                           </div>
+                          {/* Fibonacci levels */}
+                          {(p.recommendation === 'BUY' || p.recommendation === 'STRONG BUY') && (p.fib_r1 || p.fib_r2) && (
+                            <div className="mt-2 pt-2 border-t border-white/5 flex gap-3 text-[10px]">
+                              <span className="text-slate-600 shrink-0">TP targets</span>
+                              {p.fib_r1 && <span className="text-green-400 font-mono">{m.currency}{p.fib_r1.toFixed(2)} <span className="text-slate-600">R1</span></span>}
+                              {p.fib_r2 && <span className="text-green-300 font-mono">{m.currency}{p.fib_r2.toFixed(2)} <span className="text-slate-600">R2</span></span>}
+                            </div>
+                          )}
+                          {(p.recommendation === 'SELL' || p.recommendation === 'STRONG SELL') && (p.fib_s1 || p.fib_s2) && (
+                            <div className="mt-2 pt-2 border-t border-white/5 flex gap-3 text-[10px]">
+                              <span className="text-slate-600 shrink-0">Fib support</span>
+                              {p.fib_s1 && <span className="text-amber-400 font-mono">{m.currency}{p.fib_s1.toFixed(2)} <span className="text-slate-600">S1</span></span>}
+                              {p.fib_s2 && <span className="text-amber-300 font-mono">{m.currency}{p.fib_s2.toFixed(2)} <span className="text-slate-600">S2</span></span>}
+                            </div>
+                          )}
                           {(p.signals?.length ?? 0) > 0 && (
                             <ul className="mt-2 space-y-0.5">
                               {p.signals!.map((s, j) => (
