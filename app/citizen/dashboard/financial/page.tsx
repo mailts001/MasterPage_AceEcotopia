@@ -163,6 +163,8 @@ interface CCAsset {
   technical_score: number; macro_score: number; news_score: number
   total_score: number; max_score: number; recommendation: string
   technical_details: string[]; macro_details: string[]; news_summary: string
+  fib_r1?: number | null; fib_r2?: number | null
+  fib_s1?: number | null; fib_s2?: number | null
 }
 interface CCMacro {
   fear_greed: number | null; fg_label: string | null
@@ -1357,6 +1359,21 @@ export default function FinancialDashboard() {
                       <span className={`text-[10px] px-2 py-0.5 rounded-full border font-mono font-semibold ${recColor(a.recommendation)}`}>{a.recommendation}</span>
                       <span className="text-[10px] text-slate-500 font-mono">{a.total_score}/{a.max_score}</span>
                     </div>
+                    {/* Fibonacci key levels */}
+                    {(a.recommendation === 'BUY' || a.recommendation === 'WATCH') && (a.fib_r1 || a.fib_r2) && (
+                      <div className="mt-2 pt-2 border-t border-white/5 flex gap-3 text-[10px] flex-wrap">
+                        <span className="text-slate-600 shrink-0">TP targets</span>
+                        {a.fib_r1 && <span className="text-green-400 font-mono">${a.fib_r1 >= 1000 ? (a.fib_r1/1000).toFixed(2)+'k' : a.fib_r1.toFixed(2)} <span className="text-slate-600">R1</span></span>}
+                        {a.fib_r2 && <span className="text-green-300 font-mono">${a.fib_r2 >= 1000 ? (a.fib_r2/1000).toFixed(2)+'k' : a.fib_r2.toFixed(2)} <span className="text-slate-600">R2</span></span>}
+                      </div>
+                    )}
+                    {(a.recommendation === 'CAUTION' || a.recommendation === 'NEUTRAL') && (a.fib_s1 || a.fib_s2) && (
+                      <div className="mt-2 pt-2 border-t border-white/5 flex gap-3 text-[10px] flex-wrap">
+                        <span className="text-slate-600 shrink-0">Fib support</span>
+                        {a.fib_s1 && <span className="text-amber-400 font-mono">${a.fib_s1 >= 1000 ? (a.fib_s1/1000).toFixed(2)+'k' : a.fib_s1.toFixed(2)} <span className="text-slate-600">S1</span></span>}
+                        {a.fib_s2 && <span className="text-amber-300 font-mono">${a.fib_s2 >= 1000 ? (a.fib_s2/1000).toFixed(2)+'k' : a.fib_s2.toFixed(2)} <span className="text-slate-600">S2</span></span>}
+                      </div>
+                    )}
                     {/* Signal details */}
                     {(a.technical_details?.length ?? 0) > 0 && (
                       <div className="mt-2 pt-2 border-t border-white/5 space-y-0.5">
