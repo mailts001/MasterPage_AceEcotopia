@@ -32,6 +32,9 @@ interface ScannerPick {
   signals?: string[]
   rsi?: number
   score?: number
+  recommendation?: string
+  volume_ratio?: number
+  change_pct?: number
 }
 
 interface SqueezeAlert {
@@ -370,11 +373,14 @@ export default function FinancialDashboard() {
   const bullish       = picks?.bullish ?? []
   const squeezes      = [...(picks?.squeeze_alerts ?? []), ...(picks?.spike_alerts ?? [])]
   const scannerPicks  = picks?.scanner_picks ?? []
+  const REC_SCORE: Record<string, number> = { 'STRONG BUY': 8, 'BUY': 6, 'NEUTRAL': 5, 'SELL': 2, 'STRONG SELL': 1 }
   const allMomentum   = bullish.length > 0 ? bullish : scannerPicks.map(s => ({
-    symbol: s.symbol, price: s.price ?? 0, chg_1d: 0, chg_5d: 0,
-    rsi: s.rsi ?? 0, macd_hist: 0, vol_surge: 0, pct_b: 0,
-    bull_score: s.score ?? 0, bear_score: 0, direction: 'BULLISH',
-    bull_reasons: s.signals ?? [], bear_reasons: [],
+    symbol: s.symbol, name: s.name, price: s.price ?? 0, chg_1d: s.change_pct ?? 0, chg_5d: 0,
+    rsi: s.rsi ?? 0, macd_hist: 0, vol_surge: (s.volume_ratio ?? 1) - 1, pct_b: 0,
+    bull_score: s.score ?? REC_SCORE[s.recommendation ?? ''] ?? 0,
+    bear_score: 0, direction: 'BULLISH',
+    bull_reasons: s.recommendation ? [`${s.recommendation}${s.sector ? ' · ' + s.sector : ''}`] : (s.signals ?? []),
+    bear_reasons: [],
     squeeze: false, spike_signal: false,
   } as BullishTicker))
 
@@ -500,21 +506,34 @@ export default function FinancialDashboard() {
                     <div className="grid md:grid-cols-2 gap-3">
                       {picks!.scanner_picks.map((p, i) => (
                         <div key={i} className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
-                          <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-start justify-between mb-2">
                             <div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-bold text-white font-mono text-sm">{p.symbol}</span>
                                 {watchlist.includes(p.symbol) && (
                                   <span className="text-[10px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded-full border border-cyan-500/30">⭐</span>
                                 )}
+                                {p.recommendation && (
+                                  <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full border ${
+                                    p.recommendation === 'STRONG BUY' ? 'text-green-400 border-green-500/30 bg-green-500/10' :
+                                    p.recommendation === 'BUY'        ? 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10' :
+                                    p.recommendation === 'SELL'       ? 'text-red-400 border-red-500/30 bg-red-500/10' :
+                                    'text-slate-400 border-slate-500/30 bg-slate-500/10'
+                                  }`}>{p.recommendation}</span>
+                                )}
                               </div>
                               {p.name && <div className="text-[10px] text-slate-500 mt-0.5">{p.name}</div>}
+                              {p.sector && <div className="text-[9px] text-slate-600 mt-0.5">{p.sector}</div>}
                             </div>
-                            {p.price && <span className="text-sm font-mono text-slate-300 shrink-0">{m.currency}{p.price.toFixed(2)}</span>}
+                            {(p.price ?? 0) > 0 && <span className="text-sm font-mono text-slate-300 shrink-0">{m.currency}{p.price!.toFixed(2)}</span>}
                           </div>
-                          {p.rsi && <div className="text-[10px] text-slate-500 mb-1">RSI {p.rsi.toFixed(0)} · Score {p.score ?? '—'}/10</div>}
+                          <div className="flex gap-3 text-[10px]">
+                            {p.rsi && <span><span className="text-slate-600">RSI </span><span className={`font-mono font-bold ${p.rsi > 70 ? 'text-red-400' : p.rsi < 40 ? 'text-green-400' : 'text-cyan-400'}`}>{p.rsi.toFixed(0)}</span></span>}
+                            {p.volume_ratio && <span><span className="text-slate-600">Vol </span><span className={`font-mono font-bold ${p.volume_ratio > 1.5 ? 'text-yellow-400' : 'text-slate-400'}`}>{p.volume_ratio.toFixed(1)}×</span></span>}
+                            {(p.change_pct ?? 0) !== 0 && <span><span className="text-slate-600">1d </span><span className={`font-mono font-bold ${(p.change_pct ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>{(p.change_pct ?? 0) >= 0 ? '+' : ''}{p.change_pct!.toFixed(2)}%</span></span>}
+                          </div>
                           {(p.signals?.length ?? 0) > 0 && (
-                            <ul className="space-y-0.5">
+                            <ul className="mt-2 space-y-0.5">
                               {p.signals!.map((s, j) => (
                                 <li key={j} className="text-[10px] text-cyan-300 flex gap-1"><span>✓</span>{s}</li>
                               ))}
