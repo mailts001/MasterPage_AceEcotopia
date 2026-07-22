@@ -143,7 +143,28 @@ interface Intel {
   error?: string
 }
 
-type Market = 'US' | 'HK' | 'JP' | 'SG' | 'ETF'
+type Market = 'US' | 'HK' | 'JP' | 'SG' | 'ETF' | 'CRYPTO' | 'COMMODITY'
+
+interface CCAsset {
+  symbol: string; name: string; category: string
+  price: number | null; change_1d: number | null
+  technical_score: number; macro_score: number; news_score: number
+  total_score: number; max_score: number; recommendation: string
+  technical_details: string[]; macro_details: string[]; news_summary: string
+}
+interface CCMacro {
+  fear_greed: number | null; fg_label: string | null
+  btc_dominance_pct: number | null; btc_funding_ann_pct: number | null
+  total_crypto_mcap_usd: number | null; mcap_change_24h: number | null
+  vix: number | null; dxy_5d_chg: number | null; eia_draw_mbbl: number | null
+  macro_events_48h: { title: string; hours_away: number }[]
+}
+interface CCData {
+  scanned_at: string | null
+  crypto: CCAsset[]; commodities: CCAsset[]
+  macro: CCMacro
+  crypto_headlines: string[]; commodity_headlines: string[]
+}
 
 interface SectorRotation { sector: string; etf: string; d5: number; d22: number }
 interface EtfPick extends BullishTicker {
@@ -429,6 +450,7 @@ export default function FinancialDashboard() {
   const [usPicks, setUsPicks]       = useState<Picks | null>(null)
   const [intel, setIntel]           = useState<Intel | null>(null)
   const [etfData, setEtfData]       = useState<EtfData | null>(null)
+  const [ccData, setCcData]         = useState<CCData | null>(null)
   const [watchlist, setWatchlist]   = useState<string[]>([])
   const [loading, setLoading]       = useState(true)
   const [intelLoading, setIntelLoading] = useState(true)
@@ -461,10 +483,15 @@ export default function FinancialDashboard() {
     if (m === 'US') { setPicks(usPicks); return }
     setMarketLoading(true)
     try {
-      const res = await fetch(`/api/nexus/financial/picks?market=${m}`)
-      const data = await res.json()
-      if (m === 'ETF') setEtfData(data)
-      else setPicks(data)
+      if (m === 'CRYPTO' || m === 'COMMODITY') {
+        const res = await fetch('/api/nexus/financial/cc')
+        setCcData(await res.json())
+      } else {
+        const res = await fetch(`/api/nexus/financial/picks?market=${m}`)
+        const data = await res.json()
+        if (m === 'ETF') setEtfData(data)
+        else setPicks(data)
+      }
     } finally {
       setMarketLoading(false)
     }
@@ -529,11 +556,13 @@ export default function FinancialDashboard() {
         {/* Market selector */}
         <div className="flex gap-2">
           {([
-            { key: 'US',  label: '🇺🇸 US' },
-            { key: 'HK',  label: '🇭🇰 HK' },
-            { key: 'JP',  label: '🇯🇵 Japan' },
-            { key: 'SG',  label: '🇸🇬 Singapore' },
-            { key: 'ETF', label: '🌏 ETFs' },
+            { key: 'US',        label: '🇺🇸 US' },
+            { key: 'HK',        label: '🇭🇰 HK' },
+            { key: 'JP',        label: '🇯🇵 Japan' },
+            { key: 'SG',        label: '🇸🇬 SG' },
+            { key: 'ETF',       label: '🌏 ETFs' },
+            { key: 'CRYPTO',    label: '🪙 Crypto' },
+            { key: 'COMMODITY', label: '🛢 Commodities' },
           ] as const).map(m => (
             <button key={m.key} onClick={() => switchMarket(m.key)}
               className={`text-xs px-4 py-2 rounded-lg border transition font-medium ${
@@ -1168,6 +1197,165 @@ export default function FinancialDashboard() {
             )
           })()
         ))}
+
+        {/* ── CRYPTO CONTENT ── */}
+        {(market === 'CRYPTO' || market === 'COMMODITY') && (
+          marketLoading ? (
+            <div className="space-y-4">
+              {[1,2,3].map(i => <div key={i} className="h-28 rounded-xl bg-white/5 animate-pulse" />)}
+            </div>
+          ) : !ccData ? (
+            <div className="text-center py-12 text-slate-500 text-sm">No data yet — scanner runs nightly.</div>
+          ) : (
+            <div className="space-y-6">
+              {/* Macro snapshot */}
+              {ccData.macro && (
+                <div className="rounded-xl border border-white/10 bg-white/3 p-4">
+                  <div className="text-xs font-mono text-slate-400 uppercase tracking-widest mb-3">Macro Snapshot</div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {ccData.macro.fear_greed != null && (
+                      <div className="rounded-lg border border-white/8 bg-white/3 p-3 text-center">
+                        <div className="text-[10px] text-slate-500 mb-1">Fear &amp; Greed</div>
+                        <div className={`text-xl font-bold font-mono ${ccData.macro.fear_greed >= 60 ? 'text-green-400' : ccData.macro.fear_greed <= 35 ? 'text-red-400' : 'text-yellow-400'}`}>{ccData.macro.fear_greed}</div>
+                        <div className="text-[10px] text-slate-400">{ccData.macro.fg_label}</div>
+                      </div>
+                    )}
+                    {ccData.macro.btc_dominance_pct != null && (
+                      <div className="rounded-lg border border-white/8 bg-white/3 p-3 text-center">
+                        <div className="text-[10px] text-slate-500 mb-1">BTC Dominance</div>
+                        <div className="text-xl font-bold font-mono text-amber-400">{ccData.macro.btc_dominance_pct.toFixed(1)}%</div>
+                        <div className="text-[10px] text-slate-500">of total mcap</div>
+                      </div>
+                    )}
+                    {ccData.macro.btc_funding_ann_pct != null && (
+                      <div className="rounded-lg border border-white/8 bg-white/3 p-3 text-center">
+                        <div className="text-[10px] text-slate-500 mb-1">BTC Funding (ann.)</div>
+                        <div className={`text-xl font-bold font-mono ${ccData.macro.btc_funding_ann_pct > 20 ? 'text-red-400' : ccData.macro.btc_funding_ann_pct < 0 ? 'text-green-400' : 'text-white'}`}>{ccData.macro.btc_funding_ann_pct.toFixed(1)}%</div>
+                        <div className="text-[10px] text-slate-500">{ccData.macro.btc_funding_ann_pct > 20 ? 'overheated' : ccData.macro.btc_funding_ann_pct < 0 ? 'shorts dominant' : 'neutral'}</div>
+                      </div>
+                    )}
+                    {ccData.macro.vix != null && (
+                      <div className="rounded-lg border border-white/8 bg-white/3 p-3 text-center">
+                        <div className="text-[10px] text-slate-500 mb-1">VIX</div>
+                        <div className={`text-xl font-bold font-mono ${ccData.macro.vix > 25 ? 'text-red-400' : ccData.macro.vix < 15 ? 'text-green-400' : 'text-yellow-400'}`}>{ccData.macro.vix.toFixed(1)}</div>
+                        <div className="text-[10px] text-slate-500">{ccData.macro.vix > 25 ? 'high vol' : 'calm'}</div>
+                      </div>
+                    )}
+                  </div>
+                  {(ccData.macro.macro_events_48h?.length ?? 0) > 0 && (
+                    <div className="mt-3 pt-3 border-t border-white/5">
+                      <div className="text-[10px] text-slate-500 mb-2 uppercase tracking-wider">Upcoming Events (48h)</div>
+                      <div className="space-y-1">
+                        {ccData.macro.macro_events_48h.map((ev, i) => (
+                          <div key={i} className="text-[10px] text-slate-300 flex gap-2">
+                            <span className="text-slate-600 shrink-0">in {ev.hours_away}h</span>
+                            <span>{ev.title}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Asset cards */}
+              {(() => {
+                const assets = market === 'CRYPTO' ? ccData.crypto : ccData.commodities
+                if (!assets || assets.length === 0) return <div className="text-center py-8 text-slate-500 text-sm">No signals yet.</div>
+
+                // Group commodities by category
+                const grouped: Record<string, CCAsset[]> = {}
+                if (market === 'COMMODITY') {
+                  assets.forEach(a => {
+                    const cat = a.category ?? 'Other'
+                    grouped[cat] = grouped[cat] ?? []
+                    grouped[cat].push(a)
+                  })
+                }
+
+                const recColor = (r: string) => r === 'BUY' ? 'text-green-400 border-green-500/30 bg-green-500/10' : r === 'WATCH' ? 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10' : r === 'CAUTION' ? 'text-red-400 border-red-500/30 bg-red-500/10' : 'text-slate-400 border-white/10 bg-white/5'
+                const borderColor = (r: string) => r === 'BUY' ? 'border-green-500/20 bg-green-500/4' : r === 'CAUTION' ? 'border-red-500/20 bg-red-500/4' : 'border-white/8 bg-white/3'
+
+                const AssetCard = ({ a }: { a: CCAsset }) => (
+                  <div className={`rounded-xl border ${borderColor(a.recommendation)} p-4`}>
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <div className="font-bold text-white font-mono text-sm">{a.symbol}</div>
+                        <div className="text-[11px] text-slate-400">{a.name}</div>
+                      </div>
+                      <div className="text-right">
+                        {a.price != null && <div className="text-sm font-mono text-white">{a.price > 1000 ? `$${(a.price/1000).toFixed(1)}k` : `$${a.price.toFixed(2)}`}</div>}
+                        {a.change_1d != null && <div className={`text-[10px] font-mono ${a.change_1d >= 0 ? 'text-green-400' : 'text-red-400'}`}>{a.change_1d >= 0 ? '+' : ''}{a.change_1d.toFixed(2)}% today</div>}
+                      </div>
+                    </div>
+                    {/* Score bars */}
+                    <div className="space-y-1.5 mb-3">
+                      {[
+                        { label: 'Technical', score: a.technical_score, max: 3, color: 'bg-blue-500' },
+                        { label: 'Macro', score: a.macro_score, max: 3, color: 'bg-purple-500' },
+                        { label: 'News', score: a.news_score, max: 3, color: 'bg-amber-500' },
+                      ].map(({ label, score, max, color }) => (
+                        <div key={label} className="flex items-center gap-2">
+                          <div className="text-[9px] text-slate-600 w-14 uppercase">{label}</div>
+                          <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                            <div className={`h-full ${color} rounded-full`} style={{ width: `${(score / max) * 100}%` }} />
+                          </div>
+                          <div className="text-[9px] text-slate-500 font-mono w-6 text-right">{score}/{max}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full border font-mono font-semibold ${recColor(a.recommendation)}`}>{a.recommendation}</span>
+                      <span className="text-[10px] text-slate-500 font-mono">{a.total_score}/{a.max_score}</span>
+                    </div>
+                    {/* Signal details */}
+                    {(a.technical_details?.length ?? 0) > 0 && (
+                      <div className="mt-2 pt-2 border-t border-white/5 space-y-0.5">
+                        {a.technical_details.slice(0, 3).map((d, i) => (
+                          <div key={i} className="text-[10px] text-slate-400">{d}</div>
+                        ))}
+                      </div>
+                    )}
+                    {a.news_summary && (
+                      <div className="mt-1 text-[10px] text-slate-500 italic">{a.news_summary}</div>
+                    )}
+                  </div>
+                )
+
+                if (market === 'CRYPTO') {
+                  return (
+                    <div>
+                      <div className="text-xs font-mono text-amber-400 uppercase tracking-widest mb-3">🪙 Crypto Signals</div>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        {assets.map(a => <AssetCard key={a.symbol} a={a} />)}
+                      </div>
+                    </div>
+                  )
+                }
+
+                // Commodities grouped
+                return (
+                  <div className="space-y-6">
+                    {Object.entries(grouped).map(([cat, items]) => (
+                      <div key={cat}>
+                        <div className="text-xs font-mono text-slate-400 uppercase tracking-widest mb-3">
+                          {cat === 'Energy' ? '🛢' : cat === 'Metals' ? '🥇' : cat === 'Agriculture' ? '🌾' : '📦'} {cat}
+                        </div>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          {items.map(a => <AssetCard key={a.symbol} a={a} />)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
+
+              {ccData.scanned_at && (
+                <p className="text-[10px] text-slate-700">Scanned: {new Date(ccData.scanned_at).toLocaleString('en-SG', { dateStyle: 'medium', timeStyle: 'short' })}</p>
+              )}
+            </div>
+          )
+        )}
 
         {/* Watchlist CTA */}
         {watchlist.length === 0 && !loading && (
