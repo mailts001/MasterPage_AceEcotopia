@@ -18,8 +18,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ market: 'ETF', timestamp: null, bullish: [], bearish: [], neutral: [], sector_rotation: [], error: String(e) })
     }
     if (market === 'HK' || market === 'JP' || market === 'SG') {
-      return NextResponse.json({ market, timestamp: null, scanner_picks: [], squeeze_alerts: [], indices: [], movers: { gainers: [], losers: [] }, error: String(e) })
+      return NextResponse.json({ market, timestamp: null, scanner_picks: [], weakening: [], squeeze_alerts: [], indices: [], movers: { gainers: [], losers: [] }, error: String(e) })
     }
-    return NextResponse.json({ market: 'US', timestamp: null, bullish: [], bearish: [], scanner_picks: [], squeeze_alerts: [], spike_alerts: [], indices: [], movers: { gainers: [], losers: [] }, error: String(e) })
+    return NextResponse.json({ market: 'US', timestamp: null, bullish: [], bearish: [], scanner_picks: [], weakening: [], squeeze_alerts: [], spike_alerts: [], indices: [], movers: { gainers: [], losers: [] }, error: String(e) })
   }
 }

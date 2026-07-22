@@ -66,6 +66,7 @@ interface Picks {
   bullish: BullishTicker[]
   bearish: BullishTicker[]
   scanner_picks: ScannerPick[]
+  weakening: ScannerPick[]
   squeeze_alerts: SqueezeAlert[]
   spike_alerts: SqueezeAlert[]
   indices?: MarketIndex[]
@@ -223,6 +224,105 @@ function MoversPanel({ movers, currency }: { movers: { gainers: Mover[]; losers:
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function WeakeningSection({ picks, currency = '$' }: { picks: ScannerPick[]; currency?: string }) {
+  if (!picks.length) return null
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-xs font-mono text-red-400 uppercase tracking-widest">Weakening / Avoid</span>
+        <span className="text-[10px] text-slate-600 border border-slate-700 rounded px-1.5 py-0.5">{picks.length} signals</span>
+      </div>
+      <div className="grid md:grid-cols-2 gap-3">
+        {picks.map((p, i) => (
+          <div key={i} className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+            <div className="flex items-start justify-between mb-2">
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-white font-mono text-sm">{p.symbol}</span>
+                  <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full border ${
+                    p.recommendation === 'STRONG SELL'
+                      ? 'text-red-300 border-red-500/40 bg-red-500/15'
+                      : 'text-orange-300 border-orange-500/30 bg-orange-500/10'
+                  }`}>{p.recommendation ?? 'SELL / AVOID'}</span>
+                </div>
+                {p.name && <div className="text-[10px] text-slate-500 mt-0.5">{p.name}</div>}
+                {p.sector && <div className="text-[9px] text-slate-600 mt-0.5">{p.sector}</div>}
+              </div>
+              {(p.price ?? 0) > 0 && <span className="text-sm font-mono text-slate-300 shrink-0">{currency}{p.price!.toFixed(2)}</span>}
+            </div>
+            <div className="flex gap-3 text-[10px]">
+              {p.rsi && <span><span className="text-slate-600">RSI </span><span className={`font-mono font-bold ${p.rsi < 35 ? 'text-red-400' : p.rsi > 60 ? 'text-orange-400' : 'text-slate-400'}`}>{p.rsi.toFixed(0)}</span></span>}
+              {p.volume_ratio && <span><span className="text-slate-600">Vol </span><span className="font-mono text-slate-400">{p.volume_ratio.toFixed(1)}×</span></span>}
+              {(p.change_pct ?? 0) !== 0 && <span><span className="text-slate-600">1d </span><span className={`font-mono font-bold ${(p.change_pct ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>{(p.change_pct ?? 0) > 0 ? '+' : ''}{p.change_pct!.toFixed(2)}%</span></span>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SignalGuide() {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="rounded-xl border border-white/8 bg-white/3">
+      <button onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left">
+        <span className="text-xs font-mono text-slate-400 uppercase tracking-widest">📖 How Signals Are Scored</span>
+        <span className="text-slate-600 text-xs">{open ? '▲ hide' : '▼ show'}</span>
+      </button>
+      {open && (
+        <div className="px-4 pb-4 space-y-4 text-[11px] text-slate-400 border-t border-white/5 pt-4">
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <div className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-2">Scoring Factors (each adds/removes points)</div>
+              <div className="space-y-1.5">
+                {[
+                  ['RSI', 'Momentum gauge 0–100. <30 = oversold +3, <40 = +1, >75 = overbought −2, >60 = −1. Rising RSI +1, falling −1.'],
+                  ['MACD', 'Trend direction. Bullish cross +1, strengthening +1. Bearish cross −1.'],
+                  ['SMA 50/200', 'Price above 50-day +1, above 200-day +1. Golden cross +3, death cross −3.'],
+                  ['MFI', 'Money Flow Index. <20 = oversold +2, >80 = overbought −2, >50 = +1.'],
+                  ['Volume', '>2× average: amplifies score ±2. >1.5×: ±1. Direction follows the signal.'],
+                  ['Momentum', '3+ consecutive up days +1. 20-day return >+10% = +1, < −10% = −1.'],
+                  ['52W Low', 'Price within 10% of 52-week low: +1 (mean-reversion opportunity).'],
+                ].map(([k, v]) => (
+                  <div key={k as string}>
+                    <span className="text-white font-mono text-[10px]">{k as string} </span>
+                    <span className="text-slate-500">{v as string}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-2">Signal Thresholds</div>
+              <div className="space-y-2">
+                {[
+                  ['STRONG BUY', 'Score ≥ 5', 'Strong bullish confluence across most factors. Full position entry.', 'text-green-400', 'border-green-500/30 bg-green-500/10'],
+                  ['BUY', 'Score ≥ 2', 'Bullish signal. Enter on pullback to EMA20 or SMA50.', 'text-cyan-400', 'border-cyan-500/30 bg-cyan-500/10'],
+                  ['NEUTRAL', 'Score −1 to +1', 'No clear edge. Scanner filters these out — if a stock is absent from both lists, treat as hold.', 'text-slate-400', 'border-slate-500/30 bg-slate-500/10'],
+                  ['SELL / AVOID', 'Score ≤ −2', 'Bearish. Avoid new longs. Exit if price breaks below SMA50.', 'text-orange-400', 'border-orange-500/30 bg-orange-500/10'],
+                  ['STRONG SELL', 'Score ≤ −5', 'Strong bearish confluence. Exit longs immediately.', 'text-red-400', 'border-red-500/30 bg-red-500/10'],
+                ].map(([sig, range, desc, textColor, badgeColor]) => (
+                  <div key={sig as string} className="flex items-start gap-2">
+                    <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border shrink-0 mt-0.5 ${badgeColor as string} ${textColor as string}`}>{sig as string}</span>
+                    <div>
+                      <span className="text-slate-500 font-mono text-[9px]">{range as string} · </span>
+                      <span className="text-slate-500 text-[10px]">{desc as string}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 pt-3 border-t border-white/5 text-[10px] text-slate-600">
+                Entry filter (momentum tab): RSI 50–72 · MACD bullish · volume &gt;1.1× avg. Stocks outside the filter are not shown even if score is positive.
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -545,6 +645,11 @@ export default function FinancialDashboard() {
                   )}
                 </div>
 
+                {/* APAC weakening / sell signals */}
+                {(picks?.weakening?.length ?? 0) > 0 && (
+                  <WeakeningSection picks={picks!.weakening} currency={m.currency} />
+                )}
+
                 {/* Squeeze alerts */}
                 {(picks?.squeeze_alerts?.length ?? 0) > 0 && (
                   <div>
@@ -699,6 +804,10 @@ export default function FinancialDashboard() {
                     ))
                 }
               </div>
+              {/* US weakening / sell signals */}
+              {(usPicks?.weakening?.length ?? 0) > 0 && (
+                <WeakeningSection picks={usPicks!.weakening} currency="$" />
+              )}
               {/* US movers */}
               {usPicks?.movers && <MoversPanel movers={usPicks.movers} currency="$" />}
             </div>
@@ -1073,6 +1182,9 @@ export default function FinancialDashboard() {
             </Link>
           </div>
         )}
+
+        {/* Signal guide */}
+        <SignalGuide />
 
         {/* How it works */}
         <div className="grid md:grid-cols-2 gap-4">
