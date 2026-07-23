@@ -570,24 +570,35 @@ export default function FinancialDashboard() {
           <p className="text-gray-500 text-sm">
             AI-powered signals — US & HK markets. Intelligence only. Execution is yours.
           </p>
-          {lastScan && (
+          {lastScan && (market === 'US' || market === 'HK' || market === 'JP' || market === 'SG') && (
             <p className="text-[11px] text-slate-600 mt-1">Last scan: {lastScan}</p>
           )}
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-3 gap-4">
-          {[
+        {(() => {
+          const isCCMarket = market === 'CRYPTO' || market === 'COMMODITY'
+          const ccAssets = market === 'CRYPTO' ? ccData?.crypto : ccData?.commodities
+          const stats = isCCMarket ? [
+            { label: market === 'CRYPTO' ? 'Crypto assets' : 'Commodities', value: marketLoading ? '…' : (ccAssets?.length ?? 0), color: 'text-amber-400' },
+            { label: 'Buy / Watch signals', value: marketLoading ? '…' : (ccAssets?.filter(a => a.recommendation === 'BUY' || a.recommendation === 'WATCH').length ?? 0), color: 'text-green-400' },
+            { label: 'Your watchlist tickers', value: loading ? '…' : watchlist.length, color: 'text-cyan-400' },
+          ] : [
             { label: 'Momentum picks', value: loading ? '…' : allMomentum.length, color: 'text-green-400' },
             { label: 'Squeeze/Spike alerts', value: loading ? '…' : squeezes.length, color: 'text-purple-400' },
             { label: 'Your watchlist tickers', value: loading ? '…' : watchlist.length, color: 'text-cyan-400' },
-          ].map(s => (
+          ]
+          return (
+        <div className="grid grid-cols-3 gap-4">
+          {stats.map(s => (
             <div key={s.label} className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
               <div className={`text-2xl font-bold font-mono ${s.color}`}>{s.value}</div>
               <div className="text-xs text-gray-500 mt-1">{s.label}</div>
             </div>
           ))}
         </div>
+          )
+        })()}
 
         {/* Market selector */}
         <div className="flex gap-2">
@@ -1264,6 +1275,7 @@ export default function FinancialDashboard() {
                 <div className="rounded-xl border border-white/10 bg-white/3 p-4">
                   <div className="text-xs font-mono text-slate-400 uppercase tracking-widest mb-3">Macro Snapshot</div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {/* Fear & Greed — relevant for both crypto and commodities (risk-on/off) */}
                     {ccData.macro.fear_greed != null && (
                       <div className="rounded-lg border border-white/8 bg-white/3 p-3 text-center">
                         <div className="text-[10px] text-slate-500 mb-1">Fear &amp; Greed</div>
@@ -1271,25 +1283,42 @@ export default function FinancialDashboard() {
                         <div className="text-[10px] text-slate-400">{ccData.macro.fg_label}</div>
                       </div>
                     )}
-                    {ccData.macro.btc_dominance_pct != null && (
-                      <div className="rounded-lg border border-white/8 bg-white/3 p-3 text-center">
-                        <div className="text-[10px] text-slate-500 mb-1">BTC Dominance</div>
-                        <div className="text-xl font-bold font-mono text-amber-400">{ccData.macro.btc_dominance_pct.toFixed(1)}%</div>
-                        <div className="text-[10px] text-slate-500">of total mcap</div>
-                      </div>
-                    )}
-                    {ccData.macro.btc_funding_ann_pct != null && (
-                      <div className="rounded-lg border border-white/8 bg-white/3 p-3 text-center">
-                        <div className="text-[10px] text-slate-500 mb-1">BTC Funding (ann.)</div>
-                        <div className={`text-xl font-bold font-mono ${ccData.macro.btc_funding_ann_pct > 20 ? 'text-red-400' : ccData.macro.btc_funding_ann_pct < 0 ? 'text-green-400' : 'text-white'}`}>{ccData.macro.btc_funding_ann_pct.toFixed(1)}%</div>
-                        <div className="text-[10px] text-slate-500">{ccData.macro.btc_funding_ann_pct > 20 ? 'overheated' : ccData.macro.btc_funding_ann_pct < 0 ? 'shorts dominant' : 'neutral'}</div>
-                      </div>
-                    )}
+                    {/* VIX — relevant for both */}
                     {ccData.macro.vix != null && (
                       <div className="rounded-lg border border-white/8 bg-white/3 p-3 text-center">
                         <div className="text-[10px] text-slate-500 mb-1">VIX</div>
                         <div className={`text-xl font-bold font-mono ${ccData.macro.vix > 25 ? 'text-red-400' : ccData.macro.vix < 15 ? 'text-green-400' : 'text-yellow-400'}`}>{ccData.macro.vix.toFixed(1)}</div>
                         <div className="text-[10px] text-slate-500">{ccData.macro.vix > 25 ? 'high vol' : 'calm'}</div>
+                      </div>
+                    )}
+                    {/* Crypto-specific: BTC Dominance + BTC Funding */}
+                    {market === 'CRYPTO' && ccData.macro.btc_dominance_pct != null && (
+                      <div className="rounded-lg border border-white/8 bg-white/3 p-3 text-center">
+                        <div className="text-[10px] text-slate-500 mb-1">BTC Dominance</div>
+                        <div className="text-xl font-bold font-mono text-amber-400">{ccData.macro.btc_dominance_pct.toFixed(1)}%</div>
+                        <div className="text-[10px] text-slate-500">{ccData.macro.btc_dominance_pct > 55 ? 'BTC leads, alts lag' : 'altcoin season'}</div>
+                      </div>
+                    )}
+                    {market === 'CRYPTO' && ccData.macro.btc_funding_ann_pct != null && (
+                      <div className="rounded-lg border border-white/8 bg-white/3 p-3 text-center">
+                        <div className="text-[10px] text-slate-500 mb-1">BTC Funding (ann.)</div>
+                        <div className={`text-xl font-bold font-mono ${ccData.macro.btc_funding_ann_pct > 20 ? 'text-red-400' : ccData.macro.btc_funding_ann_pct < 0 ? 'text-green-400' : 'text-white'}`}>{ccData.macro.btc_funding_ann_pct.toFixed(1)}%</div>
+                        <div className="text-[10px] text-slate-500">{ccData.macro.btc_funding_ann_pct > 20 ? 'longs overheated' : ccData.macro.btc_funding_ann_pct < 0 ? 'shorts dominant' : 'neutral'}</div>
+                      </div>
+                    )}
+                    {/* Commodity-specific: DXY trend + EIA draw */}
+                    {market === 'COMMODITY' && ccData.macro.dxy_5d_chg != null && (
+                      <div className="rounded-lg border border-white/8 bg-white/3 p-3 text-center">
+                        <div className="text-[10px] text-slate-500 mb-1">DXY 5d</div>
+                        <div className={`text-xl font-bold font-mono ${ccData.macro.dxy_5d_chg > 0.5 ? 'text-red-400' : ccData.macro.dxy_5d_chg < -0.5 ? 'text-green-400' : 'text-slate-300'}`}>{ccData.macro.dxy_5d_chg > 0 ? '+' : ''}{ccData.macro.dxy_5d_chg.toFixed(2)}%</div>
+                        <div className="text-[10px] text-slate-500">{ccData.macro.dxy_5d_chg > 0.5 ? 'USD strong → headwind' : ccData.macro.dxy_5d_chg < -0.5 ? 'USD weak → tailwind' : 'USD neutral'}</div>
+                      </div>
+                    )}
+                    {market === 'COMMODITY' && ccData.macro.eia_draw_mbbl != null && (
+                      <div className="rounded-lg border border-white/8 bg-white/3 p-3 text-center">
+                        <div className="text-[10px] text-slate-500 mb-1">EIA Crude Draw</div>
+                        <div className={`text-xl font-bold font-mono ${ccData.macro.eia_draw_mbbl > 0 ? 'text-green-400' : 'text-red-400'}`}>{ccData.macro.eia_draw_mbbl > 0 ? '+' : ''}{ccData.macro.eia_draw_mbbl.toFixed(1)}M bbl</div>
+                        <div className="text-[10px] text-slate-500">{ccData.macro.eia_draw_mbbl > 0 ? 'inventory draw → bullish oil' : 'inventory build → bearish'}</div>
                       </div>
                     )}
                   </div>
