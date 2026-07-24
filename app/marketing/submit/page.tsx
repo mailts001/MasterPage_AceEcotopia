@@ -8,7 +8,7 @@ import { useState, useRef, useEffect } from "react";
 
 type Platform  = "TT" | "IG" | "YT" | "LI";
 type Tone      = "entertaining" | "professional" | "urgent" | "educational";
-type VideoType = "text_overlay" | "ai_unboxing" | "ai_demo" | "avatar_ad";
+type VideoType = "text_overlay" | "ai_unboxing" | "ai_demo" | "ai_pov_demo" | "avatar_ad";
 type BgMode    = "remove" | "keep";
 type Step      = "form" | "submitting" | "success" | "error";
 
@@ -20,6 +20,7 @@ interface FormData {
   video_type:          VideoType;
   bg_mode:             BgMode;
   face_image_url:      string;
+  scene_direction:     string;
   website_url:         string;
   price:               string;
   promo_code:          string;
@@ -71,6 +72,15 @@ const VIDEO_TYPES: { value: VideoType; label: string; icon: string; desc: string
     cost:       "~$0.02–0.05",
   },
   {
+    value:      "ai_pov_demo",
+    label:      "AI POV Demo",
+    icon:       "🤳",
+    desc:       "First-person POV: hands using your product, close-up texture, satisfying result. AI auto-writes scene direction from your description.",
+    needsImage: true,
+    badge:      "AI",
+    cost:       "~$0.02–0.05",
+  },
+  {
     value:      "ai_demo",
     label:      "AI Lifestyle Scene",
     icon:       "🎬",
@@ -82,12 +92,68 @@ const VIDEO_TYPES: { value: VideoType; label: string; icon: string; desc: string
 ];
 
 const ACCENT = "#F43F5E";
+const SESSION_KEY = "mkt_unlocked";
+
+// ---------------------------------------------------------------------------
+// Password gate (sessionStorage — persists while tab is open)
+// ---------------------------------------------------------------------------
+
+function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
+  const [pin, setPin] = useState("");
+  const [err, setErr] = useState(false);
+
+  async function check() {
+    const res = await fetch("/api/marketing/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin }),
+    });
+    if (res.ok) {
+      sessionStorage.setItem(SESSION_KEY, "1");
+      onUnlock();
+    } else {
+      setErr(true);
+      setPin("");
+    }
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#0f0f0f", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 16, padding: "40px 48px", maxWidth: 360, width: "100%", textAlign: "center" }}>
+        <div style={{ fontSize: 36, marginBottom: 12 }}>🔐</div>
+        <h2 style={{ color: "#fff", marginBottom: 8, fontSize: 20 }}>MarketingOS</h2>
+        <p style={{ color: "#888", fontSize: 14, marginBottom: 24 }}>Enter your access PIN to continue</p>
+        <input
+          type="password"
+          value={pin}
+          onChange={e => { setPin(e.target.value); setErr(false); }}
+          onKeyDown={e => e.key === "Enter" && check()}
+          placeholder="PIN"
+          autoFocus
+          style={{
+            width: "100%", padding: "12px 16px", borderRadius: 8, border: err ? "1px solid #f43f5e" : "1px solid #333",
+            background: "#111", color: "#fff", fontSize: 18, textAlign: "center",
+            outline: "none", boxSizing: "border-box", marginBottom: 8,
+          }}
+        />
+        {err && <p style={{ color: "#f43f5e", fontSize: 13, marginBottom: 8 }}>Wrong PIN — try again</p>}
+        <button
+          onClick={check}
+          style={{ width: "100%", padding: "12px 0", borderRadius: 8, background: ACCENT, color: "#fff", border: "none", fontWeight: 700, fontSize: 15, cursor: "pointer", marginTop: 8 }}
+        >
+          Unlock →
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 export default function MarketingSubmitPage() {
+  const [unlocked, setUnlocked] = useState(false);
   const [step, setStep]           = useState<Step>("form");
   const [jobId, setJobId]         = useState("");
   const [errorMsg, setErrorMsg]   = useState("");
@@ -99,12 +165,19 @@ export default function MarketingSubmitPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const faceRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (sessionStorage.getItem(SESSION_KEY) === "1") setUnlocked(true);
+  }, []);
+
   // URL scraper state
   const [scrapeUrl, setScrapeUrl]         = useState("");
   const [scraping, setScraping]           = useState(false);
   const [scrapeError, setScrapeError]     = useState("");
   const [scrapeOk, setScrapeOk]           = useState(false);
   const [scrapedImageUrl, setScrapedImageUrl] = useState<string | null>(null);
+
+  const [hinting, setHinting]             = useState(false);
+  const [hintOk, setHintOk]               = useState(false);
 
   const [form, setForm] = useState<FormData>({
     product_name:        "",
@@ -114,6 +187,7 @@ export default function MarketingSubmitPage() {
     video_type:          "text_overlay",
     bg_mode:             "remove",
     face_image_url:      "",
+    scene_direction:     "",
     website_url:         "",
     price:               "",
     promo_code:          "",
@@ -191,6 +265,31 @@ export default function MarketingSubmitPage() {
     }
   }
 
+  async function generateSceneHint() {
+    setHinting(true);
+    setHintOk(false);
+    try {
+      const resp = await fetch("/api/marketing/scene-hint", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          product_name:        form.product_name,
+          product_description: form.product_description,
+          platform:            form.platform,
+          tone:                form.tone,
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || data.error) throw new Error(data.error ?? "Generation failed");
+      set("scene_direction", data.scene_direction);
+      setHintOk(true);
+    } catch (err) {
+      console.error("[scene-hint]", err);
+    } finally {
+      setHinting(false);
+    }
+  }
+
   async function uploadImage(file: File, tempId: string): Promise<string> {
     // Upload via server-side API route (uses service role key to bypass RLS)
     const fd = new FormData();
@@ -248,6 +347,7 @@ export default function MarketingSubmitPage() {
         merchant_tg_id:      form.merchant_tg_id.trim() || null,
         brand_color:         form.brand_color,
         brand_name:          form.brand_name.trim() || null,
+        scene_direction:     form.scene_direction.trim() || null,
         product_image_url:   finalImageUrl,
         face_image_url:      faceUrl,
         status:              "pending",
@@ -272,6 +372,8 @@ export default function MarketingSubmitPage() {
   }
 
   // ── Render ───────────────────────────────────────────────────────────────
+
+  if (!unlocked) return <PasswordGate onUnlock={() => setUnlocked(true)} />;
 
   if (step === "submitting") return <LoadingScreen />;
   if (step === "success")    return <SuccessScreen jobId={jobId} platform={form.platform} productName={form.product_name} />;
@@ -554,6 +656,39 @@ export default function MarketingSubmitPage() {
             </div>
 
           </Field>
+
+          {/* POV Scene Direction — shown only for ai_pov_demo */}
+          {form.video_type === "ai_pov_demo" && (
+            <Field
+              label="Scene Direction"
+              hint="Describe exactly what the camera sees — hands, product, the satisfying moment. AI can write this for you."
+            >
+              <div className="space-y-2">
+                <textarea
+                  value={form.scene_direction}
+                  onChange={(e) => { set("scene_direction", e.target.value); setHintOk(false); }}
+                  placeholder="e.g. POV hands massaging shampoo into wet hair, rich lather forming, steam rising, close-up of clean scalp reveal..."
+                  rows={3}
+                  className={inputCls + " resize-none"}
+                />
+                <button
+                  type="button"
+                  onClick={generateSceneHint}
+                  disabled={hinting || (!form.product_name && !form.product_description)}
+                  className="flex items-center gap-2 text-sm px-4 py-2 rounded-xl border border-indigo-500/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {hinting ? (
+                    <><span className="animate-spin">⟳</span> Generating scene direction...</>
+                  ) : hintOk ? (
+                    <><span>✅</span> Generated — edit freely</>
+                  ) : (
+                    <><span>✨</span> Auto-generate from my product description</>
+                  )}
+                </button>
+                <p className="text-xs text-slate-600">Free — uses Gemini or Groq. Fill in Product Name + Description first for best results.</p>
+              </div>
+            </Field>
+          )}
 
           {/* Optional fields — collapsible */}
           <details className="group">

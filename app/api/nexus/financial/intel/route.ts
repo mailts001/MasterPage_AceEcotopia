@@ -1,25 +1,27 @@
 import { NextResponse } from 'next/server'
-import { isPromoMode } from '@/lib/promo'
+import { isPromoMode, isCitizenPreview } from '@/lib/promo'
 
 const VPS = process.env.ACEECONOMY_URL || 'http://204.168.221.101:8505'
 const KEY = process.env.NEXUS_API_KEY  || 'x68-nexus-internal-2024'
 
 export async function GET() {
-  const [vpsRes, promo] = await Promise.allSettled([
+  const [vpsRes, promo, preview] = await Promise.allSettled([
     fetch(`${VPS}/api/nexus/intel`, {
       headers: { 'x-nexus-key': KEY },
       next: { revalidate: 900 },
     }),
     isPromoMode(),
+    isCitizenPreview(),
   ])
 
   const promoMode = promo.status === 'fulfilled' ? promo.value : false
+  const citizenPreview = preview.status === 'fulfilled' ? preview.value : false
 
   try {
     if (vpsRes.status !== 'fulfilled' || !vpsRes.value.ok)
       throw new Error(vpsRes.status === 'fulfilled' ? `upstream ${vpsRes.value.status}` : 'fetch failed')
     const data = await vpsRes.value.json()
-    return NextResponse.json({ ...data, promo_mode: promoMode })
+    return NextResponse.json({ ...data, promo_mode: promoMode, citizen_preview: citizenPreview })
   } catch (e) {
     return NextResponse.json({
       regime: 'UNKNOWN', regime_score: 0, regime_signals: [], regime_updated: null,
@@ -40,7 +42,7 @@ export async function GET() {
       strategy_lifecycle: [], all_strategy_stats: {},
       asset_classes: [], sectors: [], seasonality: null,
       risk_heat: null, bond_intel: [], correlation: null,
-      promo_mode: promoMode,
+      promo_mode: promoMode, citizen_preview: citizenPreview,
       error: String(e),
     })
   }

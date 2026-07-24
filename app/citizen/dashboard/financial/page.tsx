@@ -154,6 +154,7 @@ interface Intel {
   congress_trades: CongressTrade[]
   // portfolio intelligence (new)
   promo_mode: boolean
+  citizen_preview: boolean
   strategy_lifecycle: { strategy: string; health: string; action: string; latest_sharpe: number | null; is_declining: boolean }[]
   all_strategy_stats: Record<string, { current_pct: number; recommended_pct: number; count: number; pnl: number; win_rate: number; sharpe: number | null }>
   asset_classes: { name: string; ticker: string; price: number; chg_1d: number; chg_5d: number; chg_1m: number; chg_ytd: number }[]
@@ -1274,8 +1275,9 @@ export default function FinancialDashboard() {
 
               {/* ── Portfolio Intelligence (Citizen + Pro) ── */}
               {(() => {
-                const promoMode = intel.promo_mode ?? false
-                const isCitizen = promoMode || citizenTier === 'citizen' || citizenTier === 'pro' || citizenTier === 'enterprise'
+                const promoMode      = intel.promo_mode ?? false
+                const citizenPreview = intel.citizen_preview ?? false
+                const isCitizen = promoMode || citizenPreview || citizenTier === 'citizen' || citizenTier === 'pro' || citizenTier === 'enterprise'
                 const isPro     = promoMode || citizenTier === 'pro' || citizenTier === 'enterprise'
 
                 return (
@@ -1284,6 +1286,12 @@ export default function FinancialDashboard() {
                       <div className="rounded-lg border border-purple-500/30 bg-purple-500/8 px-4 py-2 text-[11px] text-purple-300 flex items-center gap-2">
                         <span>🎁</span>
                         <span>Promotional access — all portfolio intelligence signals unlocked</span>
+                      </div>
+                    )}
+                    {!promoMode && citizenPreview && (
+                      <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/8 px-4 py-2 text-[11px] text-cyan-300 flex items-center gap-2">
+                        <span>📊</span>
+                        <span>Citizen preview — paid analysis unlocked for all visitors</span>
                       </div>
                     )}
 

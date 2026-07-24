@@ -40,6 +40,8 @@ export default function AdminPage() {
   const [aiProvider, setAiProvider] = useState('gemini')
   const [promoMode, setPromoMode] = useState(false)
   const [promoSaving, setPromoSaving] = useState(false)
+  const [citizenPreview, setCitizenPreview] = useState(false)
+  const [previewSaving, setPreviewSaving] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [search, setSearch] = useState('')
@@ -60,6 +62,7 @@ export default function AdminPage() {
     if (settingsRes.status === 'fulfilled' && settingsRes.value.ok) {
       const s = await settingsRes.value.json()
       setPromoMode(s.promo_mode === 'true')
+      setCitizenPreview(s.citizen_preview === 'true')
     }
   }, [])
 
@@ -86,6 +89,17 @@ export default function AdminPage() {
     })
     setPromoMode(val)
     setPromoSaving(false)
+  }
+
+  async function toggleCitizenPreview(val: boolean) {
+    setPreviewSaving(true)
+    await fetch('/api/admin/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': authKey },
+      body: JSON.stringify({ citizen_preview: String(val) }),
+    })
+    setCitizenPreview(val)
+    setPreviewSaving(false)
   }
 
   async function saveProvider(provider: string) {
@@ -369,6 +383,28 @@ export default function AdminPage() {
                 </button>
               </div>
             </div>
+            {/* Citizen Preview Toggle */}
+            <div className={`rounded-xl border p-5 ${citizenPreview ? 'border-cyan-500/40 bg-cyan-500/8' : 'border-white/10 bg-white/3'}`}>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-sm font-semibold text-white">Citizen Preview</div>
+                  <div className="text-xs text-gray-400 mt-1">Unlock paid analysis (strategy stats, seasonality, asset classes, sectors, risk heat) for all visitors. Bond intel stays locked.</div>
+                  {citizenPreview && <div className="text-xs text-cyan-300 mt-1">📊 Active — everyone sees Citizen-tier signals</div>}
+                </div>
+                <button
+                  onClick={() => toggleCitizenPreview(!citizenPreview)}
+                  disabled={previewSaving}
+                  className={`shrink-0 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                    citizenPreview
+                      ? 'bg-cyan-500 hover:bg-cyan-400 text-black'
+                      : 'bg-white/10 hover:bg-white/20 text-gray-300 border border-white/20'
+                  }`}
+                >
+                  {previewSaving ? 'Saving…' : citizenPreview ? '📊 Preview ON — End Preview' : '🔒 Preview OFF — Show Paid Content'}
+                </button>
+              </div>
+            </div>
+
             <p className="text-gray-400 text-sm">Switch AI model powering all district analysis. Start free, scale as revenue grows.</p>
             {PROVIDERS.map(p => (
               <button key={p.id} onClick={() => saveProvider(p.id)} disabled={saving}

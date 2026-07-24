@@ -24,7 +24,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   if (!checkAdmin(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json()
-  const allowed = ['promo_mode', 'promo_label']
+  const allowed = ['promo_mode', 'promo_label', 'citizen_preview']
   const updates = Object.entries(body).filter(([k]) => allowed.includes(k))
   if (!updates.length) return NextResponse.json({ error: 'No valid fields' }, { status: 400 })
 
