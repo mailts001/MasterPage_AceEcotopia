@@ -359,10 +359,13 @@ export default function AdminPage() {
                 <button
                   onClick={() => togglePromoMode(!promoMode)}
                   disabled={promoSaving}
-                  className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none ${promoMode ? 'bg-purple-500' : 'bg-white/10'}`}
-                  aria-label="Toggle promotional mode"
+                  className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+                    promoMode
+                      ? 'bg-purple-500 hover:bg-purple-400 text-white'
+                      : 'bg-white/10 hover:bg-white/20 text-gray-300 border border-white/20'
+                  }`}
                 >
-                  <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${promoMode ? 'translate-x-6' : 'translate-x-1'}`} />
+                  {promoSaving ? '…' : promoMode ? '🟢 ON — Click to turn OFF' : '⚫ OFF — Click to turn ON'}
                 </button>
               </div>
             </div>
