@@ -1269,6 +1269,107 @@ export default function FinancialDashboard() {
                 </div>
               )}
 
+              {/* ── MODEL PORTFOLIOS ── */}
+              {(() => {
+                const promoMode      = intel.promo_mode ?? false
+                const citizenPreview = intel.citizen_preview ?? false
+                const isCitizen = promoMode || citizenPreview || citizenTier === 'citizen' || citizenTier === 'pro' || citizenTier === 'enterprise'
+
+                // Static model portfolios
+                const INCOME = [
+                  { ticker: 'SCHD', name: 'US Dividend Growth', pct: 30 },
+                  { ticker: 'LQD',  name: 'Corp Bonds (IG)',    pct: 25 },
+                  { ticker: 'TLT',  name: 'Long Treasuries',    pct: 20 },
+                  { ticker: 'VNQ',  name: 'REITs',              pct: 15 },
+                  { ticker: 'GLD',  name: 'Gold (hedge)',        pct: 10 },
+                ]
+                const GROWTH = [
+                  { ticker: 'QQQ',  name: 'US Tech & Growth',   pct: 35 },
+                  { ticker: 'SPY',  name: 'US Large Cap Core',   pct: 25 },
+                  { ticker: 'IWM',  name: 'US Small Cap',        pct: 15 },
+                  { ticker: 'EEM',  name: 'Emerging Markets',    pct: 15 },
+                  { ticker: 'GLD',  name: 'Gold (hedge)',         pct: 10 },
+                ]
+
+                // Live performance lookup from AceEconomy asset_classes
+                const assetMap: Record<string, { chg_1d: number; chg_ytd: number }> = {}
+                for (const a of intel.asset_classes ?? []) assetMap[a.ticker] = { chg_1d: a.chg_1d, chg_ytd: a.chg_ytd }
+
+                const PortfolioCard = ({ title, icon, tag, tagColor, holdings, barColor }: {
+                  title: string; icon: string; tag: string; tagColor: string
+                  holdings: { ticker: string; name: string; pct: number }[]; barColor: string
+                }) => (
+                  <div className="rounded-xl border border-white/10 bg-white/3 p-4 flex-1">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{icon}</span>
+                        <div>
+                          <div className="text-xs font-semibold text-white">{title}</div>
+                          <div className={`text-[10px] px-1.5 py-0.5 rounded-full mt-0.5 inline-block ${tagColor}`}>{tag}</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      {holdings.map(h => {
+                        const live = assetMap[h.ticker]
+                        return (
+                          <div key={h.ticker}>
+                            <div className="flex items-center justify-between mb-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-mono text-white w-10">{h.ticker}</span>
+                                <span className="text-[10px] text-slate-500">{h.name}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {isCitizen && live ? (
+                                  <span className={`text-[10px] font-mono ${live.chg_1d >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                    {live.chg_1d >= 0 ? '+' : ''}{live.chg_1d.toFixed(1)}% 1d
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-slate-700 blur-sm select-none">+0.0% 1d</span>
+                                )}
+                                <span className="text-[10px] font-mono text-slate-400 w-8 text-right">{h.pct}%</span>
+                              </div>
+                            </div>
+                            <div className="w-full h-1 bg-white/5 rounded-full">
+                              <div className={`h-1 rounded-full ${barColor}`} style={{ width: `${h.pct}%` }} />
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    {isCitizen ? (
+                      <div className="mt-3 pt-3 border-t border-white/8">
+                        {(() => {
+                          const ytds = holdings.map(h => assetMap[h.ticker]?.chg_ytd ?? 0)
+                          const blended = holdings.reduce((sum, h, i) => sum + h.pct / 100 * (ytds[i] ?? 0), 0)
+                          return <div className="text-[10px] text-slate-400">Blended YTD: <span className={`font-mono font-semibold ${blended >= 0 ? 'text-green-400' : 'text-red-400'}`}>{blended >= 0 ? '+' : ''}{blended.toFixed(1)}%</span></div>
+                        })()}
+                      </div>
+                    ) : (
+                      <div className="mt-3 pt-3 border-t border-white/8 text-[10px] text-slate-600">Live performance & blended YTD — Citizen tier</div>
+                    )}
+                  </div>
+                )
+
+                return (
+                  <div>
+                    <div className="text-xs font-mono text-slate-400 uppercase tracking-widest mb-3">Model Portfolios</div>
+                    <div className="flex gap-3 flex-col sm:flex-row">
+                      <PortfolioCard title="Income" icon="🏦" tag="Conservative" tagColor="bg-blue-500/20 text-blue-400" holdings={INCOME} barColor="bg-blue-400" />
+                      <PortfolioCard title="Growth" icon="🚀" tag="Aggressive" tagColor="bg-green-500/20 text-green-400" holdings={GROWTH} barColor="bg-green-400" />
+                    </div>
+                    <div className="mt-3 rounded-lg border border-cyan-500/15 bg-cyan-500/5 px-4 py-2.5 flex items-start gap-2">
+                      <span className="text-cyan-400 mt-0.5">📊</span>
+                      <div>
+                        <div className="text-[11px] text-cyan-300 font-medium">Rebalancing signals — Citizen tier</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">When market regime shifts, Citizens receive rebalancing alerts suggesting which allocations to trim or add based on live strategy signals from AceEconomy.</div>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-700 mt-2">Model portfolios are illustrative only. Not financial advice. Adjust based on your risk profile.</p>
+                  </div>
+                )
+              })()}
+
               {intel.regime_updated && (
                 <p className="text-[10px] text-slate-700">Regime updated: {new Date(intel.regime_updated).toLocaleString('en-SG', { dateStyle: 'medium', timeStyle: 'short' })}</p>
               )}
@@ -1322,6 +1423,38 @@ export default function FinancialDashboard() {
                           })}
                         </div>
                         {!isCitizen && <p className="text-[10px] text-slate-600 mt-2">Upgrade to Citizen to see win rates, P&amp;L, and Sharpe ratios.</p>}
+                      </div>
+                    )}
+
+                    {/* Citizen upgrade teaser — shown to Explorer when promo is OFF */}
+                    {!isCitizen && !promoMode && (
+                      <div className="rounded-xl border border-amber-500/25 bg-gradient-to-br from-amber-500/8 to-orange-500/5 p-5 space-y-4">
+                        <div>
+                          <div className="text-sm font-semibold text-amber-300 mb-1">Unlock the full Financial Intelligence suite</div>
+                          <div className="text-[11px] text-slate-400">Citizen tier gives you live portfolio signals, regime-aware allocation, and strategy performance — all updated daily from AceEconomy.</div>
+                        </div>
+                        <div className="grid grid-cols-1 gap-2">
+                          {[
+                            { icon: '📅', label: 'SPY Seasonality', desc: '10-year average monthly return chart to time your entries' },
+                            { icon: '🏦', label: 'Asset Class Heatmap', desc: 'Live 1d / 5d / 1m / YTD across equities, bonds, gold, crypto' },
+                            { icon: '🔄', label: 'Sector Rotation', desc: 'Top 6 sectors ranked by momentum — know where money is flowing' },
+                            { icon: '🌡️', label: 'Risk Engine', desc: 'Portfolio heat score — tells you when to size down or pause entries' },
+                            { icon: '📊', label: 'Strategy Win Rates & P&L', desc: 'Live stats per strategy — Sharpe, win%, cumulative P&L' },
+                            { icon: '🎯', label: 'Dynamic Portfolio Rebalancing', desc: 'Regime-based rebalancing alerts for Income and Growth portfolios' },
+                          ].map(f => (
+                            <div key={f.label} className="flex items-start gap-3 rounded-lg bg-white/4 border border-white/8 px-3 py-2.5">
+                              <span className="text-base mt-0.5">{f.icon}</span>
+                              <div>
+                                <div className="text-[11px] font-semibold text-slate-200">{f.label}</div>
+                                <div className="text-[10px] text-slate-500 mt-0.5">{f.desc}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <a href="mailto:mailtcb2150@gmail.com?subject=X68%20Citizen%20Tier%20Access" className="block w-full text-center rounded-lg bg-amber-500 hover:bg-amber-400 transition-colors text-black text-xs font-bold py-2.5">
+                          Request Citizen Access →
+                        </a>
+                        <p className="text-[9px] text-slate-600 text-center">Contact us to unlock paid tier — early access pricing available</p>
                       </div>
                     )}
 
