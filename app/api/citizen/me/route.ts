@@ -12,5 +12,5 @@ export async function GET() {
     .eq('id', user.id)
     .single()
 
-  return NextResponse.json({ tier: data?.tier ?? 'explorer' })
+  return NextResponse.json({ id: user.id, tier: data?.tier ?? 'explorer' })
 }

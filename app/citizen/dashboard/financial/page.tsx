@@ -504,6 +504,10 @@ export default function FinancialDashboard() {
   const [ccData, setCcData]         = useState<CCData | null>(null)
   const [watchlist, setWatchlist]   = useState<string[]>([])
   const [citizenTier, setCitizenTier] = useState<string>('explorer')
+  const [citizenId, setCitizenId]     = useState<string | null>(null)
+  const [redeemCode, setRedeemCode]   = useState('')
+  const [redeemState, setRedeemState] = useState<'idle'|'loading'|'ok'|'err'>('idle')
+  const [redeemMsg, setRedeemMsg]     = useState('')
   const [loading, setLoading]       = useState(true)
   const [intelLoading, setIntelLoading] = useState(true)
   const [tab, setTab]               = useState<'momentum'|'squeeze'|'intel'>('momentum')
@@ -527,8 +531,35 @@ export default function FinancialDashboard() {
       setIntel(d)
       setIntelLoading(false)
     }).catch(() => setIntelLoading(false))
-    fetch('/api/citizen/me').then(r => r.json()).then(d => setCitizenTier(d.tier ?? 'explorer')).catch(() => {})
+    fetch('/api/citizen/me').then(r => r.json()).then(d => {
+      setCitizenTier(d.tier ?? 'explorer')
+      if (d.id) setCitizenId(d.id)
+    }).catch(() => {})
   }, [])
+
+  async function redeemInvite() {
+    if (!redeemCode.trim() || !citizenId) return
+    setRedeemState('loading')
+    try {
+      const res = await fetch('/api/citizen/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: redeemCode.trim().toUpperCase(), citizen_id: citizenId }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setCitizenTier(data.tier)
+        setRedeemState('ok')
+        setRedeemMsg(`✓ Activated! You now have ${data.tier} access.`)
+      } else {
+        setRedeemState('err')
+        setRedeemMsg(data.error ?? 'Invalid code')
+      }
+    } catch {
+      setRedeemState('err')
+      setRedeemMsg('Network error — try again')
+    }
+  }
 
   async function switchMarket(m: Market) {
     if (m === market) return
@@ -1451,6 +1482,36 @@ export default function FinancialDashboard() {
                             </div>
                           ))}
                         </div>
+                        {/* Invite code redeem */}
+                        <div className="rounded-lg border border-white/10 bg-white/4 p-3 space-y-2">
+                          <div className="text-[10px] text-slate-400 font-medium">Have an invite code? Redeem it here</div>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              placeholder="VIP-XXXXXX"
+                              value={redeemCode}
+                              onChange={e => { setRedeemCode(e.target.value.toUpperCase()); setRedeemState('idle') }}
+                              className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs font-mono focus:outline-none focus:border-cyan-500/50 uppercase placeholder:normal-case placeholder:text-slate-600"
+                            />
+                            <button
+                              onClick={redeemInvite}
+                              disabled={redeemState === 'loading' || !redeemCode.trim()}
+                              className="shrink-0 px-4 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 disabled:opacity-40 text-black text-xs font-bold transition"
+                            >
+                              {redeemState === 'loading' ? '…' : 'Redeem'}
+                            </button>
+                          </div>
+                          {redeemMsg && (
+                            <p className={`text-[10px] ${redeemState === 'ok' ? 'text-green-400' : 'text-red-400'}`}>{redeemMsg}</p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 h-px bg-white/10" />
+                          <span className="text-[10px] text-slate-600">or</span>
+                          <div className="flex-1 h-px bg-white/10" />
+                        </div>
+
                         <a href="mailto:mailtcb2150@gmail.com?subject=X68%20Citizen%20Tier%20Access" className="block w-full text-center rounded-lg bg-amber-500 hover:bg-amber-400 transition-colors text-black text-xs font-bold py-2.5">
                           Request Citizen Access →
                         </a>

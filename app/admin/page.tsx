@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 
 interface DistrictStat {
   id: string; name: string; health_score: number
@@ -12,6 +12,10 @@ interface Citizen {
   nexus_credits: number; created_at: string; tier: string
 }
 interface AlertEvent { id: string; district: string; message: string; sent_at: string }
+interface InviteCode {
+  code: string; tier: string; uses_left: number; note: string | null
+  expires_at: string | null; created_at: string; used_by: string[]
+}
 interface Subscription {
   id: string; citizen_id: string; status: string
   plan_name: string; current_period_end: string
@@ -25,7 +29,7 @@ const PROVIDERS = [
   { id: 'claude-opus',   label: 'Claude Opus 4.8',    tier: 'Paid',  cost: '~$5/1M'  },
 ]
 
-type Tab = 'overview' | 'districts' | 'citizens' | 'alerts' | 'ai'
+type Tab = 'overview' | 'districts' | 'citizens' | 'alerts' | 'ai' | 'invites'
 
 export default function AdminPage() {
   const [password, setPassword] = useState('')
@@ -46,6 +50,21 @@ export default function AdminPage() {
   const [saved, setSaved] = useState(false)
   const [search, setSearch] = useState('')
   const [tierUpdating, setTierUpdating] = useState<string | null>(null)
+  // invite codes
+  const [invites, setInvites] = useState<InviteCode[]>([])
+  const [inviteTier, setInviteTier] = useState<'citizen' | 'pro'>('citizen')
+  const [inviteUses, setInviteUses] = useState(1)
+  const [inviteDays, setInviteDays] = useState<number | ''>('')
+  const [inviteNote, setInviteNote] = useState('')
+  const [inviteGenerating, setInviteGenerating] = useState(false)
+  const [inviteNewCode, setInviteNewCode] = useState<string | null>(null)
+  const [howToOpen, setHowToOpen] = useState(false)
+  const [deletingCode, setDeletingCode] = useState<string | null>(null)
+
+  const loadInvites = useCallback(async (key: string) => {
+    const res = await fetch('/api/admin/invite-codes', { headers: { 'x-admin-key': key } })
+    if (res.ok) setInvites(await res.json())
+  }, [])
 
   const loadData = useCallback(async (key: string) => {
     const [cityRes, citizensRes, alertsRes, subsRes, settingsRes] = await Promise.allSettled([
@@ -75,6 +94,7 @@ export default function AdminPage() {
       setAuthKey(password)
       setAuthed(true)
       loadData(password)
+      loadInvites(password)
     } else {
       setAuthError(true)
     }
@@ -112,6 +132,34 @@ export default function AdminPage() {
     setAiProvider(provider)
     setSaving(false); setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  async function generateInvite() {
+    setInviteGenerating(true)
+    setInviteNewCode(null)
+    const res = await fetch('/api/admin/invite-codes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': authKey },
+      body: JSON.stringify({ tier: inviteTier, uses: inviteUses, note: inviteNote, expires_days: inviteDays || undefined }),
+    })
+    if (res.ok) {
+      const row = await res.json()
+      setInviteNewCode(row.code)
+      setInvites(prev => [row, ...prev])
+      setInviteNote('')
+    }
+    setInviteGenerating(false)
+  }
+
+  async function deleteInvite(code: string) {
+    setDeletingCode(code)
+    await fetch('/api/admin/invite-codes', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': authKey },
+      body: JSON.stringify({ code }),
+    })
+    setInvites(prev => prev.filter(i => i.code !== code))
+    setDeletingCode(null)
   }
 
   async function updateTier(id: string, tier: string) {
@@ -164,6 +212,7 @@ export default function AdminPage() {
     { id: 'citizens',  label: 'Citizens',  icon: '👤' },
     { id: 'alerts',    label: 'Alerts',    icon: '🔔' },
     { id: 'ai',        label: 'AI Model',  icon: '🤖' },
+    { id: 'invites',   label: 'Invites',   icon: '🎟️' },
   ]
 
   const tierColor = (t: string) =>
@@ -405,6 +454,144 @@ export default function AdminPage() {
               </button>
             ))}
             {saved && <p className="text-center text-sm text-green-400">✓ Saved</p>}
+          </div>
+        )}
+
+        {/* ─── INVITES ─── */}
+        {tab === 'invites' && (
+          <div className="max-w-2xl space-y-6">
+
+            {/* ── How-to guide (expandable) ── */}
+            <div className="rounded-xl border border-white/10 bg-white/3 overflow-hidden">
+              <button
+                onClick={() => setHowToOpen(o => !o)}
+                className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-white/5 transition"
+              >
+                <div className="flex items-center gap-2">
+                  <span>📖</span>
+                  <span className="text-sm font-semibold text-white">How invite codes work</span>
+                </div>
+                <span className="text-gray-500 text-lg">{howToOpen ? '▲' : '▼'}</span>
+              </button>
+              {howToOpen && (
+                <div className="px-5 pb-5 space-y-3 text-[12px] text-slate-400 border-t border-white/8 pt-4">
+                  <p className="text-slate-300 font-medium">Step-by-step: granting a VIP free Citizen upgrade</p>
+                  <ol className="space-y-2 list-decimal list-inside">
+                    <li>Fill in the form below — pick <strong className="text-white">Citizen</strong> tier, set <strong className="text-white">uses = 1</strong> for a single person, or higher if you're sharing with a small group.</li>
+                    <li>Add a note (e.g. <em>"John referral batch Jul 2026"</em>) so you remember why you issued it.</li>
+                    <li>Set an expiry (optional) — e.g. <strong className="text-white">30 days</strong> gives them a month to redeem before it locks.</li>
+                    <li>Click <strong className="text-white">Generate Code</strong>. Copy the code that appears (e.g. <code className="bg-white/10 px-1 rounded">VIP-X7K2R4</code>).</li>
+                    <li>Send the code to the VIP via Telegram, WhatsApp, or email.</li>
+                    <li>They log into X68, open <strong className="text-white">Financial District → Redeem Code</strong>, type in the code, and click Redeem — their account instantly upgrades to Citizen.</li>
+                    <li>To encourage referrals: tell them <em>"Share X68 with a friend — if they sign up and mention you, I'll issue them a code too."</em></li>
+                    <li>You can revoke a code anytime by clicking the 🗑 delete button in the list below.</li>
+                  </ol>
+                  <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 px-4 py-3 mt-2">
+                    <p className="text-cyan-300 font-medium text-[11px]">Tip — referral tracking</p>
+                    <p className="mt-1">Use the <strong>Note</strong> field to tag each code with the referrer&apos;s name. When someone new joins and asks for a code, note who referred them. Over time the notes give you a clear picture of who your best ambassadors are.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── Generator form ── */}
+            <div className="rounded-xl border border-white/10 bg-white/3 p-5 space-y-4">
+              <div className="text-sm font-semibold text-white">Generate a new invite code</div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">Tier</label>
+                  <div className="flex gap-2">
+                    {(['citizen', 'pro'] as const).map(t => (
+                      <button key={t} onClick={() => setInviteTier(t)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition capitalize ${
+                          inviteTier === t
+                            ? t === 'citizen' ? 'bg-cyan-500/30 border-cyan-500/50 text-cyan-300' : 'bg-purple-500/30 border-purple-500/50 text-purple-300'
+                            : 'border-white/10 text-gray-500 hover:text-gray-300'
+                        }`}>{t}</button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">Max uses</label>
+                  <input type="number" min={1} max={100} value={inviteUses}
+                    onChange={e => setInviteUses(Number(e.target.value))}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-xs focus:outline-none focus:border-cyan-500/50" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">Expires in (days, optional)</label>
+                  <input type="number" min={1} placeholder="Never"
+                    value={inviteDays}
+                    onChange={e => setInviteDays(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-xs focus:outline-none focus:border-cyan-500/50" />
+                </div>
+                <div>
+                  <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">Note (internal)</label>
+                  <input type="text" placeholder="e.g. John referral Jul 2026" value={inviteNote}
+                    onChange={e => setInviteNote(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-xs focus:outline-none focus:border-cyan-500/50" />
+                </div>
+              </div>
+
+              <button onClick={generateInvite} disabled={inviteGenerating}
+                className="w-full bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-black font-bold text-sm py-2.5 rounded-lg transition">
+                {inviteGenerating ? 'Generating…' : '🎟️ Generate Code'}
+              </button>
+
+              {inviteNewCode && (
+                <div className="rounded-lg border border-green-500/30 bg-green-500/8 px-4 py-3 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[10px] text-green-400 uppercase tracking-wider mb-1">New code — copy and send to VIP</div>
+                    <div className="text-2xl font-mono font-bold text-white tracking-widest">{inviteNewCode}</div>
+                  </div>
+                  <button onClick={() => { navigator.clipboard.writeText(inviteNewCode); }}
+                    className="shrink-0 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs text-white transition">
+                    Copy
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* ── Code list ── */}
+            <div className="space-y-2">
+              <div className="text-xs text-slate-500 uppercase tracking-wider">Issued codes ({invites.length})</div>
+              {invites.length === 0 && (
+                <div className="py-10 text-center text-gray-600 text-sm">No codes generated yet</div>
+              )}
+              {invites.map(inv => {
+                const expired = inv.expires_at ? new Date(inv.expires_at) < new Date() : false
+                const exhausted = inv.uses_left <= 0
+                const status = expired ? 'Expired' : exhausted ? 'Used up' : 'Active'
+                const statusColor = expired || exhausted ? 'text-red-400' : 'text-green-400'
+                return (
+                  <div key={inv.code} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-mono font-bold text-white">{inv.code}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${inv.tier === 'pro' ? 'bg-purple-500/20 text-purple-400' : 'bg-cyan-500/20 text-cyan-400'} capitalize`}>{inv.tier}</span>
+                        <span className={`text-[10px] font-medium ${statusColor}`}>{status}</span>
+                      </div>
+                      <div className="text-[11px] text-slate-600 mt-0.5 space-x-2">
+                        <span>{inv.uses_left} use{inv.uses_left !== 1 ? 's' : ''} left · {inv.used_by?.length ?? 0} redeemed</span>
+                        {inv.expires_at && <span>· expires {new Date(inv.expires_at).toLocaleDateString()}</span>}
+                        {inv.note && <span>· {inv.note}</span>}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => deleteInvite(inv.code)}
+                      disabled={deletingCode === inv.code}
+                      className="shrink-0 text-gray-600 hover:text-red-400 transition text-lg disabled:opacity-30"
+                      title="Revoke code"
+                    >
+                      {deletingCode === inv.code ? '…' : '🗑'}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )}
       </div>
