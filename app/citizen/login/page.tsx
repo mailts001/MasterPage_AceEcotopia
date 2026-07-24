@@ -89,6 +89,11 @@ export default function LoginPage() {
               Join free
             </Link>
           </p>
+          <p className="text-center mt-4">
+            <Link href="/admin" className="text-xs text-slate-700 hover:text-slate-500 transition-colors">
+              Admin access
+            </Link>
+          </p>
         </div>
       </div>
     </div>

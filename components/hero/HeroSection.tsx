@@ -45,7 +45,7 @@ export default function HeroSection() {
 
       {/* Top nav */}
       <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-6 py-4 z-20">
-        <span className="text-sm font-bold gradient-text">X68</span>
+        <Link href="/admin" className="text-sm font-bold gradient-text hover:opacity-70 transition">X68</Link>
 
         <div className="flex items-center gap-1 text-xs text-gray-500">
           <button onClick={() => scrollTo('guide')}   className="px-3 py-1.5 hover:text-white transition rounded-lg hover:bg-white/5">{t('nav_help')}</button>

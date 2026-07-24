@@ -38,21 +38,28 @@ export default function AdminPage() {
   const [alerts, setAlerts] = useState<AlertEvent[]>([])
   const [subs, setSubs] = useState<Subscription[]>([])
   const [aiProvider, setAiProvider] = useState('gemini')
+  const [promoMode, setPromoMode] = useState(false)
+  const [promoSaving, setPromoSaving] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [search, setSearch] = useState('')
 
   const loadData = useCallback(async (key: string) => {
-    const [cityRes, citizensRes, alertsRes, subsRes] = await Promise.allSettled([
+    const [cityRes, citizensRes, alertsRes, subsRes, settingsRes] = await Promise.allSettled([
       fetch('/api/nexus/citystate'),
       fetch('/api/admin/citizens', { headers: { 'x-admin-key': key } }),
       fetch('/api/admin/alerts', { headers: { 'x-admin-key': key } }),
       fetch('/api/admin/subscriptions', { headers: { 'x-admin-key': key } }),
+      fetch('/api/admin/settings', { headers: { 'x-admin-key': key } }),
     ])
     if (cityRes.status === 'fulfilled' && cityRes.value.ok) setCity(await cityRes.value.json())
     if (citizensRes.status === 'fulfilled' && citizensRes.value.ok) setCitizens(await citizensRes.value.json())
     if (alertsRes.status === 'fulfilled' && alertsRes.value.ok) setAlerts(await alertsRes.value.json())
     if (subsRes.status === 'fulfilled' && subsRes.value.ok) setSubs(await subsRes.value.json())
+    if (settingsRes.status === 'fulfilled' && settingsRes.value.ok) {
+      const s = await settingsRes.value.json()
+      setPromoMode(s.promo_mode === 'true')
+    }
   }, [])
 
   async function handleAuth(e: React.FormEvent) {
@@ -67,6 +74,17 @@ export default function AdminPage() {
     } else {
       setAuthError(true)
     }
+  }
+
+  async function togglePromoMode(val: boolean) {
+    setPromoSaving(true)
+    await fetch('/api/admin/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': authKey },
+      body: JSON.stringify({ promo_mode: String(val) }),
+    })
+    setPromoMode(val)
+    setPromoSaving(false)
   }
 
   async function saveProvider(provider: string) {
@@ -299,8 +317,26 @@ export default function AdminPage() {
 
         {/* ─── AI MODEL ─── */}
         {tab === 'ai' && (
-          <div className="max-w-xl space-y-4">
-            <p className="text-gray-400 text-sm mb-6">Switch AI model powering all district analysis. Start free, scale as revenue grows.</p>
+          <div className="max-w-xl space-y-6">
+            {/* Promo Mode Toggle */}
+            <div className={`rounded-xl border p-5 ${promoMode ? 'border-purple-500/40 bg-purple-500/8' : 'border-white/10 bg-white/3'}`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-white">Promotional Mode</div>
+                  <div className="text-xs text-gray-400 mt-1">All Financial District signals unlocked for every visitor — no tier required.</div>
+                  {promoMode && <div className="text-xs text-purple-300 mt-1">🎁 Currently active — all citizens see Pro-tier signals</div>}
+                </div>
+                <button
+                  onClick={() => togglePromoMode(!promoMode)}
+                  disabled={promoSaving}
+                  className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none ${promoMode ? 'bg-purple-500' : 'bg-white/10'}`}
+                  aria-label="Toggle promotional mode"
+                >
+                  <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${promoMode ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+            </div>
+            <p className="text-gray-400 text-sm">Switch AI model powering all district analysis. Start free, scale as revenue grows.</p>
             {PROVIDERS.map(p => (
               <button key={p.id} onClick={() => saveProvider(p.id)} disabled={saving}
                 className={`w-full text-left p-4 rounded-xl border transition ${

@@ -47,6 +47,7 @@ export default function HomePage() {
               <Link href="/humans"                 className="hover:text-cyan-400 transition-colors">Experts</Link>
               <Link href="/citizen/register"       className="hover:text-cyan-400 transition-colors">Join Free</Link>
               <a href="mailto:admin@aceecotopia.com" className="hover:text-cyan-400 transition-colors">Contact</a>
+              <Link href="/admin" className="hover:text-slate-400 transition-colors text-slate-700">Admin</Link>
             </div>
           </div>
         </div>

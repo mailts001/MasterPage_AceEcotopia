@@ -152,6 +152,15 @@ interface Intel {
   strategy_label: string
   // congress
   congress_trades: CongressTrade[]
+  // portfolio intelligence (new)
+  promo_mode: boolean
+  strategy_lifecycle: { strategy: string; health: string; action: string; latest_sharpe: number | null; is_declining: boolean }[]
+  all_strategy_stats: Record<string, { current_pct: number; recommended_pct: number; count: number; pnl: number; win_rate: number; sharpe: number | null }>
+  asset_classes: { name: string; ticker: string; price: number; chg_1d: number; chg_5d: number; chg_1m: number; chg_ytd: number }[]
+  sectors: { name: string; ticker: string; chg_1d: number; chg_5d: number; chg_1m: number; chg_ytd: number }[]
+  seasonality: { months: string[]; avg_returns: number[]; current_month: number } | null
+  risk_heat: { heat_score: number; verdict: string; ts: string } | null
+  bond_intel: { issuer: string; currency: string; yield_pct: number; rating: string; type: string; min_size: string }[]
   error?: string
 }
 
@@ -163,6 +172,8 @@ interface CCAsset {
   technical_score: number; macro_score: number; news_score: number
   total_score: number; max_score: number; recommendation: string
   technical_details: string[]; macro_details: string[]; news_summary: string
+  action_note?: string
+  macro_context?: Record<string, number | string | null>
   fib_r1?: number | null; fib_r2?: number | null
   fib_s1?: number | null; fib_s2?: number | null
 }
@@ -171,6 +182,7 @@ interface CCMacro {
   btc_dominance_pct: number | null; btc_funding_ann_pct: number | null
   total_crypto_mcap_usd: number | null; mcap_change_24h: number | null
   vix: number | null; dxy_5d_chg: number | null; eia_draw_mbbl: number | null
+  tnx_5d_chg?: number | null
   macro_events_48h: { title: string; hours_away: number }[]
 }
 interface CCData {
@@ -178,6 +190,8 @@ interface CCData {
   crypto: CCAsset[]; commodities: CCAsset[]
   macro: CCMacro
   crypto_headlines: string[]; commodity_headlines: string[]
+  leading_indicators?: Record<string, number>
+  cot_data?: Record<string, number>
 }
 
 interface SectorRotation { sector: string; etf: string; d5: number; d22: number }
@@ -488,6 +502,7 @@ export default function FinancialDashboard() {
   const [etfData, setEtfData]       = useState<EtfData | null>(null)
   const [ccData, setCcData]         = useState<CCData | null>(null)
   const [watchlist, setWatchlist]   = useState<string[]>([])
+  const [citizenTier, setCitizenTier] = useState<string>('explorer')
   const [loading, setLoading]       = useState(true)
   const [intelLoading, setIntelLoading] = useState(true)
   const [tab, setTab]               = useState<'momentum'|'squeeze'|'intel'>('momentum')
@@ -511,6 +526,7 @@ export default function FinancialDashboard() {
       setIntel(d)
       setIntelLoading(false)
     }).catch(() => setIntelLoading(false))
+    fetch('/api/citizen/me').then(r => r.json()).then(d => setCitizenTier(d.tier ?? 'explorer')).catch(() => {})
   }, [])
 
   async function switchMarket(m: Market) {
@@ -1255,6 +1271,178 @@ export default function FinancialDashboard() {
               {intel.regime_updated && (
                 <p className="text-[10px] text-slate-700">Regime updated: {new Date(intel.regime_updated).toLocaleString('en-SG', { dateStyle: 'medium', timeStyle: 'short' })}</p>
               )}
+
+              {/* ── Portfolio Intelligence (Citizen + Pro) ── */}
+              {(() => {
+                const promoMode = intel.promo_mode ?? false
+                const isCitizen = promoMode || citizenTier === 'citizen' || citizenTier === 'pro' || citizenTier === 'enterprise'
+                const isPro     = promoMode || citizenTier === 'pro' || citizenTier === 'enterprise'
+
+                return (
+                  <div className="space-y-6 pt-2 border-t border-white/8">
+                    {promoMode && (
+                      <div className="rounded-lg border border-purple-500/30 bg-purple-500/8 px-4 py-2 text-[11px] text-purple-300 flex items-center gap-2">
+                        <span>🎁</span>
+                        <span>Promotional access — all portfolio intelligence signals unlocked</span>
+                      </div>
+                    )}
+
+                    {/* Strategy Health — free teaser + citizen full detail */}
+                    {(intel.strategy_lifecycle?.length ?? 0) > 0 && (
+                      <div>
+                        <div className="text-xs font-mono text-slate-400 uppercase tracking-widest mb-3">Strategy Health</div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          {intel.strategy_lifecycle.map(s => {
+                            const healthColor = s.health === 'HEALTHY' ? 'text-green-400 border-green-500/20 bg-green-500/5' : 'text-amber-400 border-amber-500/20 bg-amber-500/5'
+                            const labelMap: Record<string,string> = { meanreversion:'Mean Rev', momentum:'Momentum', longterm:'LongTerm', squeeze:'Squeeze', llm:'LLM', ga_candidate:'GA' }
+                            const stats = intel.all_strategy_stats?.[s.strategy]
+                            return (
+                              <div key={s.strategy} className={`rounded-lg border p-3 ${healthColor}`}>
+                                <div className="text-[10px] font-mono text-slate-500 uppercase mb-1">{labelMap[s.strategy] ?? s.strategy}</div>
+                                <div className="text-xs font-semibold">{s.health}</div>
+                                {isCitizen ? (
+                                  <div className="mt-1 space-y-0.5">
+                                    {stats && <><div className="text-[10px] text-slate-400">Win {stats.win_rate.toFixed(0)}% · {stats.count} trades</div>
+                                    <div className={`text-[10px] font-mono ${stats.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>{stats.pnl >= 0 ? '+' : ''}${stats.pnl.toFixed(0)}</div></>}
+                                    {s.latest_sharpe != null && <div className="text-[10px] text-slate-500">Sharpe {s.latest_sharpe.toFixed(2)}</div>}
+                                  </div>
+                                ) : (
+                                  <div className="mt-1 text-[10px] text-slate-600 blur-sm select-none">Win 0% · 0 trades</div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                        {!isCitizen && <p className="text-[10px] text-slate-600 mt-2">Upgrade to Citizen to see win rates, P&amp;L, and Sharpe ratios.</p>}
+                      </div>
+                    )}
+
+                    {/* Seasonality — citizen */}
+                    {isCitizen && intel.seasonality && (
+                      <div>
+                        <div className="text-xs font-mono text-slate-400 uppercase tracking-widest mb-3">SPY Seasonality (10yr avg)</div>
+                        <div className="flex gap-1 items-end h-16">
+                          {intel.seasonality.months.map((m, i) => {
+                            const ret = intel.seasonality!.avg_returns[i]
+                            const isCurrent = i === intel.seasonality!.current_month
+                            const barH = Math.abs(ret) * 6 + 4
+                            return (
+                              <div key={m} className="flex-1 flex flex-col items-center gap-0.5">
+                                <div className="text-[8px] font-mono text-slate-600">{ret > 0 ? `+${ret.toFixed(1)}` : ret.toFixed(1)}</div>
+                                <div
+                                  className={`w-full rounded-sm ${ret >= 0 ? (isCurrent ? 'bg-green-400' : 'bg-green-500/40') : (isCurrent ? 'bg-red-400' : 'bg-red-500/30')}`}
+                                  style={{ height: `${barH}px` }}
+                                />
+                                <div className={`text-[8px] font-mono ${isCurrent ? 'text-white font-semibold' : 'text-slate-600'}`}>{m}</div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Asset class heatmap — citizen */}
+                    {isCitizen && (intel.asset_classes?.length ?? 0) > 0 && (
+                      <div>
+                        <div className="text-xs font-mono text-slate-400 uppercase tracking-widest mb-3">Asset Class Performance</div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-[11px]">
+                            <thead>
+                              <tr className="text-slate-600 text-left">
+                                <th className="pb-1 font-normal">Asset</th>
+                                <th className="pb-1 font-normal text-right">1d</th>
+                                <th className="pb-1 font-normal text-right">5d</th>
+                                <th className="pb-1 font-normal text-right">1m</th>
+                                <th className="pb-1 font-normal text-right">YTD</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {intel.asset_classes.map(a => (
+                                <tr key={a.ticker} className="border-t border-white/5">
+                                  <td className="py-1.5 text-slate-300">{a.name} <span className="text-slate-600 font-mono">{a.ticker}</span></td>
+                                  {([a.chg_1d, a.chg_5d, a.chg_1m, a.chg_ytd] as number[]).map((v, i) => (
+                                    <td key={i} className={`py-1.5 text-right font-mono ${v >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                      {v > 0 ? '+' : ''}{v.toFixed(1)}%
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Sector table — citizen */}
+                    {isCitizen && (intel.sectors?.length ?? 0) > 0 && (
+                      <div>
+                        <div className="text-xs font-mono text-slate-400 uppercase tracking-widest mb-3">Sector Rotation</div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {intel.sectors.slice(0, 6).map(s => (
+                            <div key={s.ticker} className="rounded-lg border border-white/8 bg-white/3 px-3 py-2 flex items-center justify-between">
+                              <div>
+                                <div className="text-[10px] font-mono text-slate-500">{s.ticker}</div>
+                                <div className="text-xs text-slate-300">{s.name}</div>
+                              </div>
+                              <div className="text-right">
+                                <div className={`text-sm font-mono font-semibold ${s.chg_1d >= 0 ? 'text-green-400' : 'text-red-400'}`}>{s.chg_1d >= 0 ? '+' : ''}{s.chg_1d.toFixed(1)}%</div>
+                                <div className="text-[10px] text-slate-600">1d · YTD {s.chg_ytd >= 0 ? '+' : ''}{s.chg_ytd.toFixed(1)}%</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Risk heat — citizen */}
+                    {isCitizen && intel.risk_heat && (
+                      <div className={`rounded-lg border px-4 py-3 flex items-center justify-between ${intel.risk_heat.verdict === 'BLOCK' ? 'border-red-500/25 bg-red-500/5' : 'border-green-500/20 bg-green-500/5'}`}>
+                        <div>
+                          <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Risk Engine</div>
+                          <div className={`text-sm font-semibold ${intel.risk_heat.verdict === 'BLOCK' ? 'text-red-400' : 'text-green-400'}`}>
+                            {intel.risk_heat.verdict === 'BLOCK' ? 'New entries blocked — portfolio heat too high' : 'Entries allowed'}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs font-mono text-slate-400">Heat {(intel.risk_heat.heat_score * 100).toFixed(0)}%</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Bond intel — pro */}
+                    {isPro && (intel.bond_intel?.length ?? 0) > 0 && (
+                      <div>
+                        <div className="text-xs font-mono text-purple-400 uppercase tracking-widest mb-3">New Bond Issuances (IG only)</div>
+                        <div className="space-y-2">
+                          {intel.bond_intel.map((b, i) => (
+                            <div key={i} className="rounded-lg border border-purple-500/15 bg-purple-500/5 px-4 py-3 flex items-center justify-between">
+                              <div>
+                                <div className="text-xs font-semibold text-white">{b.issuer}</div>
+                                <div className="text-[10px] text-slate-500">{b.rating} · {b.type} · Min {b.min_size}</div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm font-mono text-purple-300 font-semibold">{b.yield_pct?.toFixed(2)}%</div>
+                                <div className="text-[10px] text-slate-600">{b.currency}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Pro upgrade prompt */}
+                    {isCitizen && !isPro && (
+                      <div className="rounded-lg border border-purple-500/20 bg-purple-500/5 px-4 py-3 flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-semibold text-purple-300">Pro signals locked</div>
+                          <div className="text-[10px] text-slate-500 mt-0.5">Bond issuances, correlation matrix, full Sharpe lifecycle</div>
+                        </div>
+                        <span className="text-[10px] text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded-full">Coming soon</span>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
             )
           })()
@@ -1319,6 +1507,13 @@ export default function FinancialDashboard() {
                         <div className="text-[10px] text-slate-500 mb-1">EIA Crude Draw</div>
                         <div className={`text-xl font-bold font-mono ${ccData.macro.eia_draw_mbbl > 0 ? 'text-green-400' : 'text-red-400'}`}>{ccData.macro.eia_draw_mbbl > 0 ? '+' : ''}{ccData.macro.eia_draw_mbbl.toFixed(1)}M bbl</div>
                         <div className="text-[10px] text-slate-500">{ccData.macro.eia_draw_mbbl > 0 ? 'inventory draw → bullish oil' : 'inventory build → bearish'}</div>
+                      </div>
+                    )}
+                    {market === 'COMMODITY' && ccData.macro.tnx_5d_chg != null && (
+                      <div className="rounded-lg border border-white/8 bg-white/3 p-3 text-center">
+                        <div className="text-[10px] text-slate-500 mb-1">10Y Yield 5d</div>
+                        <div className={`text-xl font-bold font-mono ${ccData.macro.tnx_5d_chg > 0.5 ? 'text-red-400' : ccData.macro.tnx_5d_chg < -0.5 ? 'text-green-400' : 'text-slate-300'}`}>{ccData.macro.tnx_5d_chg > 0 ? '+' : ''}{ccData.macro.tnx_5d_chg.toFixed(2)}bp</div>
+                        <div className="text-[10px] text-slate-500">{ccData.macro.tnx_5d_chg > 0.5 ? 'yields rising → gold headwind' : ccData.macro.tnx_5d_chg < -0.5 ? 'yields falling → gold tailwind' : 'yields stable'}</div>
                       </div>
                     )}
                   </div>
@@ -1403,15 +1598,43 @@ export default function FinancialDashboard() {
                         {a.fib_s2 && <span className="text-amber-300 font-mono">${a.fib_s2 >= 1000 ? (a.fib_s2/1000).toFixed(2)+'k' : a.fib_s2.toFixed(2)} <span className="text-slate-600">S2</span></span>}
                       </div>
                     )}
+                    {/* AI trade note (action_note from Groq) */}
+                    {a.action_note && (
+                      <div className="mt-2 pt-2 border-t border-white/5">
+                        <div className="text-[9px] text-slate-600 uppercase tracking-wider mb-1">AI Analysis</div>
+                        <div className="space-y-1">
+                          {a.action_note.split('\n').filter(Boolean).map((line, i) => {
+                            const clean = line.replace(/^•\s*/, '')
+                            const isSetup = clean.startsWith('SETUP:')
+                            const isAction = clean.startsWith('ACTION:')
+                            const isRisk = clean.startsWith('RISK:')
+                            const labelColor = isSetup ? 'text-blue-400' : isAction ? 'text-green-400' : isRisk ? 'text-red-400' : 'text-slate-400'
+                            const [label, ...rest] = clean.split(':')
+                            return (
+                              <div key={i} className="text-[10px] leading-snug">
+                                {(isSetup || isAction || isRisk) ? (
+                                  <><span className={`font-semibold ${labelColor}`}>{label}: </span><span className="text-slate-300">{rest.join(':').trim()}</span></>
+                                ) : (
+                                  <span className="text-slate-400">{clean}</span>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
                     {/* Signal details */}
-                    {(a.technical_details?.length ?? 0) > 0 && (
+                    {!a.action_note && (a.technical_details?.length ?? 0) > 0 && (
                       <div className="mt-2 pt-2 border-t border-white/5 space-y-0.5">
-                        {a.technical_details.slice(0, 3).map((d, i) => (
+                        {a.technical_details.slice(0, 2).map((d, i) => (
                           <div key={i} className="text-[10px] text-slate-400">{d}</div>
+                        ))}
+                        {(a.macro_details?.length ?? 0) > 0 && a.macro_details.slice(0, 1).map((d, i) => (
+                          <div key={i} className="text-[10px] text-purple-300/70">{d}</div>
                         ))}
                       </div>
                     )}
-                    {a.news_summary && (
+                    {a.news_summary && !a.action_note && (
                       <div className="mt-1 text-[10px] text-slate-500 italic">{a.news_summary}</div>
                     )}
                   </div>
