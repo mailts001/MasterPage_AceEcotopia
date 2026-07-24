@@ -362,49 +362,30 @@ export default function AdminPage() {
         {/* ─── AI MODEL ─── */}
         {tab === 'ai' && (
           <div className="max-w-xl space-y-6">
-            {/* Promo Mode Toggle */}
+            {/* Single Promo Toggle */}
             <div className={`rounded-xl border p-5 ${promoMode ? 'border-purple-500/40 bg-purple-500/8' : 'border-white/10 bg-white/3'}`}>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-4">
                 <div>
-                  <div className="text-sm font-semibold text-white">Promotional Mode</div>
-                  <div className="text-xs text-gray-400 mt-1">All Financial District signals unlocked for every visitor — no tier required.</div>
-                  {promoMode && <div className="text-xs text-purple-300 mt-1">🎁 Currently active — all citizens see Pro-tier signals</div>}
+                  <div className="text-sm font-semibold text-white">Free Promotional Access</div>
+                  <div className="text-xs text-gray-400 mt-1 leading-relaxed">
+                    <span className="text-purple-300 font-medium">ON</span> — All Financial District signals (strategy health, seasonality, asset classes, sectors, risk heat) unlocked for every visitor, no login required.<br/>
+                    <span className="text-slate-400 font-medium">OFF</span> — Paid gating active. Free users see blurred/hidden signals. Only Citizens (paid) get the full suite.
+                  </div>
+                  {promoMode && <div className="text-xs text-purple-300 mt-2">🎁 Promotion is LIVE — all visitors see the full signal suite</div>}
                 </div>
                 <button
                   onClick={() => togglePromoMode(!promoMode)}
                   disabled={promoSaving}
-                  className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+                  className={`shrink-0 px-5 py-3 rounded-lg text-sm font-bold transition-all ${
                     promoMode
                       ? 'bg-purple-500 hover:bg-purple-400 text-white'
                       : 'bg-white/10 hover:bg-white/20 text-gray-300 border border-white/20'
                   }`}
                 >
-                  {promoSaving ? 'Saving…' : promoMode ? '🎁 Promo Active — End Promotion' : '🔒 Paid Mode — Launch Promotion'}
+                  {promoSaving ? 'Saving…' : promoMode ? '🎁 END PROMOTION' : '🚀 LAUNCH PROMOTION'}
                 </button>
               </div>
             </div>
-            {/* Citizen Preview Toggle */}
-            <div className={`rounded-xl border p-5 ${citizenPreview ? 'border-cyan-500/40 bg-cyan-500/8' : 'border-white/10 bg-white/3'}`}>
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="text-sm font-semibold text-white">Citizen Preview</div>
-                  <div className="text-xs text-gray-400 mt-1">Unlock paid analysis (strategy stats, seasonality, asset classes, sectors, risk heat) for all visitors. Bond intel stays locked.</div>
-                  {citizenPreview && <div className="text-xs text-cyan-300 mt-1">📊 Active — everyone sees Citizen-tier signals</div>}
-                </div>
-                <button
-                  onClick={() => toggleCitizenPreview(!citizenPreview)}
-                  disabled={previewSaving}
-                  className={`shrink-0 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                    citizenPreview
-                      ? 'bg-cyan-500 hover:bg-cyan-400 text-black'
-                      : 'bg-white/10 hover:bg-white/20 text-gray-300 border border-white/20'
-                  }`}
-                >
-                  {previewSaving ? 'Saving…' : citizenPreview ? '📊 Preview ON — End Preview' : '🔒 Preview OFF — Show Paid Content'}
-                </button>
-              </div>
-            </div>
-
             <p className="text-gray-400 text-sm">Switch AI model powering all district analysis. Start free, scale as revenue grows.</p>
             {PROVIDERS.map(p => (
               <button key={p.id} onClick={() => saveProvider(p.id)} disabled={saving}
