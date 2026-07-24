@@ -365,7 +365,7 @@ export default function AdminPage() {
                       : 'bg-white/10 hover:bg-white/20 text-gray-300 border border-white/20'
                   }`}
                 >
-                  {promoSaving ? '…' : promoMode ? '🟢 ON — Click to turn OFF' : '⚫ OFF — Click to turn ON'}
+                  {promoSaving ? 'Saving…' : promoMode ? '🎁 Promo Active — End Promotion' : '🔒 Paid Mode — Launch Promotion'}
                 </button>
               </div>
             </div>
