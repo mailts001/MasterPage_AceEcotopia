@@ -1427,6 +1427,96 @@ export default function FinancialDashboard() {
                       </div>
                     )}
 
+                    {/* ── Market Pulse Summary ── */}
+                    {(() => {
+                      // Derive plain-English market status from available intel fields
+                      const regime = intel.regime ?? 'UNKNOWN'
+                      const score  = intel.regime_score ?? 0
+                      const vix    = intel.vix
+                      const breadth = intel.breadth_pct
+                      const topSectors = intel.sectors?.slice(0, 2) ?? []
+                      const bestStrat  = intel.best_strategy
+
+                      // Regime verdict
+                      const regimeVerdict =
+                        regime === 'BULL'       ? { label: 'Bullish',       color: 'text-green-400',  dot: 'bg-green-400'  } :
+                        regime === 'STRONG_BULL' ? { label: 'Strong Bull',  color: 'text-green-300',  dot: 'bg-green-300'  } :
+                        regime === 'BEAR'        ? { label: 'Bearish',      color: 'text-red-400',    dot: 'bg-red-400'    } :
+                        regime === 'STRONG_BEAR' ? { label: 'Strong Bear',  color: 'text-red-300',    dot: 'bg-red-300'    } :
+                        regime === 'NEUTRAL'     ? { label: 'Neutral',      color: 'text-slate-300',  dot: 'bg-slate-400'  } :
+                                                   { label: 'Mixed signals', color: 'text-amber-400', dot: 'bg-amber-400'  }
+
+                      // VIX reading
+                      const vixNote = vix == null ? '' :
+                        vix > 30 ? `Fear is elevated (VIX ${vix.toFixed(0)}) — markets are pricing in higher risk.` :
+                        vix > 20 ? `Volatility is moderate (VIX ${vix.toFixed(0)}) — some caution warranted.` :
+                                   `Volatility is low (VIX ${vix.toFixed(0)}) — markets are calm.`
+
+                      // Breadth reading
+                      const breadthNote = breadth == null ? '' :
+                        breadth >= 70 ? `${breadth.toFixed(0)}% of stocks are above their 200-day average — broad participation, healthy trend.` :
+                        breadth >= 50 ? `${breadth.toFixed(0)}% of stocks are above their 200-day average — majority following the trend.` :
+                        breadth >= 30 ? `Only ${breadth.toFixed(0)}% of stocks above their 200-day average — rally may be narrow, watch for weakness.` :
+                                        `Only ${breadth.toFixed(0)}% of stocks above their 200-day average — market internals are weak.`
+
+                      // Top sector note
+                      const sectorNote = topSectors.length > 0
+                        ? `Leading sectors: ${topSectors.map(s => `${s.name} (${s.chg_1d >= 0 ? '+' : ''}${s.chg_1d.toFixed(1)}% today)`).join(', ')}.`
+                        : ''
+
+                      // Best strategy note
+                      const stratNote = bestStrat
+                        ? `Best performing strategy right now is ${bestStrat.name} (${bestStrat.win_rate.toFixed(0)}% win rate, ${bestStrat.count} trades).`
+                        : ''
+
+                      const borderColor =
+                        regime.includes('BULL') ? 'border-green-500/25 bg-green-500/5' :
+                        regime.includes('BEAR') ? 'border-red-500/25 bg-red-500/5' :
+                                                  'border-slate-500/25 bg-slate-500/5'
+
+                      return (
+                        <div className={`rounded-xl border ${borderColor} p-4 space-y-3`}>
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${regimeVerdict.dot}`} />
+                            <span className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">Market Pulse</span>
+                            <span className={`ml-auto text-xs font-bold ${regimeVerdict.color}`}>{regimeVerdict.label}</span>
+                            <span className="text-[10px] text-slate-600 font-mono">{score}/10</span>
+                          </div>
+
+                          {/* AceEconomy commentary first */}
+                          {intel.commentary && (
+                            <p className="text-[12px] text-slate-200 leading-relaxed">{intel.commentary}</p>
+                          )}
+
+                          {/* Derived plain-English bullets */}
+                          <ul className="space-y-1.5">
+                            {vixNote && (
+                              <li className="flex items-start gap-2 text-[11px] text-slate-400">
+                                <span className="shrink-0 mt-0.5">📉</span>{vixNote}
+                              </li>
+                            )}
+                            {breadthNote && (
+                              <li className="flex items-start gap-2 text-[11px] text-slate-400">
+                                <span className="shrink-0 mt-0.5">🌊</span>{breadthNote}
+                              </li>
+                            )}
+                            {sectorNote && (
+                              <li className="flex items-start gap-2 text-[11px] text-slate-400">
+                                <span className="shrink-0 mt-0.5">🏭</span>{sectorNote}
+                              </li>
+                            )}
+                            {stratNote && (
+                              <li className="flex items-start gap-2 text-[11px] text-slate-400">
+                                <span className="shrink-0 mt-0.5">🤖</span>{stratNote}
+                              </li>
+                            )}
+                          </ul>
+
+                          <p className="text-[9px] text-slate-700">For general awareness only. Not investment advice.</p>
+                        </div>
+                      )
+                    })()}
+
                     {/* Strategy Health — free teaser + citizen full detail */}
                     {(intel.strategy_lifecycle?.length ?? 0) > 0 && (
                       <div>
