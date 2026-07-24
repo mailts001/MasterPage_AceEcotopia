@@ -9,7 +9,7 @@ interface DistrictStat {
 interface CityState { districts: Record<string, DistrictStat>; total_citizens: number }
 interface Citizen {
   id: string; email: string; full_name: string | null
-  nexus_credits: number; created_at: string
+  nexus_credits: number; created_at: string; tier: string
 }
 interface AlertEvent { id: string; district: string; message: string; sent_at: string }
 interface Subscription {
@@ -43,6 +43,7 @@ export default function AdminPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [search, setSearch] = useState('')
+  const [tierUpdating, setTierUpdating] = useState<string | null>(null)
 
   const loadData = useCallback(async (key: string) => {
     const [cityRes, citizensRes, alertsRes, subsRes, settingsRes] = await Promise.allSettled([
@@ -97,6 +98,17 @@ export default function AdminPage() {
     setAiProvider(provider)
     setSaving(false); setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  async function updateTier(id: string, tier: string) {
+    setTierUpdating(id)
+    const res = await fetch('/api/admin/citizen', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': authKey },
+      body: JSON.stringify({ id, tier }),
+    })
+    if (res.ok) setCitizens(prev => prev.map(c => c.id === id ? { ...c, tier } : c))
+    setTierUpdating(null)
   }
 
   const activeSubs = subs.filter(s => s.status === 'active')
@@ -259,32 +271,50 @@ export default function AdminPage() {
                 className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-cyan-500/50" />
               <span className="text-xs text-gray-500">{filteredCitizens.length} results</span>
             </div>
-            <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
-              <table className="w-full text-xs">
-                <thead className="border-b border-white/10">
-                  <tr>{['Email','Name','Credits','Plan','Joined'].map(h =>
-                    <th key={h} className="px-4 py-3 text-left text-gray-500 font-medium">{h}</th>
-                  )}</tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {filteredCitizens.slice(0,50).map(c => {
-                    const sub = subs.find(s => s.citizen_id === c.id && s.status === 'active')
-                    return (
-                      <tr key={c.id} className="hover:bg-white/5 transition">
-                        <td className="px-4 py-3 text-gray-300 font-mono">{c.email}</td>
-                        <td className="px-4 py-3 text-gray-400">{c.full_name ?? '—'}</td>
-                        <td className="px-4 py-3 text-yellow-400 font-mono">{c.nexus_credits ?? 0}</td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-0.5 rounded-full ${sub ? 'bg-green-500/20 text-green-400' : 'bg-white/10 text-gray-500'}`}>
-                            {sub ? sub.plan_name : 'Free'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-gray-600">{new Date(c.created_at).toLocaleDateString()}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+
+            {/* Tier legend */}
+            <div className="flex gap-3 text-[11px]">
+              {[
+                { t: 'explorer', label: 'Explorer', color: 'bg-white/10 text-gray-400' },
+                { t: 'citizen',  label: 'Citizen',  color: 'bg-cyan-500/20 text-cyan-400' },
+                { t: 'pro',      label: 'Pro',       color: 'bg-purple-500/20 text-purple-400' },
+              ].map(({ t, label, color }) => (
+                <span key={t} className={`px-2 py-0.5 rounded-full ${color}`}>{label}</span>
+              ))}
+              <span className="text-gray-600 ml-1">— click tier buttons to change access</span>
+            </div>
+
+            <div className="space-y-2">
+              {filteredCitizens.slice(0, 50).map(c => {
+                const tier = c.tier ?? 'explorer'
+                const isUpdating = tierUpdating === c.id
+                return (
+                  <div key={c.id} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-gray-200 font-mono truncate">{c.email}</div>
+                      <div className="text-[11px] text-gray-600 mt-0.5">
+                        {c.full_name ?? 'No name'} · joined {new Date(c.created_at).toLocaleDateString()} · {c.nexus_credits ?? 0} credits
+                      </div>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      {(['explorer', 'citizen', 'pro'] as const).map(t => {
+                        const colors: Record<string, string> = {
+                          explorer: tier === 'explorer' ? 'bg-white/20 text-white' : 'text-gray-600 hover:text-gray-300',
+                          citizen:  tier === 'citizen'  ? 'bg-cyan-500/30 text-cyan-300' : 'text-gray-600 hover:text-cyan-400',
+                          pro:      tier === 'pro'      ? 'bg-purple-500/30 text-purple-300' : 'text-gray-600 hover:text-purple-400',
+                        }
+                        return (
+                          <button key={t} disabled={isUpdating || tier === t}
+                            onClick={() => updateTier(c.id, t)}
+                            className={`text-[10px] px-2.5 py-1 rounded-lg border border-white/10 transition capitalize ${colors[t]} disabled:opacity-40`}>
+                            {isUpdating && tier !== t ? '…' : t}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
               {filteredCitizens.length === 0 && (
                 <div className="py-12 text-center text-gray-600 text-sm">No citizens yet</div>
               )}
