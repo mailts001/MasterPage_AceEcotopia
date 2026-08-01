@@ -24,6 +24,8 @@ interface Holding {
 
 interface ClientProfile {
   name: string; riskScore: number; targetReturn: number
+  portfolioValue: number   // in thousands (e.g. 500 = $500k)
+  monthlyIncomePct: number // % of portfolio needed as annual income (e.g. 4 = 4% / yr)
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -37,19 +39,33 @@ const BENCHMARK: Record<string, { ret: number; source: string }> = {
   private_equity:  { ret: 10.0, source: 'Cambridge Associates Global PE benchmark' },
   philanthropy:    { ret: 0.0,  source: 'Non-financial (impact) return' },
   thematic:        { ret: 12.0, source: 'ARK Innovation / thematic ETF 5-yr avg (high variance)' },
+  // Cash rates are indicative; verify current central bank / MAS rates before use
+  cash:            { ret: 4.0,  source: 'US T-Bill / money market indicative rate (verify current rate)' },
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
   equity: 'Equity', fixed_income: 'Fixed Income / Bonds',
   fx: 'FX / Currency', commodities: 'Commodities & Alternatives',
   private_equity: 'Private Equity', philanthropy: 'Philanthropy / Impact',
-  thematic: 'Thematic / Strategic',
+  thematic: 'Thematic / Strategic', cash: 'Cash & Risk-Free',
 }
 
 const CATEGORY_ICONS: Record<string, string> = {
   equity: '📈', fixed_income: '🏦', fx: '💱',
   commodities: '🛢', private_equity: '🏛', philanthropy: '🌱',
-  thematic: '🚀',
+  thematic: '🚀', cash: '💵',
+}
+
+// Indicative risk-free / cash rates — manager should verify before client presentation
+// Sources: US Fed Funds, MAS, ECB policy rates (approximate as of mid-2026)
+const CASH_RATES: Record<string, { rate: number; label: string; note: string }> = {
+  'TBILL-USD-3M':  { rate: 4.3,  label: 'US T-Bill 3-month',         note: 'US Treasury. Verify at treasurydirect.gov' },
+  'TBILL-USD-6M':  { rate: 4.2,  label: 'US T-Bill 6-month',         note: 'US Treasury. Verify at treasurydirect.gov' },
+  'TBILL-SGD-6M':  { rate: 3.3,  label: 'SGD T-Bill 6-month',        note: 'MAS. Verify at mas.gov.sg/tbills' },
+  'MMF-USD':       { rate: 4.1,  label: 'USD Money Market Fund',      note: 'Typical USD prime MMF. Varies by fund' },
+  'FD-SGD':        { rate: 2.8,  label: 'SGD Fixed Deposit (12m)',    note: 'Typical Singapore bank FD. Varies by bank' },
+  'IBOND-USD':     { rate: 4.3,  label: 'US I-Bond (inflation-linked)', note: 'US Savings Bond. Rate resets every 6 months' },
+  'CASH-USD':      { rate: 0.5,  label: 'USD Cash / Demand Deposit',  note: 'Near-zero yield; liquidity buffer only' },
 }
 
 // Pre-populated catalog — hasLive=true means ticker exists in AceEconomy intel.asset_classes
@@ -87,6 +103,14 @@ const CATALOG: { ticker: string; name: string; category: string; hasLive: boolea
   // Philanthropy
   { ticker: 'ESG',  name: 'ESG / Impact Fund',         category: 'philanthropy',    hasLive: false },
   { ticker: 'CHARITY', name: 'Charitable Donation',    category: 'philanthropy',    hasLive: false },
+  // Cash & Risk-Free (rates indicative — verify before client presentation)
+  { ticker: 'TBILL-USD-3M', name: 'US T-Bill 3m (~4.3% indicative)',    category: 'cash', hasLive: false },
+  { ticker: 'TBILL-USD-6M', name: 'US T-Bill 6m (~4.2% indicative)',    category: 'cash', hasLive: false },
+  { ticker: 'TBILL-SGD-6M', name: 'SGD T-Bill 6m (~3.3% indicative)',   category: 'cash', hasLive: false },
+  { ticker: 'MMF-USD',      name: 'USD Money Market Fund (~4.1%)',       category: 'cash', hasLive: false },
+  { ticker: 'FD-SGD',       name: 'SGD Fixed Deposit 12m (~2.8%)',       category: 'cash', hasLive: false },
+  { ticker: 'IBOND-USD',    name: 'US I-Bond inflation-linked (~4.3%)',  category: 'cash', hasLive: false },
+  { ticker: 'CASH-USD',     name: 'USD Cash / Demand Deposit (~0.5%)',   category: 'cash', hasLive: false },
   // Thematic / Strategic
   { ticker: 'BOTZ', name: 'AI & Robotics (BOTZ)',      category: 'thematic',        hasLive: false },
   { ticker: 'AIQ',  name: 'Global AI & Tech (AIQ)',    category: 'thematic',        hasLive: false },
@@ -200,11 +224,11 @@ function suggestFromRisk(risk: number, targetReturn: number): Record<string, num
   // Returns suggested allocations by category summing to 100
   const r = Math.min(5, Math.max(1, risk))
   const base: Record<string, number> =
-    r <= 1.5 ? { equity: 20, fixed_income: 55, fx: 5, commodities: 10, private_equity: 5, philanthropy: 5,  thematic: 0  } :
-    r <= 2.5 ? { equity: 33, fixed_income: 38, fx: 5, commodities: 10, private_equity: 8, philanthropy: 2,  thematic: 4  } :
-    r <= 3.5 ? { equity: 50, fixed_income: 22, fx: 5, commodities: 10, private_equity: 5, philanthropy: 0,  thematic: 8  } :
-    r <= 4.5 ? { equity: 60, fixed_income: 8,  fx: 5, commodities: 10, private_equity: 5, philanthropy: 0,  thematic: 12 } :
-               { equity: 65, fixed_income: 5,  fx: 0, commodities: 8,  private_equity: 7, philanthropy: 0,  thematic: 15 }
+    r <= 1.5 ? { equity: 15, fixed_income: 45, cash: 20, commodities: 8,  private_equity: 5, philanthropy: 5,  thematic: 0,  fx: 2 } :
+    r <= 2.5 ? { equity: 30, fixed_income: 35, cash: 10, commodities: 10, private_equity: 7, philanthropy: 2,  thematic: 4,  fx: 2 } :
+    r <= 3.5 ? { equity: 50, fixed_income: 20, cash: 5,  commodities: 10, private_equity: 5, philanthropy: 0,  thematic: 8,  fx: 2 } :
+    r <= 4.5 ? { equity: 60, fixed_income: 8,  cash: 2,  commodities: 10, private_equity: 5, philanthropy: 0,  thematic: 12, fx: 3 } :
+               { equity: 65, fixed_income: 5,  cash: 0,  commodities: 8,  private_equity: 7, philanthropy: 0,  thematic: 15, fx: 0 }
 
   // Nudge equity vs bonds toward targetReturn using conservative benchmark
   const conservativeRet = Object.entries(base).reduce((s, [cat, w]) => s + (BENCHMARK[cat]?.ret ?? 0) * w / 100, 0)
@@ -244,7 +268,7 @@ export default function PortfolioBuilderPage() {
   const [catFilter, setCatFilter]       = useState<string>('all')
   const [search, setSearch]             = useState('')
   const [holdings, setHoldings]         = useState<Holding[]>([])
-  const [clientProfile, setClientProfile] = useState<ClientProfile>({ name: '', riskScore: 3, targetReturn: 7 })
+  const [clientProfile, setClientProfile] = useState<ClientProfile>({ name: '', riskScore: 3, targetReturn: 7, portfolioValue: 500, monthlyIncomePct: 4 })
   const [clientHoldings, setClientHoldings] = useState<Holding[]>([])
   const [confirmed, setConfirmed]       = useState<'manager' | 'client' | null>(null)
   const [qrUrl, setQrUrl]               = useState<string | null>(null)
@@ -306,6 +330,10 @@ export default function PortfolioBuilderPage() {
         }
       })
     setClientHoldings(clientH)
+  }
+
+  function updateClientHolding(id: string, pct: number) {
+    setClientHoldings(prev => prev.map(h => h.id === id ? { ...h, pct } : h))
   }
 
   // Generate QR for the confirmed portfolio
@@ -668,14 +696,47 @@ export default function PortfolioBuilderPage() {
           {/* ── TAB 2: CLIENT PROFILE ── */}
           {tab === 'client' && (
             <div className="space-y-6">
+              {/* Input form */}
               <div className="rounded-xl border border-white/10 bg-white/3 p-5 space-y-4">
                 <div className="text-xs font-semibold text-white">Client Information & Risk Parameters</div>
 
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">Client Name</label>
+                    <input value={clientProfile.name} onChange={e => setClientProfile(p => ({ ...p, name: e.target.value }))}
+                      placeholder="e.g. Mr Tan Wei Liang"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500/50" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">
+                      Portfolio Value (SGD $000)
+                    </label>
+                    <input type="number" min={10} max={100000} step={50}
+                      value={clientProfile.portfolioValue}
+                      onChange={e => setClientProfile(p => ({ ...p, portfolioValue: +e.target.value }))}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500/50" />
+                  </div>
+                </div>
+
+                {/* Monthly income need */}
                 <div>
-                  <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">Client Name (internal)</label>
-                  <input value={clientProfile.name} onChange={e => setClientProfile(p => ({ ...p, name: e.target.value }))}
-                    placeholder="e.g. Mr Tan Wei Liang"
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500/50" />
+                  <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">
+                    Monthly Income Needed:{' '}
+                    <span className="text-white font-semibold">
+                      {clientProfile.monthlyIncomePct}% p.a. = ~${Math.round(clientProfile.portfolioValue * 1000 * clientProfile.monthlyIncomePct / 100 / 12).toLocaleString()}/month
+                    </span>
+                  </label>
+                  <input type="range" min={0} max={12} step={0.5} value={clientProfile.monthlyIncomePct}
+                    onChange={e => setClientProfile(p => ({ ...p, monthlyIncomePct: +e.target.value }))}
+                    className="w-full accent-amber-500" />
+                  <div className="flex justify-between text-[9px] text-slate-600 mt-1">
+                    <span>No income need (0%)</span><span>4% (typical withdrawal)</span><span>12%</span>
+                  </div>
+                  {clientProfile.monthlyIncomePct > clientProfile.targetReturn && (
+                    <p className="text-[9px] text-red-400 mt-1">
+                      ⚠ Income need ({clientProfile.monthlyIncomePct}%) exceeds target return ({clientProfile.targetReturn}%) — capital drawdown likely
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -707,62 +768,121 @@ export default function PortfolioBuilderPage() {
                   </div>
                 </div>
 
+                {/* What this button actually does */}
+                <div className="rounded-lg border border-white/8 bg-white/3 px-3 py-2.5 text-[10px] text-slate-500 leading-relaxed">
+                  <strong className="text-slate-400">How this works:</strong> Clicking generate maps the risk score (1–5) to a starting allocation framework (conservative = more cash + bonds; aggressive = more equity + thematic), then automatically nudges equity vs fixed-income weight to close the gap between the starting benchmark return and your target return. Cash allocation is preserved as a liquidity buffer sized to the risk score. You can then manually adjust the sliders below.
+                </div>
+
                 <button onClick={generateClientPortfolio}
                   className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-sm py-2.5 rounded-lg transition">
                   Generate Risk-Adjusted Portfolio
                 </button>
               </div>
 
-              {clientHoldings.length > 0 && (
-                <div className="space-y-4">
-                  <div className="text-xs font-semibold text-white">Suggested Allocation for {clientProfile.name || 'Client'}</div>
-                  <div className="space-y-2">
-                    {clientHoldings.map(h => (
-                      <div key={h.id} className="flex items-center gap-3 rounded-lg border border-white/8 bg-white/3 px-3 py-2.5">
-                        <span className="text-sm">{CATEGORY_ICONS[h.category]}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-xs font-mono font-bold text-white">{h.ticker}</div>
-                          <div className="text-[9px] text-slate-500 truncate">{h.name} · {CATEGORY_LABELS[h.category]}</div>
-                        </div>
+              {clientHoldings.length > 0 && (() => {
+                const cTotal = totalPct(clientHoldings)
+                const annualIncome = clientProfile.portfolioValue * 1000 * clientProfile.monthlyIncomePct / 100
+                const monthlyIncome = annualIncome / 12
+                return (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-semibold text-white">Suggested Allocation — {clientProfile.name || 'Client'}</div>
+                      <div className={`text-xs font-mono font-bold ${Math.abs(cTotal - 100) < 0.5 ? 'text-green-400' : 'text-amber-400'}`}>
+                        {cTotal.toFixed(1)}% / 100%
+                      </div>
+                    </div>
+
+                    {/* Income summary */}
+                    {clientProfile.monthlyIncomePct > 0 && (
+                      <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-2.5 flex items-center justify-between text-[11px]">
+                        <span className="text-slate-400">Monthly income target</span>
                         <div className="text-right">
-                          <div className="text-sm font-bold font-mono text-cyan-300">{h.pct.toFixed(0)}%</div>
-                          <div className="text-[9px] text-slate-600">bench {BENCHMARK[h.category]?.ret ?? 0}%</div>
-                        </div>
-                        <div className="w-16 bg-white/5 rounded-full h-1.5">
-                          <div className="bg-cyan-500 h-1.5 rounded-full" style={{ width: `${Math.min(h.pct, 100)}%` }} />
+                          <span className="text-amber-300 font-bold">${Math.round(monthlyIncome).toLocaleString()}/mo</span>
+                          <span className="text-slate-600 ml-2">({clientProfile.monthlyIncomePct}% of ${(clientProfile.portfolioValue).toLocaleString()}k)</span>
                         </div>
                       </div>
-                    ))}
-                  </div>
+                    )}
 
-                  <div className="flex gap-3">
-                    <ProjCard label="Conservative Benchmark" ret={cProj.conservativeBlended} color="text-slate-300" desc="Long-run benchmark averages" />
-                    <ProjCard label="AceEconomy Driven" ret={cProj.aceBlended} color={cProj.aceBlended >= 0 ? 'text-green-400' : 'text-red-400'} desc="Market-data driven estimate" />
-                  </div>
-
-                  {cProj.riskFlags.length > 0 && (
-                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 space-y-1.5">
-                      <div className="text-[10px] font-mono text-amber-400 uppercase tracking-wider">Risk Notes</div>
-                      {cProj.riskFlags.map((f, i) => (
-                        <div key={i} className="text-[11px] text-slate-300 flex items-start gap-2">
-                          <span className="text-amber-400">◈</span>{f.message}
+                    {/* Editable allocation sliders */}
+                    <div className="space-y-2">
+                      {clientHoldings.filter(h => h.pct > 0).map(h => (
+                        <div key={h.id} className="rounded-xl border border-white/8 bg-white/3 px-3 py-2.5 space-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm">{CATEGORY_ICONS[h.category]}</span>
+                            <span className="text-xs font-mono font-bold text-white">{h.ticker}</span>
+                            <span className="text-[9px] text-slate-500 flex-1 truncate">{h.name}</span>
+                            <span className="text-[10px] font-bold text-cyan-300">{h.pct.toFixed(0)}%</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input type="range" min={0} max={80} step={1} value={h.pct}
+                              onChange={e => updateClientHolding(h.id, +e.target.value)}
+                              className="flex-1 accent-cyan-500" />
+                            <span className="text-[9px] text-slate-600 shrink-0 w-24 text-right">
+                              bench {BENCHMARK[h.category]?.ret ?? 0}% · {BENCHMARK[h.category]?.source?.split('(')[0].trim()}
+                            </span>
+                          </div>
                         </div>
                       ))}
                     </div>
-                  )}
 
-                  <div className="rounded-lg border border-white/8 bg-white/3 px-4 py-3">
-                    <div className="text-[10px] font-mono text-slate-500 uppercase tracking-wider mb-2">Allocation Basis</div>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
-                      Risk score <strong className="text-white">{clientProfile.riskScore}/5</strong> with a{' '}
-                      <strong className="text-white">{clientProfile.targetReturn}% p.a.</strong> return target.
-                      Allocation is derived from a risk-tier framework then nudged toward the target return by adjusting equity vs fixed-income weight.
-                      Conservative benchmark estimate: <strong className="text-white">{cProj.conservativeBlended.toFixed(1)}%</strong>.
-                      This is a suggested starting point — review with your client before finalising.
-                    </p>
+                    {/* Projections with named benchmark sources */}
+                    <div className="space-y-2">
+                      <div className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">Portfolio Projections</div>
+                      <div className="flex gap-3">
+                        <div className="flex-1 rounded-xl border border-white/10 bg-white/4 p-3 text-center">
+                          <div className="text-[9px] font-mono text-slate-500 uppercase tracking-wider mb-1">Conservative Benchmark</div>
+                          <div className="text-xl font-bold font-mono text-slate-300">
+                            {cProj.conservativeBlended >= 0 ? '+' : ''}{cProj.conservativeBlended.toFixed(1)}%
+                          </div>
+                          <div className="text-[9px] text-slate-600 mt-1">est. annual return</div>
+                          <div className="mt-2 space-y-0.5 text-left">
+                            {clientHoldings.filter(h => h.pct > 0).map(h => (
+                              <div key={h.id} className="text-[8px] text-slate-700 truncate">
+                                {h.ticker}: {BENCHMARK[h.category]?.ret ?? 0}% — {BENCHMARK[h.category]?.source}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex-1 rounded-xl border border-white/10 bg-white/4 p-3 text-center">
+                          <div className="text-[9px] font-mono text-slate-500 uppercase tracking-wider mb-1">AceEconomy Driven</div>
+                          <div className={`text-xl font-bold font-mono ${cProj.aceBlended >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {cProj.aceBlended >= 0 ? '+' : ''}{cProj.aceBlended.toFixed(1)}%
+                          </div>
+                          <div className="text-[9px] text-slate-600 mt-1">est. annual return</div>
+                          <div className="text-[9px] text-slate-600 mt-2 leading-snug text-left">
+                            Live YTD data from AceEconomy VPS (no fabricated figures). Where live data unavailable, falls back to documented benchmark. Regime: {intel?.regime ?? '—'} ×{regimeMult(intel?.regime ?? '').toFixed(1)}.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Income check against projected return */}
+                    {clientProfile.monthlyIncomePct > 0 && (
+                      <div className={`rounded-lg border px-4 py-3 text-[11px] ${
+                        cProj.conservativeBlended >= clientProfile.monthlyIncomePct
+                          ? 'border-green-500/25 bg-green-500/5 text-green-300'
+                          : 'border-amber-500/25 bg-amber-500/5 text-amber-300'
+                      }`}>
+                        {cProj.conservativeBlended >= clientProfile.monthlyIncomePct
+                          ? `✓ Conservative benchmark (${cProj.conservativeBlended.toFixed(1)}%) covers the ${clientProfile.monthlyIncomePct}% income need — capital preserved in a typical year.`
+                          : `◈ Conservative benchmark (${cProj.conservativeBlended.toFixed(1)}%) falls short of the ${clientProfile.monthlyIncomePct}% income need by ${(clientProfile.monthlyIncomePct - cProj.conservativeBlended).toFixed(1)}% — some capital drawdown in low-return years.`
+                        }
+                      </div>
+                    )}
+
+                    {cProj.riskFlags.length > 0 && (
+                      <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 space-y-1.5">
+                        <div className="text-[10px] font-mono text-amber-400 uppercase tracking-wider">Risk Notes</div>
+                        {cProj.riskFlags.map((f, i) => (
+                          <div key={i} className="text-[11px] text-slate-300 flex items-start gap-2">
+                            <span className="text-amber-400">◈</span>{f.message}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
+                )
+              })()}
             </div>
           )}
 
