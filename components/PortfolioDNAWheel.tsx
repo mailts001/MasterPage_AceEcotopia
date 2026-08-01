@@ -57,16 +57,43 @@ const CATEGORY_LABEL: Record<string, string> = {
   philanthropy: 'Philanthropy', thematic: 'Thematic', cash: 'Cash',
 }
 
-// Historical worst-case drawdown by category (bear scenario, illustrative)
-const MAX_DRAWDOWN_EST: Record<string, number> = {
-  equity:         -35,
-  fixed_income:   -12,
-  fx:             -8,
-  commodities:    -25,
-  private_equity: -40,
-  philanthropy:    0,
-  thematic:       -60,
-  cash:            0,
+// Historical bear-market drawdowns per asset class, with real-world crisis context
+const DRAWDOWN_HISTORY: Record<string, { pct: number; event: string; duration: string }[]> = {
+  equity: [
+    { pct: -56, event: '2008 Global Financial Crisis',   duration: '17 months (Oct 07 – Mar 09)' },
+    { pct: -49, event: '2000–02 Dot-com bust',           duration: '2.5 years (Mar 00 – Oct 02)'  },
+    { pct: -34, event: '2020 COVID crash',               duration: '33 days (Feb – Mar 20)'        },
+  ],
+  fixed_income: [
+    { pct: -40, event: '2022 Rate-hike cycle (TLT)',     duration: '18 months (Jan 22 – Oct 23)'  },
+    { pct: -13, event: '2022 Rate-hike cycle (US Agg)',  duration: '12 months'                    },
+    { pct: -8,  event: '1994 Fed rate shock',            duration: '6 months'                     },
+  ],
+  thematic: [
+    { pct: -75, event: '2021–22 ARKK Innovation',        duration: '12 months (Feb 21 – Jan 22)'  },
+    { pct: -78, event: '2000 Nasdaq Dot-com',            duration: '2.5 years'                    },
+    { pct: -65, event: '2022 Semiconductor rout (SOXX)', duration: '12 months'                    },
+  ],
+  commodities: [
+    { pct: -77, event: '2008 GFC (crude oil WTI)',       duration: '7 months (Jul – Dec 08)'      },
+    { pct: -25, event: '2020 COVID (broad commodity)',   duration: '1 month (Feb – Mar 20)'       },
+    { pct: -40, event: '2022 gold/silver correction',    duration: '12 months'                    },
+  ],
+  private_equity: [
+    { pct: -40, event: '2008–09 GFC (realised with lag)', duration: '18–24 months; illiquid'     },
+    { pct: -30, event: '2000–02 Dot-com (VC/growth PE)', duration: '2+ years'                    },
+  ],
+  fx: [
+    { pct: -30, event: '1997 Asian currency crisis (THB, IDR)', duration: '12 months'            },
+    { pct: -15, event: 'Typical EM currency bear cycle',         duration: '6–18 months'         },
+  ],
+  cash: [
+    { pct: -9,  event: '2021–23 real purchasing-power loss (US CPI)', duration: '2 years'        },
+    { pct: 0,   event: 'No nominal drawdown — inflation is the risk', duration: 'Ongoing'        },
+  ],
+  philanthropy: [
+    { pct: 0,   event: 'No market price drawdown',               duration: 'N/A (impact return)' },
+  ],
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -92,16 +119,16 @@ function buildRings(holdings: WheelHolding[], regime: string): RingData[] {
   return sorted.map((h, i) => {
     const ytdAnn = h.liveYtd != null ? annualise(h.liveYtd) : null
     const base   = ytdAnn != null ? ytdAnn * mult : h.benchmarkReturn * mult
+    const worstDD = Math.min(...(DRAWDOWN_HISTORY[h.category] ?? [{ pct: -30 }]).map(d => d.pct))
     return {
-      ...h,
-      order: i,
+      ...h, order: i,
       perfColor: PERF_COLOR[getPerfLabel(h.liveYtd ?? null)],
       perfLabel: getPerfLabel(h.liveYtd ?? null),
       ytdAnn,
-      bearCase: base * 0.5,
-      baseCase: base,
-      bullCase: base * 1.6,
-      maxDrawdown: MAX_DRAWDOWN_EST[h.category] ?? -30,
+      bearCase:    base * 0.5,
+      baseCase:    base,
+      bullCase:    base * 1.6,
+      maxDrawdown: worstDD,
     }
   })
 }
@@ -109,8 +136,8 @@ function buildRings(holdings: WheelHolding[], regime: string): RingData[] {
 // ── SVG helpers ───────────────────────────────────────────────────────────────
 
 const CX = 260, CY = 260
-const INNER_R  = 44
-const RING_GAP = 4
+const INNER_R   = 50
+const RING_GAP  = 5
 const MAX_OUTER = 240
 
 function polarToXY(angle: number, r: number) {
@@ -148,20 +175,20 @@ export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vi
   const [hovered, setHovered]   = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
   const [source, setSource]     = useState<'manager' | 'client'>('manager')
+  const [zoom, setZoom]         = useState(1.0)   // 1 = full semicircle, 2 = 2× zoom
 
-  const hasClient = !!(clientHoldings && clientHoldings.length > 0)
+  const hasClient      = !!(clientHoldings && clientHoldings.length > 0)
   const activeHoldings = (source === 'client' && hasClient) ? clientHoldings! : holdings
 
   useEffect(() => {
     setRings(buildRings(activeHoldings, regime))
-    setSelected(null)
-    setHovered(null)
+    setSelected(null); setHovered(null)
   }, [activeHoldings, regime]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const total = activeHoldings.reduce((s, h) => s + h.pct, 0) || 1
 
-  const usable    = MAX_OUTER - INNER_R - RING_GAP * Math.max(rings.length, 1)
-  const ringDims  = rings.map(r => ({ thickness: Math.max(12, (r.pct / total) * usable) }))
+  const usable   = MAX_OUTER - INNER_R - RING_GAP * Math.max(rings.length, 1)
+  const ringDims = rings.map(r => ({ thickness: Math.max(14, (r.pct / total) * usable) }))
 
   const radii: { inner: number; outer: number }[] = []
   let cursor = MAX_OUTER
@@ -170,7 +197,7 @@ export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vi
     const inner = outer - ringDims[i].thickness
     radii.push({ inner, outer })
     cursor = inner - RING_GAP
-    if (cursor < INNER_R + 10) break
+    if (cursor < INNER_R + 12) break
   }
 
   const selectedRing = rings.find(r => r.id === selected)
@@ -181,66 +208,89 @@ export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vi
   const blended = (key: 'bearCase' | 'baseCase' | 'bullCase') =>
     rings.reduce((s, r) => s + (r.pct / total) * (r[key] as number), 0)
 
+  // Zoomed viewBox: centre of semicircle is (CX, CY), show smaller window when zoomed
+  const vW = 520 / zoom
+  const vH = 268 / zoom
+  const vX = (520 - vW) / 2
+  const vY = Math.max(0, (260 - vH + 8))  // bias toward top of arc
+
+  // Top 3 holdings for below-semicircle summary
+  const top3 = [...rings].sort((a, b) => b.pct - a.pct).slice(0, 3)
+
   return (
     <div className="space-y-3">
 
-      {/* Source toggle */}
-      {hasClient && (
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-slate-500">Showing:</span>
-          {(['manager', 'client'] as const).map(s => (
-            <button key={s} onClick={() => setSource(s)}
-              className={`text-[10px] px-3 py-1 rounded-full border transition ${
-                source === s
-                  ? 'border-cyan-500/50 bg-cyan-500/20 text-cyan-300'
-                  : 'border-white/10 text-slate-500 hover:text-white'
-              }`}>
-              {s === 'manager' ? '📐 Manager' : '👤 Client'}
-            </button>
-          ))}
-          <span className="text-[9px] text-slate-700 ml-2">Click a ring or list item for detail</span>
+      {/* Source + Zoom row */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {hasClient && (['manager', 'client'] as const).map(s => (
+          <button key={s} onClick={() => setSource(s)}
+            className={`text-xs px-3 py-1 rounded-full border transition ${
+              source === s
+                ? 'border-cyan-500/50 bg-cyan-500/20 text-cyan-300'
+                : 'border-white/10 text-slate-500 hover:text-white'
+            }`}>
+            {s === 'manager' ? '📐 Manager' : '👤 Client'}
+          </button>
+        ))}
+        <div className="ml-auto flex items-center gap-1.5">
+          <span className="text-[10px] text-slate-600">Zoom</span>
+          <button onClick={() => setZoom(z => Math.max(1, +(z - 0.25).toFixed(2)))}
+            className="w-6 h-6 rounded border border-white/15 text-slate-400 hover:text-white text-sm flex items-center justify-center">−</button>
+          <span className="text-[10px] text-slate-400 w-7 text-center">{zoom.toFixed(1)}×</span>
+          <button onClick={() => setZoom(z => Math.min(3, +(z + 0.25).toFixed(2)))}
+            className="w-6 h-6 rounded border border-white/15 text-slate-400 hover:text-white text-sm flex items-center justify-center">+</button>
+          {zoom !== 1 && (
+            <button onClick={() => setZoom(1)}
+              className="text-[9px] text-slate-600 hover:text-white px-1.5 border border-white/10 rounded">reset</button>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Performance legend */}
       <div className="flex items-center gap-3 flex-wrap">
         {Object.entries(PERF_COLOR).filter(([k]) => k !== 'no-data').map(([k, c]) => (
-          <span key={k} className="flex items-center gap-1 text-[9px] text-slate-400">
-            <span className="w-2 h-2 rounded-full" style={{ background: c }} />
+          <span key={k} className="flex items-center gap-1 text-[10px] text-slate-400">
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: c }} />
             {k.charAt(0).toUpperCase() + k.slice(1)}
           </span>
         ))}
-        <span className="ml-auto text-[9px] text-slate-700">ring size = allocation · colour = YTD performance</span>
       </div>
 
-      {/* Main layout: semicircle (left) + detail panel (right) */}
+      {/* Main layout: semicircle SVG + detail panel */}
       <div className="flex gap-4 items-start">
 
-        {/* Semicircle SVG — full circles drawn, top-half visible via viewBox crop */}
-        <div className="shrink-0 w-full max-w-[280px]">
+        {/* Left column: semicircle + below-arc summary */}
+        <div className="shrink-0 w-full max-w-[300px] space-y-2">
+
+          {/* Semicircle SVG — viewBox crops to top half; zoom shrinks viewBox */}
           <svg
-            viewBox="0 0 520 268"
+            viewBox={`${vX} ${vY} ${vW} ${vH}`}
             className="w-full"
-            style={{ filter: 'drop-shadow(0 0 28px rgba(6,182,212,0.07))' }}>
+            style={{ filter: 'drop-shadow(0 0 24px rgba(6,182,212,0.09))', overflow: 'visible' }}>
 
-            {/* Background fill for visible area */}
-            <rect x={0} y={0} width={520} height={268} fill="rgba(10,14,26,0.5)" rx={8} />
+            {/* Semicircular background — only the arc area, no rectangle */}
+            <path
+              d={`M ${CX - MAX_OUTER - 12} ${CY} A ${MAX_OUTER + 12} ${MAX_OUTER + 12} 0 0 0 ${CX + MAX_OUTER + 12} ${CY} Z`}
+              fill="rgba(10,14,26,0.55)" />
 
-            {/* Grid semicircles */}
+            {/* Grid arcs */}
             {[80, 140, 200].map(r => (
               <path key={r}
-                d={`M ${CX - r} ${CY} A ${r} ${r} 0 0 1 ${CX + r} ${CY}`}
-                fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth={1} />
+                d={`M ${CX - r} ${CY} A ${r} ${r} 0 0 0 ${CX + r} ${CY}`}
+                fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={1} />
             ))}
 
-            {/* Rings — full circles, only top half in viewBox */}
+            {/* Rings — full circles, top half visible via viewBox */}
             {rings.map((ring, i) => {
               const dim = radii[i]
               if (!dim) return null
-              const path   = describeArc(0, 358, dim.inner, dim.outer)
-              const isHov  = hovered === ring.id
-              const isSel  = selected === ring.id
-              const catC   = CATEGORY_COLOR[ring.category] ?? '#64748b'
+              const path  = describeArc(0, 358, dim.inner, dim.outer)
+              const isHov = hovered === ring.id
+              const isSel = selected === ring.id
+              const catC  = CATEGORY_COLOR[ring.category] ?? '#64748b'
+              const midR  = (dim.inner + dim.outer) / 2
+              // Font size scales with ring thickness, but large enough to read
+              const fs = Math.max(13, Math.min(20, (dim.outer - dim.inner) * 0.55))
               return (
                 <g key={ring.id}
                   style={{ cursor: 'pointer', transition: 'opacity 0.2s' }}
@@ -250,22 +300,31 @@ export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vi
                   onClick={() => setSelected(isSel ? null : ring.id)}>
                   <path d={path}
                     fill={catC}
-                    fillOpacity={isHov || isSel ? 0.6 : 0.30}
+                    fillOpacity={isHov || isSel ? 0.65 : 0.32}
                     stroke={isSel ? '#06b6d4' : ring.perfColor}
-                    strokeWidth={isSel ? 2.5 : isHov ? 2 : 1.5}
-                    strokeOpacity={isSel ? 1 : 0.75}
+                    strokeWidth={isSel ? 3 : isHov ? 2.5 : 2}
+                    strokeOpacity={isSel ? 1 : 0.85}
                     style={{ transition: 'all 0.2s' }}
                   />
-                  {/* Ticker at top of ring (angle 0 = 12-o'clock) */}
+                  {/* Ticker at 12-o'clock (top of ring) */}
                   {(() => {
-                    const midR = (dim.inner + dim.outer) / 2
-                    const p    = polarToXY(0, midR)
-                    const fs   = dim.outer - dim.inner > 18 ? 8 : 6
+                    const p = polarToXY(0, midR)
                     return (
                       <text x={p.x} y={p.y} textAnchor="middle" dominantBaseline="middle"
                         fill="white" fontSize={fs} fontWeight="bold" fontFamily="monospace"
-                        opacity={isHov || isSel ? 1 : 0.7}>
+                        opacity={isHov || isSel ? 1 : 0.8}>
                         {ring.ticker}
+                      </text>
+                    )
+                  })()}
+                  {/* Allocation % at 30° position */}
+                  {dim.outer - dim.inner > 22 && (() => {
+                    const p = polarToXY(30, midR)
+                    return (
+                      <text x={p.x} y={p.y} textAnchor="middle" dominantBaseline="middle"
+                        fill={ring.perfColor} fontSize={Math.max(11, fs * 0.75)} fontFamily="monospace"
+                        opacity={isHov || isSel ? 1 : 0.6}>
+                        {ring.pct.toFixed(0)}%
                       </text>
                     )
                   })()}
@@ -275,18 +334,42 @@ export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vi
 
             {/* Hub */}
             <circle cx={CX} cy={CY} r={INNER_R}
-              fill="rgba(10,14,26,0.95)" stroke="rgba(6,182,212,0.4)" strokeWidth={1.5} />
-            <text x={CX} y={CY - 8} textAnchor="middle" fill="#94a3b8" fontSize={7} fontFamily="monospace">PORT</text>
-            <text x={CX} y={CY + 5} textAnchor="middle" fill="#06b6d4" fontSize={9} fontWeight="bold">DNA</text>
+              fill="rgba(10,14,26,0.95)" stroke="rgba(6,182,212,0.4)" strokeWidth={2} />
+            <text x={CX} y={CY - 10} textAnchor="middle" fill="#94a3b8" fontSize={11} fontFamily="monospace">PORT</text>
+            <text x={CX} y={CY + 8}  textAnchor="middle" fill="#06b6d4" fontSize={14} fontWeight="bold">DNA</text>
 
-            {/* Flat baseline */}
-            <line x1={20} y1={260} x2={500} y2={260} stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
-
-            {/* Regime / VIX label on baseline */}
-            <text x={CX} y={266} textAnchor="middle" fill="#334155" fontSize={7} fontFamily="monospace">
-              {regime} · VIX {vix?.toFixed(0) ?? '—'} · ×{regMult.toFixed(2)} regime adj
+            {/* Baseline + regime label */}
+            <line x1={CX - MAX_OUTER - 5} y1={CY} x2={CX + MAX_OUTER + 5} y2={CY}
+              stroke="rgba(255,255,255,0.08)" strokeWidth={1} />
+            <text x={CX} y={CY + 20} textAnchor="middle" fill="#334155" fontSize={11} fontFamily="monospace">
+              {regime} · VIX {vix?.toFixed(0) ?? '—'} · regime ×{regMult.toFixed(2)}
             </text>
           </svg>
+
+          {/* Below-arc: top holdings summary */}
+          {top3.length > 0 && (
+            <div className="space-y-1">
+              <div className="text-[10px] font-mono text-slate-600 uppercase tracking-wider">Top holdings</div>
+              {top3.map(r => (
+                <div key={r.id}
+                  onMouseEnter={() => setHovered(r.id)}
+                  onMouseLeave={() => setHovered(null)}
+                  onClick={() => setSelected(r.id === selected ? null : r.id)}
+                  className={`flex items-center gap-2 cursor-pointer rounded-lg px-2.5 py-2 border transition ${
+                    selected === r.id ? 'border-cyan-500/40 bg-cyan-500/8' :
+                    hovered  === r.id ? 'border-white/20 bg-white/5' : 'border-white/8 bg-white/3'
+                  }`}>
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: CATEGORY_COLOR[r.category] ?? '#64748b' }} />
+                  <span className="text-[11px] font-mono font-bold text-white">{r.ticker}</span>
+                  <span className="text-[10px] text-slate-500 flex-1 truncate">{CATEGORY_LABEL[r.category]}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${PERF_BG[r.perfLabel]}`}>
+                    {r.liveYtd != null ? `${r.liveYtd >= 0 ? '+' : ''}${r.liveYtd.toFixed(1)}% YTD` : 'est'}
+                  </span>
+                  <span className="text-[11px] font-bold font-mono text-cyan-300 shrink-0">{r.pct.toFixed(0)}%</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right panel */}
@@ -294,7 +377,7 @@ export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vi
 
           {/* Portfolio scenario projections */}
           <div className="rounded-lg border border-white/8 bg-white/3 p-3">
-            <div className="text-[9px] font-mono text-slate-500 uppercase tracking-wider mb-2">
+            <div className="text-[10px] font-mono text-slate-500 uppercase tracking-wider mb-2">
               Portfolio outlook — {regime}
             </div>
             <div className="grid grid-cols-3 gap-1.5">
@@ -304,20 +387,20 @@ export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vi
                 { label: 'Bull', key: 'bullCase', color: 'text-cyan-300',  border: 'border-cyan-500/15'  },
               ] as const).map(({ label, key, color, border }) => (
                 <div key={label} className={`rounded border ${border} bg-white/3 py-2 text-center`}>
-                  <div className="text-[8px] text-slate-600">{label}</div>
+                  <div className="text-[9px] text-slate-600">{label}</div>
                   <div className={`text-sm font-bold font-mono ${color}`}>
                     {blended(key) >= 0 ? '+' : ''}{blended(key).toFixed(1)}%
                   </div>
                 </div>
               ))}
             </div>
-            <p className="text-[8px] text-slate-700 mt-1.5">
-              Base = live YTD annualised × regime ×{regMult.toFixed(2)}. Bear = ×0.5, Bull = ×1.6. Estimates only.
+            <p className="text-[8px] text-slate-700 mt-1.5 leading-snug">
+              Base = live YTD annualised × regime ×{regMult.toFixed(2)}. Bear = base×0.5 (return compression, not drawn-down capital). Bull = base×1.6. These are annualised return estimates, not point-in-time drawdown scenarios.
             </p>
           </div>
 
           {/* Holdings list */}
-          <div className="space-y-1 max-h-[200px] overflow-y-auto pr-0.5">
+          <div className="space-y-1 max-h-[180px] overflow-y-auto pr-0.5">
             {rings.map((r, i) => {
               if (!radii[i]) return null
               return (
@@ -325,18 +408,17 @@ export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vi
                   onClick={() => setSelected(r.id === selected ? null : r.id)}
                   onMouseEnter={() => setHovered(r.id)}
                   onMouseLeave={() => setHovered(null)}
-                  className={`w-full flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-left transition ${
+                  className={`w-full flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-left transition ${
                     selected === r.id ? 'border-cyan-500/50 bg-cyan-500/8' :
                     hovered  === r.id ? 'border-white/20 bg-white/5' : 'border-white/8 bg-white/3'
                   }`}>
-                  <span className="w-2 h-2 rounded-full shrink-0"
-                    style={{ background: CATEGORY_COLOR[r.category] ?? '#64748b' }} />
-                  <span className="text-[10px] font-mono font-bold text-white">{r.ticker}</span>
-                  <span className="text-[9px] text-slate-500 flex-1 truncate">{r.name}</span>
-                  <span className={`text-[8px] px-1 py-0.5 rounded shrink-0 ${PERF_BG[r.perfLabel]}`}>
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: CATEGORY_COLOR[r.category] ?? '#64748b' }} />
+                  <span className="text-[11px] font-mono font-bold text-white">{r.ticker}</span>
+                  <span className="text-[10px] text-slate-500 flex-1 truncate">{r.name}</span>
+                  <span className={`text-[9px] px-1 py-0.5 rounded shrink-0 ${PERF_BG[r.perfLabel]}`}>
                     {r.liveYtd != null ? `${r.liveYtd >= 0 ? '+' : ''}${r.liveYtd.toFixed(1)}%` : 'est'}
                   </span>
-                  <span className="text-[9px] font-bold font-mono text-cyan-300 shrink-0 w-7 text-right">
+                  <span className="text-[10px] font-bold font-mono text-cyan-300 shrink-0 w-7 text-right">
                     {r.pct.toFixed(0)}%
                   </span>
                 </button>
@@ -344,15 +426,14 @@ export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vi
             })}
           </div>
 
-          {/* Asset detail panel (hover or click) */}
+          {/* Asset detail panel */}
           {detailRing && (
-            <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3 space-y-2 animate-in fade-in duration-150">
+            <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3 space-y-2.5 animate-in fade-in duration-150">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full"
-                    style={{ background: CATEGORY_COLOR[detailRing.category] ?? '#64748b' }} />
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: CATEGORY_COLOR[detailRing.category] ?? '#64748b' }} />
                   <span className="text-sm font-bold font-mono text-white">{detailRing.ticker}</span>
-                  <span className={`text-[8px] px-1.5 py-0.5 rounded-full ${PERF_BG[detailRing.perfLabel]}`}>
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${PERF_BG[detailRing.perfLabel]}`}>
                     {detailRing.perfLabel.replace('-', ' ')}
                   </span>
                 </div>
@@ -360,26 +441,22 @@ export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vi
                   <button onClick={() => setSelected(null)} className="text-slate-600 hover:text-white text-xs">✕</button>
                 )}
               </div>
-              <div className="text-[9px] text-slate-500 leading-snug">
-                {detailRing.name} · {CATEGORY_LABEL[detailRing.category] ?? detailRing.category}
-              </div>
+              <div className="text-[10px] text-slate-500">{detailRing.name} · {CATEGORY_LABEL[detailRing.category]}</div>
 
-              {/* Detail grid */}
+              {/* Return scenarios */}
               <div className="grid grid-cols-2 gap-1.5">
                 <div className="rounded border border-white/8 bg-white/3 px-2 py-1.5">
                   <div className="text-[8px] text-slate-600">Allocation</div>
                   <div className="text-xs font-bold font-mono text-cyan-300">{detailRing.pct.toFixed(1)}%</div>
                 </div>
                 <div className="rounded border border-white/8 bg-white/3 px-2 py-1.5">
-                  <div className="text-[8px] text-slate-600">YTD (AceEconomy)</div>
+                  <div className="text-[8px] text-slate-600">YTD (AceEconomy live)</div>
                   <div className={`text-xs font-bold font-mono ${
-                    detailRing.liveYtd != null
-                      ? detailRing.liveYtd >= 0 ? 'text-green-400' : 'text-red-400'
-                      : 'text-slate-500'
+                    detailRing.liveYtd != null ? (detailRing.liveYtd >= 0 ? 'text-green-400' : 'text-red-400') : 'text-slate-500'
                   }`}>
                     {detailRing.liveYtd != null
                       ? `${detailRing.liveYtd >= 0 ? '+' : ''}${detailRing.liveYtd.toFixed(1)}%`
-                      : '— benchmark'}
+                      : '— using benchmark'}
                   </div>
                 </div>
                 <div className="rounded border border-red-500/15 bg-red-500/5 px-2 py-1.5">
@@ -390,32 +467,44 @@ export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vi
                 </div>
                 <div className="rounded border border-cyan-500/15 bg-cyan-500/5 px-2 py-1.5">
                   <div className="text-[8px] text-slate-600">Bull case return</div>
-                  <div className="text-xs font-bold font-mono text-cyan-300">
-                    +{detailRing.bullCase.toFixed(1)}%
-                  </div>
+                  <div className="text-xs font-bold font-mono text-cyan-300">+{detailRing.bullCase.toFixed(1)}%</div>
                 </div>
-                <div className="rounded border border-amber-500/15 bg-amber-500/5 px-2 py-1.5 col-span-2">
-                  <div className="text-[8px] text-slate-600 mb-0.5">Worst-case drawdown (bear scenario)</div>
-                  <div className="text-xs font-bold font-mono text-amber-300">{detailRing.maxDrawdown.toFixed(0)}%</div>
-                  <div className="text-[7px] text-slate-700 mt-0.5">
-                    {CATEGORY_LABEL[detailRing.category]} historical bear market estimate · not a guarantee
-                  </div>
+              </div>
+
+              {/* Historical drawdown with crisis reference */}
+              <div className="rounded border border-amber-500/15 bg-amber-500/5 px-2.5 py-2 space-y-1.5">
+                <div className="text-[9px] font-mono text-amber-400 uppercase tracking-wider">
+                  Historical bear-market drawdowns — {CATEGORY_LABEL[detailRing.category]}
                 </div>
+                {(DRAWDOWN_HISTORY[detailRing.category] ?? []).map((dd, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <span className={`text-[10px] font-bold font-mono shrink-0 w-10 ${dd.pct < 0 ? 'text-red-400' : 'text-slate-500'}`}>
+                      {dd.pct < 0 ? '' : '~'}{dd.pct}%
+                    </span>
+                    <div className="min-w-0">
+                      <div className="text-[10px] text-slate-300 leading-tight">{dd.event}</div>
+                      <div className="text-[9px] text-slate-600">{dd.duration}</div>
+                    </div>
+                  </div>
+                ))}
+                <p className="text-[8px] text-slate-700 mt-1 leading-snug">
+                  Peak-to-trough drawdown figures. Past crises do not predict future severity or timing.
+                </p>
               </div>
 
               <div className="text-[8px] text-slate-700">
                 {detailRing.liveYtd != null
-                  ? `Live data from AceEconomy VPS. YTD annualised (${new Date().getMonth() + 1}mo) × regime ×${regMult.toFixed(2)} (${regime}).`
-                  : `No live feed for ${detailRing.ticker} — projections use ${CATEGORY_LABEL[detailRing.category]} benchmark ${detailRing.benchmarkReturn}% p.a.`}
+                  ? `AceEconomy VPS live feed. YTD annualised over ${new Date().getMonth() + 1} months × regime ×${regMult.toFixed(2)} (${regime}).`
+                  : `No live feed for ${detailRing.ticker} — projections use ${CATEGORY_LABEL[detailRing.category]} long-run benchmark ${detailRing.benchmarkReturn}% p.a.`}
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Market context */}
+      {/* AceEconomy context */}
       {commentary && (
-        <div className="rounded-lg border border-white/8 bg-white/3 px-4 py-2 text-[9px] text-slate-500">
+        <div className="rounded-lg border border-white/8 bg-white/3 px-4 py-2 text-[10px] text-slate-500">
           <span className="font-mono text-slate-600 uppercase tracking-wider mr-2">AceEconomy:</span>
           {commentary}
         </div>

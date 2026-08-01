@@ -1037,6 +1037,59 @@ export default function PortfolioBuilderPage() {
                       </svg>
                     </div>
 
+                    {/* Bear / Base / Bull scenario comparison table */}
+                    <div className="rounded-xl border border-white/10 bg-white/3 p-4 space-y-3">
+                      <div className="text-xs font-semibold text-white">Projected Return Scenarios</div>
+
+                      {/* AceEconomy explanation */}
+                      <div className="rounded-lg border border-cyan-500/15 bg-cyan-500/5 px-3 py-2 text-[10px] text-slate-400 leading-relaxed">
+                        <span className="text-cyan-400 font-semibold">Why do the two AceEconomy figures differ?</span>{' '}
+                        Each portfolio holds different assets. AceEconomy fetches live YTD performance for each ticker from our VPS, annualises it, then applies the current regime multiplier (×{regimeMult(intel?.regime ?? '').toFixed(2)} {intel?.regime ?? ''}). Because the Manager and Client portfolios hold different assets in different weights, their blended market-driven estimates will differ — this is expected and correct, not an error.
+                      </div>
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-[11px]">
+                          <thead>
+                            <tr className="border-b border-white/8">
+                              <th className="text-left text-slate-500 font-normal py-1.5 pr-3">Scenario</th>
+                              <th className="text-right text-indigo-300 font-semibold py-1.5 px-3">Manager Portfolio</th>
+                              <th className="text-right text-cyan-300 font-semibold py-1.5 px-3">{clientProfile.name || 'Client'} Portfolio</th>
+                              <th className="text-right text-slate-500 font-normal py-1.5 pl-3">Δ (Client − Manager)</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5">
+                            {[
+                              { label: 'Manager estimate',     mVal: proj.managerBlended,     cVal: cProj.managerBlended,     note: 'Weighted avg of manager-inputted expected returns'           },
+                              { label: 'AceEconomy (live)',    mVal: proj.aceBlended,         cVal: cProj.aceBlended,         note: 'Live YTD annualised × regime multiplier per holding'          },
+                              { label: 'Conservative benchmark', mVal: proj.conservativeBlended, cVal: cProj.conservativeBlended, note: 'Long-run asset class averages (no live data)' },
+                              { label: 'Bear case (−50% base)', mVal: proj.aceBlended * 0.5,  cVal: cProj.aceBlended * 0.5,   note: 'AceEconomy base compressed by 50% — return drag scenario'   },
+                              { label: 'Bull case (×1.6 base)', mVal: proj.aceBlended * 1.6,  cVal: cProj.aceBlended * 1.6,   note: 'AceEconomy base ×1.6 — strong outperformance scenario'      },
+                            ].map(({ label, mVal, cVal, note }) => {
+                              const delta = cVal - mVal
+                              return (
+                                <tr key={label} className="hover:bg-white/3 transition">
+                                  <td className="py-2 pr-3">
+                                    <div className="text-slate-300">{label}</div>
+                                    <div className="text-[9px] text-slate-600">{note}</div>
+                                  </td>
+                                  <td className={`py-2 px-3 text-right font-mono font-bold ${mVal >= 0 ? 'text-indigo-300' : 'text-red-400'}`}>
+                                    {mVal >= 0 ? '+' : ''}{mVal.toFixed(1)}%
+                                  </td>
+                                  <td className={`py-2 px-3 text-right font-mono font-bold ${cVal >= 0 ? 'text-cyan-300' : 'text-red-400'}`}>
+                                    {cVal >= 0 ? '+' : ''}{cVal.toFixed(1)}%
+                                  </td>
+                                  <td className={`py-2 pl-3 text-right font-mono text-[10px] ${Math.abs(delta) < 0.5 ? 'text-slate-600' : delta > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                    {delta >= 0 ? '+' : ''}{delta.toFixed(1)}%
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="text-[9px] text-slate-700">Bear/Bull cases are scenario modifiers on the AceEconomy base estimate, not historical drawdown figures. For worst-case drawdown by asset, see PortDNA.</p>
+                    </div>
+
                     {/* Side-by-side detail cards */}
                     <div className="grid grid-cols-2 gap-3">
                       {([
@@ -1060,7 +1113,10 @@ export default function PortfolioBuilderPage() {
                           </div>
                           <div className="border-t border-white/8 pt-2 space-y-1 text-[10px]">
                             <div className="flex justify-between"><span className="text-slate-500">Manager est.</span><span className="text-purple-300 font-mono">{p.managerBlended >= 0 ? '+' : ''}{p.managerBlended.toFixed(1)}%</span></div>
-                            <div className="flex justify-between"><span className="text-slate-500">AceEconomy</span><span className={`font-mono ${p.aceBlended >= 0 ? 'text-green-400' : 'text-red-400'}`}>{p.aceBlended >= 0 ? '+' : ''}{p.aceBlended.toFixed(1)}%</span></div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">AceEconomy <span className="text-slate-700">(this portfolio)</span></span>
+                              <span className={`font-mono ${p.aceBlended >= 0 ? 'text-green-400' : 'text-red-400'}`}>{p.aceBlended >= 0 ? '+' : ''}{p.aceBlended.toFixed(1)}%</span>
+                            </div>
                             <div className="flex justify-between"><span className="text-slate-500">Conservative</span><span className="text-slate-300 font-mono">{p.conservativeBlended >= 0 ? '+' : ''}{p.conservativeBlended.toFixed(1)}%</span></div>
                           </div>
                           {p.riskFlags.length > 0 && (
