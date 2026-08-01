@@ -168,9 +168,13 @@ interface Props {
   regime: string
   vix: number | null
   commentary: string
+  portfolioVol?: number
+  sharpeAce?: number
+  clientPortfolioVol?: number
+  clientSharpeAce?: number
 }
 
-export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vix, commentary }: Props) {
+export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vix, commentary, portfolioVol, sharpeAce, clientPortfolioVol, clientSharpeAce }: Props) {
   const [rings, setRings]       = useState<RingData[]>([])
   const [hovered, setHovered]   = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
@@ -438,14 +442,38 @@ export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vi
                 </div>
               ))}
             </div>
+
+            {/* Vol + Sharpe */}
+            {(portfolioVol != null || sharpeAce != null) && (() => {
+              const vol   = source === 'client' ? (clientPortfolioVol ?? portfolioVol) : portfolioVol
+              const sharp = source === 'client' ? (clientSharpeAce ?? sharpeAce) : sharpeAce
+              const sharpeColor = (v: number) => v >= 1 ? 'text-green-400' : v >= 0.5 ? 'text-yellow-300' : v >= 0 ? 'text-amber-400' : 'text-red-400'
+              return (
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div className="rounded border border-amber-500/15 bg-amber-500/5 px-2.5 py-2 text-center">
+                    <div className="text-[8px] text-slate-600 mb-0.5">Volatility (σ)</div>
+                    <div className="text-sm font-bold font-mono text-amber-300">{vol?.toFixed(1) ?? '—'}%</div>
+                    <div className="text-[8px] text-slate-700">ann. est.</div>
+                  </div>
+                  <div className="rounded border border-white/10 bg-white/3 px-2.5 py-2 text-center">
+                    <div className="text-[8px] text-slate-600 mb-0.5">Sharpe (AceEconomy)</div>
+                    <div className={`text-sm font-bold font-mono ${sharp != null ? sharpeColor(sharp) : 'text-slate-500'}`}>{sharp?.toFixed(2) ?? '—'}</div>
+                    <div className="text-[8px] text-slate-700">&gt;1 strong · 0.5–1 ok</div>
+                  </div>
+                </div>
+              )
+            })()}
+
             <details className="group">
               <summary className="text-[9px] text-slate-600 cursor-pointer hover:text-slate-400 list-none flex items-center gap-1">
-                <span className="group-open:rotate-90 inline-block transition-transform">▶</span> How is Base calculated?
+                <span className="group-open:rotate-90 inline-block transition-transform">▶</span> How are these calculated?
               </summary>
               <div className="text-[9px] text-slate-500 mt-1.5 leading-relaxed space-y-1">
                 <p><strong className="text-slate-400">Base (AceEconomy):</strong> For each holding, if AceEconomy VPS has live YTD data, it annualises it (YTD ÷ {new Date().getMonth() + 1} months × 12) then applies the regime multiplier (×{regMult.toFixed(2)} for {regime}). Holdings without live data fall back to long-run category benchmarks. The blended result is weighted by your portfolio allocations.</p>
-                <p><strong className="text-slate-400">Bear:</strong> Base × 0.5 — a return compression scenario (markets underperform trend). <strong className="text-slate-400">Bull:</strong> Base × 1.6 — outperformance.</p>
-                <p className="text-slate-700">These are estimated annual returns, not peak-to-trough drawdown figures. Click a ring for historical crisis drawdowns.</p>
+                <p><strong className="text-slate-400">Bear:</strong> Base × 0.5 — return compression. <strong className="text-slate-400">Bull:</strong> Base × 1.6 — outperformance.</p>
+                <p><strong className="text-slate-400">Volatility (σ):</strong> Weighted-avg annualised standard deviation by asset class — an upper bound (actual portfolio vol is lower due to diversification across uncorrelated assets).</p>
+                <p><strong className="text-slate-400">Sharpe ratio:</strong> (AceEconomy return − 4.3% risk-free rate) ÷ σ. Above 1 = strong risk-adjusted return per unit of volatility.</p>
+                <p className="text-slate-700">Click a ring for historical crisis drawdowns per holding.</p>
               </div>
             </details>
           </div>

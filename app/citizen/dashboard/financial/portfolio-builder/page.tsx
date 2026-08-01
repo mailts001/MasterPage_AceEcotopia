@@ -31,6 +31,20 @@ interface ClientProfile {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 // Documented long-run benchmark assumptions — clearly labelled in UI
+// Annualised volatility (σ) benchmarks per asset class — long-run historical
+const VOL: Record<string, number> = {
+  equity:         16.0,  // MSCI World ~15-17% ann. vol
+  fixed_income:    5.5,  // Bloomberg Agg ~5-6%
+  fx:              8.0,  // DXY / cross-currency pairs
+  commodities:    18.0,  // Bloomberg Commodity ~17-20%
+  private_equity: 20.0,  // Higher est. due to illiquidity premium & leverage
+  philanthropy:    0.0,  // Non-financial
+  thematic:       28.0,  // ARK-type thematic: high dispersion
+  cash:            0.5,  // Near-zero
+}
+
+const RISK_FREE_RATE = 4.3  // US 10-yr yield indicative (Aug 2026)
+
 const BENCHMARK: Record<string, { ret: number; source: string }> = {
   equity:          { ret: 7.0,  source: 'MSCI World 20-yr avg (Bloomberg)' },
   fixed_income:    { ret: 3.5,  source: 'Bloomberg US Agg 20-yr avg' },
@@ -152,6 +166,10 @@ interface ProjectionResult {
   managerBlended: number
   aceBlended: number
   conservativeBlended: number
+  portfolioVol: number          // weighted-avg annualised volatility %
+  sharpeAce: number             // (aceBlended − rfr) / vol
+  sharpeManager: number         // (managerBlended − rfr) / vol
+  sharpeConservative: number    // (conservativeBlended − rfr) / vol
   riskFlags: { level: 'warn' | 'caution'; message: string }[]
   aceBasis: { ticker: string; name: string; ytdAnn: number | null; regimeAdj: number; benchmarkUsed: boolean }[]
 }
@@ -165,7 +183,7 @@ function computeProjections(holdings: Holding[], intel: Intel | null): Projectio
   const mult   = regimeMult(regime)
   const total  = totalPct(holdings)
 
-  let managerBlended = 0, aceBlended = 0, conservativeBlended = 0
+  let managerBlended = 0, aceBlended = 0, conservativeBlended = 0, portfolioVol = 0
   const aceBasis: ProjectionResult['aceBasis'] = []
 
   for (const h of holdings) {
@@ -190,7 +208,15 @@ function computeProjections(holdings: Holding[], intel: Intel | null): Projectio
 
     // Conservative
     conservativeBlended += w * bench
+
+    // Weighted-average volatility (simplified — assumes zero cross-correlations;
+    // true portfolio vol would be lower due to diversification)
+    portfolioVol += w * (VOL[h.category] ?? 15)
   }
+
+  const sharpeAce          = portfolioVol > 0 ? (aceBlended - RISK_FREE_RATE) / portfolioVol : 0
+  const sharpeManager      = portfolioVol > 0 ? (managerBlended - RISK_FREE_RATE) / portfolioVol : 0
+  const sharpeConservative = portfolioVol > 0 ? (conservativeBlended - RISK_FREE_RATE) / portfolioVol : 0
 
   // Risk flags
   const riskFlags: ProjectionResult['riskFlags'] = []
@@ -214,7 +240,7 @@ function computeProjections(holdings: Holding[], intel: Intel | null): Projectio
   const breadth = intel?.breadth_pct ?? 50
   if (breadth < 40) riskFlags.push({ level: 'caution', message: `Market breadth weak (${breadth.toFixed(0)}% above 200-day MA) — narrow rally, risk of reversal` })
 
-  return { managerBlended, aceBlended, conservativeBlended, riskFlags, aceBasis }
+  return { managerBlended, aceBlended, conservativeBlended, portfolioVol, sharpeAce, sharpeManager, sharpeConservative, riskFlags, aceBasis }
 }
 
 // ── Risk-to-allocation mapping ────────────────────────────────────────────────
@@ -467,12 +493,22 @@ export default function PortfolioBuilderPage() {
                   </tr>
                 ))}</tbody>
               </table>
-              <h2 style={{ fontSize: 14, marginBottom: 8 }}>Projected Annual Returns</h2>
+              <h2 style={{ fontSize: 14, marginBottom: 8 }}>Projected Annual Returns &amp; Risk Metrics</h2>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginBottom: 20 }}>
+                <thead><tr style={{ borderBottom: '1px solid #ccc' }}>
+                  <th style={{ textAlign: 'left', padding: '4px 8px' }}>Metric</th>
+                  <th style={{ textAlign: 'right', padding: '4px 8px' }}>Value</th>
+                  <th style={{ textAlign: 'left', padding: '4px 8px', color: '#666' }}>Notes</th>
+                </tr></thead>
                 <tbody>
-                  <tr><td style={{ padding: '4px 8px' }}>Manager Projection</td><td style={{ padding: '4px 8px', fontWeight: 'bold' }}>{pp.managerBlended >= 0 ? '+' : ''}{pp.managerBlended.toFixed(1)}% p.a.</td></tr>
-                  <tr><td style={{ padding: '4px 8px' }}>AceEconomy Market-Driven</td><td style={{ padding: '4px 8px', fontWeight: 'bold' }}>{pp.aceBlended >= 0 ? '+' : ''}{pp.aceBlended.toFixed(1)}% p.a.</td></tr>
-                  <tr><td style={{ padding: '4px 8px' }}>Conservative Benchmark</td><td style={{ padding: '4px 8px', fontWeight: 'bold' }}>{pp.conservativeBlended >= 0 ? '+' : ''}{pp.conservativeBlended.toFixed(1)}% p.a.</td></tr>
+                  <tr style={{ borderBottom: '1px solid #eee' }}><td style={{ padding: '4px 8px' }}>Manager Projection</td><td style={{ padding: '4px 8px', fontWeight: 'bold', textAlign: 'right' }}>{pp.managerBlended >= 0 ? '+' : ''}{pp.managerBlended.toFixed(1)}% p.a.</td><td style={{ padding: '4px 8px', color: '#666', fontSize: 10 }}>Weighted avg of manager-inputted expected returns</td></tr>
+                  <tr style={{ borderBottom: '1px solid #eee' }}><td style={{ padding: '4px 8px' }}>AceEconomy Market-Driven</td><td style={{ padding: '4px 8px', fontWeight: 'bold', textAlign: 'right' }}>{pp.aceBlended >= 0 ? '+' : ''}{pp.aceBlended.toFixed(1)}% p.a.</td><td style={{ padding: '4px 8px', color: '#666', fontSize: 10 }}>Live YTD annualised × regime multiplier</td></tr>
+                  <tr style={{ borderBottom: '1px solid #eee' }}><td style={{ padding: '4px 8px' }}>Conservative Benchmark</td><td style={{ padding: '4px 8px', fontWeight: 'bold', textAlign: 'right' }}>{pp.conservativeBlended >= 0 ? '+' : ''}{pp.conservativeBlended.toFixed(1)}% p.a.</td><td style={{ padding: '4px 8px', color: '#666', fontSize: 10 }}>Long-run asset class averages</td></tr>
+                  <tr style={{ borderBottom: '1px solid #eee' }}><td style={{ padding: '4px 8px' }}>Bear Case (−50% base)</td><td style={{ padding: '4px 8px', fontWeight: 'bold', textAlign: 'right' }}>{(pp.aceBlended * 0.5) >= 0 ? '+' : ''}{(pp.aceBlended * 0.5).toFixed(1)}% p.a.</td><td style={{ padding: '4px 8px', color: '#666', fontSize: 10 }}>AceEconomy base compressed by 50%</td></tr>
+                  <tr style={{ borderBottom: '1px solid #eee' }}><td style={{ padding: '4px 8px' }}>Bull Case (×1.6 base)</td><td style={{ padding: '4px 8px', fontWeight: 'bold', textAlign: 'right' }}>{(pp.aceBlended * 1.6) >= 0 ? '+' : ''}{(pp.aceBlended * 1.6).toFixed(1)}% p.a.</td><td style={{ padding: '4px 8px', color: '#666', fontSize: 10 }}>AceEconomy base ×1.6</td></tr>
+                  <tr style={{ borderBottom: '1px solid #eee', background: '#fafafa' }}><td style={{ padding: '4px 8px', fontWeight: 'bold' }}>Portfolio Volatility (σ)</td><td style={{ padding: '4px 8px', fontWeight: 'bold', textAlign: 'right' }}>{pp.portfolioVol.toFixed(1)}%</td><td style={{ padding: '4px 8px', color: '#666', fontSize: 10 }}>Weighted-avg annualised σ (upper bound — no cross-correlations)</td></tr>
+                  <tr style={{ borderBottom: '1px solid #eee', background: '#fafafa' }}><td style={{ padding: '4px 8px', fontWeight: 'bold' }}>Sharpe Ratio (AceEconomy)</td><td style={{ padding: '4px 8px', fontWeight: 'bold', textAlign: 'right' }}>{pp.sharpeAce.toFixed(2)}</td><td style={{ padding: '4px 8px', color: '#666', fontSize: 10 }}>(AceEconomy − {RISK_FREE_RATE}% RFR) ÷ σ · &gt;1 strong · 0.5–1 acceptable</td></tr>
+                  <tr style={{ borderBottom: '1px solid #eee', background: '#fafafa' }}><td style={{ padding: '4px 8px', fontWeight: 'bold' }}>Sharpe Ratio (Manager est.)</td><td style={{ padding: '4px 8px', fontWeight: 'bold', textAlign: 'right' }}>{pp.sharpeManager.toFixed(2)}</td><td style={{ padding: '4px 8px', color: '#666', fontSize: 10 }}>(Manager est. − {RISK_FREE_RATE}% RFR) ÷ σ</td></tr>
                 </tbody>
               </table>
               {pp.riskFlags.length > 0 && <>
@@ -1103,10 +1139,55 @@ export default function PortfolioBuilderPage() {
                                 </tr>
                               )
                             })}
+
+                            {/* Separator row */}
+                            <tr><td colSpan={4} className="pt-1 pb-0"><div className="border-t border-white/8" /></td></tr>
+
+                            {/* Volatility row */}
+                            {(() => {
+                              const mVol = proj.portfolioVol, cVol = cProj.portfolioVol
+                              const delta = cVol - mVol
+                              return (
+                                <tr className="hover:bg-white/3 transition">
+                                  <td className="py-2 pr-3">
+                                    <div className="text-slate-300">Portfolio volatility (σ)</div>
+                                    <div className="text-[9px] text-slate-600">Weighted-avg annualised std dev by asset class · assumes zero cross-correlations (upper bound)</div>
+                                  </td>
+                                  <td className="py-2 px-3 text-right font-mono font-bold text-amber-300">{mVol.toFixed(1)}%</td>
+                                  <td className="py-2 px-3 text-right font-mono font-bold text-amber-300">{cVol.toFixed(1)}%</td>
+                                  <td className={`py-2 pl-3 text-right font-mono text-[10px] ${Math.abs(delta) < 0.3 ? 'text-slate-600' : delta > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                                    {delta >= 0 ? '+' : ''}{delta.toFixed(1)}%
+                                  </td>
+                                </tr>
+                              )
+                            })()}
+
+                            {/* Sharpe rows */}
+                            {([
+                              { label: 'Sharpe — AceEconomy',    mVal: proj.sharpeAce,          cVal: cProj.sharpeAce,          note: `(AceEconomy − ${RISK_FREE_RATE}% RFR) ÷ σ` },
+                              { label: 'Sharpe — Manager est.',  mVal: proj.sharpeManager,      cVal: cProj.sharpeManager,      note: `(Manager est. − ${RISK_FREE_RATE}% RFR) ÷ σ` },
+                              { label: 'Sharpe — Conservative',  mVal: proj.sharpeConservative, cVal: cProj.sharpeConservative, note: `(Conservative − ${RISK_FREE_RATE}% RFR) ÷ σ` },
+                            ] as const).map(({ label, mVal, cVal, note }) => {
+                              const delta = cVal - mVal
+                              const sharpeColor = (v: number) => v >= 1 ? 'text-green-400' : v >= 0.5 ? 'text-yellow-300' : v >= 0 ? 'text-amber-400' : 'text-red-400'
+                              return (
+                                <tr key={label} className="hover:bg-white/3 transition">
+                                  <td className="py-2 pr-3">
+                                    <div className="text-slate-300">{label}</div>
+                                    <div className="text-[9px] text-slate-600">{note} · &gt;1 = strong · 0.5–1 = acceptable · &lt;0.5 = weak</div>
+                                  </td>
+                                  <td className={`py-2 px-3 text-right font-mono font-bold ${sharpeColor(mVal)}`}>{mVal.toFixed(2)}</td>
+                                  <td className={`py-2 px-3 text-right font-mono font-bold ${sharpeColor(cVal)}`}>{cVal.toFixed(2)}</td>
+                                  <td className={`py-2 pl-3 text-right font-mono text-[10px] ${Math.abs(delta) < 0.05 ? 'text-slate-600' : delta > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                    {delta >= 0 ? '+' : ''}{delta.toFixed(2)}
+                                  </td>
+                                </tr>
+                              )
+                            })}
                           </tbody>
                         </table>
                       </div>
-                      <p className="text-[9px] text-slate-700">Bear/Bull cases are scenario modifiers on the AceEconomy base estimate, not historical drawdown figures. For worst-case drawdown by asset, see PortDNA.</p>
+                      <p className="text-[9px] text-slate-700">Bear/Bull cases are scenario modifiers on the AceEconomy base estimate, not historical drawdown figures. Volatility is a weighted-average upper-bound estimate — true portfolio vol is lower due to diversification. Sharpe uses {RISK_FREE_RATE}% risk-free rate (US 10-yr indicative). For worst-case drawdown by asset, see PortDNA.</p>
                     </div>
 
                     {/* Side-by-side detail cards */}
@@ -1137,6 +1218,13 @@ export default function PortfolioBuilderPage() {
                               <span className={`font-mono ${p.aceBlended >= 0 ? 'text-green-400' : 'text-red-400'}`}>{p.aceBlended >= 0 ? '+' : ''}{p.aceBlended.toFixed(1)}%</span>
                             </div>
                             <div className="flex justify-between"><span className="text-slate-500">Conservative</span><span className="text-slate-300 font-mono">{p.conservativeBlended >= 0 ? '+' : ''}{p.conservativeBlended.toFixed(1)}%</span></div>
+                            <div className="flex justify-between border-t border-white/5 pt-1"><span className="text-slate-500">Volatility (σ)</span><span className="text-amber-300 font-mono">{p.portfolioVol.toFixed(1)}%</span></div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">Sharpe (AceEconomy)</span>
+                              <span className={`font-mono font-bold ${p.sharpeAce >= 1 ? 'text-green-400' : p.sharpeAce >= 0.5 ? 'text-yellow-300' : p.sharpeAce >= 0 ? 'text-amber-400' : 'text-red-400'}`}>
+                                {p.sharpeAce.toFixed(2)}
+                              </span>
+                            </div>
                           </div>
                           {p.riskFlags.length > 0 && (
                             <div className="text-[9px] text-amber-400">{p.riskFlags.length} risk flag{p.riskFlags.length > 1 ? 's' : ''}</div>
@@ -1235,6 +1323,10 @@ export default function PortfolioBuilderPage() {
                       regime={intel?.regime ?? 'UNKNOWN'}
                       vix={intel?.vix ?? null}
                       commentary={intel?.commentary ?? ''}
+                      portfolioVol={proj.portfolioVol}
+                      sharpeAce={proj.sharpeAce}
+                      clientPortfolioVol={clientHoldings.length > 0 ? cProj.portfolioVol : undefined}
+                      clientSharpeAce={clientHoldings.length > 0 ? cProj.sharpeAce : undefined}
                     />
                   </>
                 )
