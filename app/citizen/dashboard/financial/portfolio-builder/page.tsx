@@ -701,7 +701,19 @@ export default function PortfolioBuilderPage() {
                   {/* 3 Projections */}
                   {total > 0 && (
                     <div className="space-y-4 pt-2">
-                      <div className="text-xs font-semibold text-white">Projected Portfolio Returns</div>
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs font-semibold text-white">Projected Portfolio Returns</div>
+                        <details className="relative group">
+                          <summary className="text-[9px] text-slate-600 hover:text-slate-400 cursor-pointer list-none">▶ What do these mean?</summary>
+                          <div className="absolute right-0 top-5 z-20 w-72 rounded-xl border border-white/10 bg-[#0d1220] p-3.5 shadow-xl text-[9px] text-slate-400 space-y-2 leading-relaxed">
+                            <p><strong className="text-purple-300">Manager Projection</strong> — the weighted average of the expected-return % you entered per position. Reflects your own view of each holding.</p>
+                            <p><strong className="text-green-400">AceEconomy Driven</strong> — uses live YTD price data from the AceEconomy VPS feed, annualised over {new Date().getMonth() + 1} months, then adjusted by the current market regime multiplier. Falls back to long-run benchmarks for tickers without live data.</p>
+                            <p><strong className="text-slate-300">Conservative Benchmark</strong> — long-run historical averages per asset class (Equity 7%, Bonds 3.5%, Commodities 4%, PE 10%, Cash 4%, FX 0%).</p>
+                            <p><strong className="text-amber-300">Volatility (σ)</strong> — weighted-average annualised standard deviation by asset class. This is an <em>upper bound</em> — actual portfolio vol is lower because diversification across uncorrelated assets reduces risk.</p>
+                            <p><strong className="text-yellow-300">Sharpe Ratio</strong> — (return − 4.3% risk-free rate) ÷ volatility. Measures return per unit of risk. Above 1 = strong, 0.5–1 = acceptable, below 0.5 = the return doesn&apos;t adequately compensate for the risk taken.</p>
+                          </div>
+                        </details>
+                      </div>
                       <div className="flex gap-3">
                         <ProjCard label="Manager Projection" ret={proj.managerBlended} color="text-purple-300"
                           desc="Weighted avg of your per-position expected returns" />
@@ -711,16 +723,50 @@ export default function PortfolioBuilderPage() {
                           desc="Long-run asset class averages (MSCI World, Bloomberg Agg, etc.)" />
                       </div>
 
+                      {/* Vol + Sharpe */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="rounded-xl border border-amber-500/15 bg-amber-500/5 p-3 text-center">
+                          <div className="text-[9px] font-mono text-slate-500 uppercase tracking-wider mb-1">Portfolio Volatility (σ)</div>
+                          <div className="text-xl font-bold font-mono text-amber-300">{proj.portfolioVol.toFixed(1)}%</div>
+                          <div className="text-[9px] text-slate-600 mt-1">weighted-avg ann. est. (upper bound)</div>
+                        </div>
+                        <div className="rounded-xl border border-white/10 bg-white/3 p-3 text-center">
+                          <div className="text-[9px] font-mono text-slate-500 uppercase tracking-wider mb-1">Sharpe Ratio (AceEconomy)</div>
+                          <div className={`text-xl font-bold font-mono ${proj.sharpeAce >= 1 ? 'text-green-400' : proj.sharpeAce >= 0.5 ? 'text-yellow-300' : proj.sharpeAce >= 0 ? 'text-amber-400' : 'text-red-400'}`}>
+                            {proj.sharpeAce.toFixed(2)}
+                          </div>
+                          <div className="text-[9px] text-slate-600 mt-1">
+                            {proj.sharpeAce >= 1 ? '✓ Strong risk-adjusted return' : proj.sharpeAce >= 0.5 ? 'Acceptable' : proj.sharpeAce >= 0 ? 'Weak — return barely covers risk' : 'Return below risk-free rate'}
+                          </div>
+                        </div>
+                      </div>
+
                       {/* Risk flags */}
                       {proj.riskFlags.length > 0 && (
                         <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-2">
-                          <div className="text-[10px] font-mono text-amber-400 uppercase tracking-wider">Risk Considerations</div>
+                          <div className="flex items-center justify-between">
+                            <div className="text-[10px] font-mono text-amber-400 uppercase tracking-wider">
+                              {proj.riskFlags.length} Risk Consideration{proj.riskFlags.length > 1 ? 's' : ''} Detected
+                            </div>
+                            <button onClick={() => setTab('compare')} className="text-[9px] text-cyan-400 hover:underline">→ See full comparison</button>
+                          </div>
                           {proj.riskFlags.map((f, i) => (
                             <div key={i} className="flex items-start gap-2 text-[11px] text-slate-300">
                               <span className={f.level === 'warn' ? 'text-red-400' : 'text-amber-400'}>
                                 {f.level === 'warn' ? '⚠' : '◈'}
                               </span>
-                              {f.message}
+                              <div>
+                                <div>{f.message}</div>
+                                <div className="text-[9px] text-slate-600 mt-0.5">
+                                  {f.message.includes('Concentration') || f.message.includes('equity') ? 'Review allocation weights above — consider spreading across more asset classes.' :
+                                   f.message.includes('TLT') ? 'Reduce TLT weighting or pair with short-duration bonds to balance interest-rate risk.' :
+                                   f.message.includes('VIX') ? 'High VIX increases short-term volatility. Consider adding fixed income or cash as a buffer.' :
+                                   f.message.includes('FX') ? 'Consider hedging currency exposure or reducing FX allocation.' :
+                                   f.message.includes('regime') || f.message.includes('Bear') ? 'AceEconomy has applied a regime discount. Check the PortDNA tab for per-holding drawdown risk.' :
+                                   f.message.includes('breadth') ? 'Narrow market breadth suggests the rally is not broadly supported — concentration risk is higher.' :
+                                   'Review your portfolio allocation and consider rebalancing.'}
+                                </div>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -943,7 +989,18 @@ export default function PortfolioBuilderPage() {
 
                     {/* Projections with named benchmark sources */}
                     <div className="space-y-2">
-                      <div className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">Portfolio Projections</div>
+                      <div className="flex items-center justify-between">
+                        <div className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">Portfolio Projections</div>
+                        <details className="relative group">
+                          <summary className="text-[9px] text-slate-600 hover:text-slate-400 cursor-pointer list-none">▶ What do these mean?</summary>
+                          <div className="absolute right-0 top-5 z-20 w-72 rounded-xl border border-white/10 bg-[#0d1220] p-3.5 shadow-xl text-[9px] text-slate-400 space-y-2 leading-relaxed">
+                            <p><strong className="text-slate-300">Conservative Benchmark</strong> — long-run asset class averages independent of current market conditions. A realistic floor for what a diversified portfolio might return over time.</p>
+                            <p><strong className="text-green-400">AceEconomy Driven</strong> — live YTD returns from AceEconomy, annualised over {new Date().getMonth() + 1} months and adjusted for the current market regime (×{regimeMult(intel?.regime ?? '').toFixed(1)}). More responsive to current momentum than the conservative benchmark.</p>
+                            <p><strong className="text-amber-300">Volatility (σ)</strong> — weighted-average annualised std dev by asset class. Upper bound — actual portfolio vol is lower due to diversification. Lower σ = smoother ride for the client.</p>
+                            <p><strong className="text-yellow-300">Sharpe Ratio</strong> — return per unit of risk. Above 1 is considered strong. Below 0.5 means the client is not being adequately rewarded for the volatility they&apos;re taking on — consider rebalancing toward higher-quality or lower-vol assets.</p>
+                          </div>
+                        </details>
+                      </div>
                       <div className="flex gap-3">
                         <div className="flex-1 rounded-xl border border-white/10 bg-white/4 p-3 text-center">
                           <div className="text-[9px] font-mono text-slate-500 uppercase tracking-wider mb-1">Conservative Benchmark</div>
@@ -966,7 +1023,25 @@ export default function PortfolioBuilderPage() {
                           </div>
                           <div className="text-[9px] text-slate-600 mt-1">est. annual return</div>
                           <div className="text-[9px] text-slate-600 mt-2 leading-snug text-left">
-                            Live YTD data from AceEconomy VPS (no fabricated figures). Where live data unavailable, falls back to documented benchmark. Regime: {intel?.regime ?? '—'} ×{regimeMult(intel?.regime ?? '').toFixed(1)}.
+                            Live YTD data from AceEconomy VPS. Regime: {intel?.regime ?? '—'} ×{regimeMult(intel?.regime ?? '').toFixed(1)}.
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Vol + Sharpe for client portfolio */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="rounded-xl border border-amber-500/15 bg-amber-500/5 p-3 text-center">
+                          <div className="text-[9px] font-mono text-slate-500 uppercase tracking-wider mb-1">Portfolio Volatility (σ)</div>
+                          <div className="text-xl font-bold font-mono text-amber-300">{cProj.portfolioVol.toFixed(1)}%</div>
+                          <div className="text-[9px] text-slate-600 mt-1">weighted-avg ann. est. (upper bound)</div>
+                        </div>
+                        <div className="rounded-xl border border-white/10 bg-white/3 p-3 text-center">
+                          <div className="text-[9px] font-mono text-slate-500 uppercase tracking-wider mb-1">Sharpe Ratio (AceEconomy)</div>
+                          <div className={`text-xl font-bold font-mono ${cProj.sharpeAce >= 1 ? 'text-green-400' : cProj.sharpeAce >= 0.5 ? 'text-yellow-300' : cProj.sharpeAce >= 0 ? 'text-amber-400' : 'text-red-400'}`}>
+                            {cProj.sharpeAce.toFixed(2)}
+                          </div>
+                          <div className="text-[9px] text-slate-600 mt-1">
+                            {cProj.sharpeAce >= 1 ? '✓ Strong risk-adjusted return' : cProj.sharpeAce >= 0.5 ? 'Acceptable' : cProj.sharpeAce >= 0 ? 'Weak — return barely covers risk' : 'Return below risk-free rate'}
                           </div>
                         </div>
                       </div>
@@ -988,10 +1063,27 @@ export default function PortfolioBuilderPage() {
 
                     {cProj.riskFlags.length > 0 && (
                       <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 space-y-1.5">
-                        <div className="text-[10px] font-mono text-amber-400 uppercase tracking-wider">Risk Notes</div>
+                        <div className="flex items-center justify-between">
+                          <div className="text-[10px] font-mono text-amber-400 uppercase tracking-wider">
+                            {cProj.riskFlags.length} Risk Note{cProj.riskFlags.length > 1 ? 's' : ''}
+                          </div>
+                          <button onClick={() => setTab('compare')} className="text-[9px] text-cyan-400 hover:underline">→ Compare & Share for full detail</button>
+                        </div>
                         {cProj.riskFlags.map((f, i) => (
                           <div key={i} className="text-[11px] text-slate-300 flex items-start gap-2">
-                            <span className="text-amber-400">◈</span>{f.message}
+                            <span className={f.level === 'warn' ? 'text-red-400' : 'text-amber-400'}>{f.level === 'warn' ? '⚠' : '◈'}</span>
+                            <div>
+                              <div>{f.message}</div>
+                              <div className="text-[9px] text-slate-600 mt-0.5">
+                                {f.message.includes('Concentration') || f.message.includes('equity') ? 'Review the allocation mix — consider adding bonds or alternatives to lower concentration.' :
+                                 f.message.includes('TLT') ? 'Large TLT position carries interest-rate sensitivity — consider shorter-duration fixed income.' :
+                                 f.message.includes('VIX') ? 'High VIX = elevated short-term volatility. A cash or bond buffer may smooth drawdowns.' :
+                                 f.message.includes('FX') ? 'Currency exposure is unhedged — consider reducing FX weighting for risk-averse clients.' :
+                                 f.message.includes('regime') || f.message.includes('Bear') ? 'Regime discount applied — switch to PortDNA tab to see per-holding historical drawdowns.' :
+                                 f.message.includes('breadth') ? 'Narrow rally — higher risk of reversal. Wider diversification helps.' :
+                                 'Adjust the client allocation and re-check projections.'}
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -1094,7 +1186,22 @@ export default function PortfolioBuilderPage() {
 
                     {/* Bear / Base / Bull scenario comparison table */}
                     <div className="rounded-xl border border-white/10 bg-white/3 p-4 space-y-3">
-                      <div className="text-xs font-semibold text-white">Projected Return Scenarios</div>
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs font-semibold text-white">Projected Return Scenarios</div>
+                        <details className="relative group">
+                          <summary className="text-[9px] text-slate-600 hover:text-slate-400 cursor-pointer list-none">▶ Glossary</summary>
+                          <div className="absolute right-0 top-5 z-20 w-80 rounded-xl border border-white/10 bg-[#0d1220] p-3.5 shadow-xl text-[9px] text-slate-400 space-y-2 leading-relaxed">
+                            <p><strong className="text-purple-300">Manager estimate</strong> — the weighted average of expected-return % you set per position in the Build Portfolio tab. Pure manager judgement.</p>
+                            <p><strong className="text-green-400">AceEconomy (live)</strong> — live YTD price performance for each holding from the AceEconomy VPS, annualised over {new Date().getMonth() + 1} months, then multiplied by a regime factor (×{regimeMult(intel?.regime ?? '').toFixed(2)} for {intel?.regime ?? '?'}). Reflects current market momentum rather than historical averages.</p>
+                            <p><strong className="text-slate-300">Conservative benchmark</strong> — long-run historical averages by asset class (Equity 7%, Bonds 3.5%, PE 10%, Commodities 4%, Cash 4%, FX 0%). A realistic floor; ignores current momentum.</p>
+                            <p><strong className="text-red-400">Bear case (−50% base)</strong> — the AceEconomy base estimate compressed by 50%. Models a scenario where momentum stalls and markets underperform trend — e.g. a slowing economy, earnings disappointments, or tightening financial conditions. Not a crash scenario; just a return drag.</p>
+                            <p><strong className="text-cyan-300">Bull case (×1.6 base)</strong> — the AceEconomy base multiplied by 1.6. Models a strong outperformance scenario — broad economic expansion, earnings beats, falling rates, or a risk-on market environment.</p>
+                            <p><strong className="text-amber-300">Volatility (σ)</strong> — weighted-average annualised std dev by asset class. Upper bound; actual portfolio vol is lower due to cross-asset diversification. A lower σ means smoother returns for the client.</p>
+                            <p><strong className="text-yellow-300">Sharpe Ratio</strong> — (return − {RISK_FREE_RATE}% risk-free rate) ÷ σ. How much return you earn per unit of risk. Above 1 = strong. 0.5–1 = acceptable. Below 0.5 = the return does not adequately compensate for volatility. Negative = return below the risk-free rate.</p>
+                            <p className="text-slate-600">All return figures are annualised estimates for discussion only. Not investment advice.</p>
+                          </div>
+                        </details>
+                      </div>
 
                       {/* AceEconomy explanation */}
                       <div className="rounded-lg border border-cyan-500/15 bg-cyan-500/5 px-3 py-2 text-[10px] text-slate-400 leading-relaxed">
@@ -1227,7 +1334,31 @@ export default function PortfolioBuilderPage() {
                             </div>
                           </div>
                           {p.riskFlags.length > 0 && (
-                            <div className="text-[9px] text-amber-400">{p.riskFlags.length} risk flag{p.riskFlags.length > 1 ? 's' : ''}</div>
+                            <details className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2">
+                              <summary className="text-[9px] text-amber-400 cursor-pointer list-none flex items-center justify-between">
+                                <span>⚠ {p.riskFlags.length} risk flag{p.riskFlags.length > 1 ? 's' : ''}</span>
+                                <span className="text-slate-600">▶ expand</span>
+                              </summary>
+                              <div className="mt-2 space-y-1.5">
+                                {p.riskFlags.map((f, i) => (
+                                  <div key={i} className="text-[9px] text-slate-400 flex items-start gap-1.5">
+                                    <span className={f.level === 'warn' ? 'text-red-400 shrink-0' : 'text-amber-400 shrink-0'}>{f.level === 'warn' ? '⚠' : '◈'}</span>
+                                    <div>
+                                      <div className="text-slate-300">{f.message}</div>
+                                      <div className="text-slate-600 mt-0.5">
+                                        {f.message.includes('Concentration') || f.message.includes('equity') ? <>Adjust weights in <button onClick={() => setTab(side === 'manager' ? 'build' : 'client')} className="text-cyan-400 underline">{side === 'manager' ? 'Build Portfolio' : 'Client Profile'}</button> tab.</> :
+                                         f.message.includes('TLT') ? 'Reduce TLT or add shorter-duration bonds.' :
+                                         f.message.includes('VIX') ? 'Consider adding cash/bonds as a volatility buffer.' :
+                                         f.message.includes('FX') ? 'Consider hedging or reducing FX exposure.' :
+                                         f.message.includes('breadth') ? 'Narrow market rally — diversify further.' :
+                                         f.message.includes('regime') || f.message.includes('Bear') ? <><button onClick={() => setTab('dna')} className="text-cyan-400 underline">PortDNA tab</button> shows per-holding drawdown risk.</> :
+                                         'Review allocation and rebalance.'}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </details>
                           )}
                           <button onClick={() => handleConfirm(side)}
                             className={`w-full py-2 rounded-lg text-xs font-bold transition ${confirmed === side ? 'bg-cyan-500 text-black' : 'bg-white/10 hover:bg-white/20 text-white'}`}>
