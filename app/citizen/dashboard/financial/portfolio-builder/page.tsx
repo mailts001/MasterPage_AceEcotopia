@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import QRCode from 'qrcode'
+import PortfolioDNAWheel from '@/components/PortfolioDNAWheel'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -239,7 +240,7 @@ function ProjCard({ label, ret, color, desc }: { label: string; ret: number; col
 export default function PortfolioBuilderPage() {
   const [intel, setIntel]               = useState<Intel | null>(null)
   const [intelLoading, setIntelLoading] = useState(true)
-  const [tab, setTab]                   = useState<'build' | 'client' | 'compare'>('build')
+  const [tab, setTab]                   = useState<'build' | 'client' | 'compare' | 'dna'>('build')
   const [catFilter, setCatFilter]       = useState<string>('all')
   const [search, setSearch]             = useState('')
   const [holdings, setHoldings]         = useState<Holding[]>([])
@@ -435,7 +436,7 @@ export default function PortfolioBuilderPage() {
 
           {/* Tabs */}
           <div className="flex gap-1 bg-white/5 rounded-lg p-1">
-            {([['build', '📐 Build Portfolio'], ['client', '👤 Client Profile'], ['compare', '⚖️ Compare & Share']] as const).map(([t, label]) => (
+            {([['build', '📐 Build Portfolio'], ['client', '👤 Client Profile'], ['compare', '⚖️ Compare & Share'], ['dna', '🧬 DNA Wheel']] as const).map(([t, label]) => (
               <button key={t} onClick={() => setTab(t)}
                 className={`flex-1 text-xs py-2 rounded-md font-medium transition ${tab === t ? 'bg-white/15 text-white' : 'text-slate-500 hover:text-white'}`}>
                 {label}
@@ -842,6 +843,46 @@ export default function PortfolioBuilderPage() {
               <div className="rounded-lg border border-white/8 bg-white/3 px-4 py-3 text-[9px] text-slate-600 leading-relaxed">
                 <strong className="text-slate-500">Disclaimer:</strong> All projections are illustrative estimates for discussion purposes only. They do not constitute financial advice or an investment recommendation. Past performance is not indicative of future results. Market conditions as of {new Date().toLocaleDateString('en-SG')}.
               </div>
+            </div>
+          )}
+
+          {/* ── TAB 4: DNA WHEEL ── */}
+          {tab === 'dna' && (
+            <div className="space-y-4">
+              {holdings.length === 0 ? (
+                <div className="rounded-xl border border-white/8 bg-white/3 py-16 text-center">
+                  <div className="text-2xl mb-3">🧬</div>
+                  <p className="text-slate-500 text-sm">Build your portfolio in the Build Portfolio tab first.</p>
+                  <button onClick={() => setTab('build')} className="mt-4 text-xs text-cyan-400 hover:underline">
+                    → Go to Build Portfolio
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-sm font-bold text-white">Portfolio DNA Wheel</h2>
+                      <p className="text-[10px] text-slate-500">Concentric rings ordered largest→innermost · Ring size = allocation · Colour = YTD performance</p>
+                    </div>
+                    <span className="text-[9px] text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full">SVG · Phase 1</span>
+                  </div>
+                  <PortfolioDNAWheel
+                    holdings={holdings.map(h => ({
+                      ...h,
+                      liveYtd: (() => {
+                        const lm: Record<string, AssetClass> = {}
+                        intel?.asset_classes?.forEach(a => { lm[a.ticker] = a })
+                        intel?.sectors?.forEach(s => { lm[s.ticker] = s as unknown as AssetClass })
+                        return lm[h.ticker]?.chg_ytd ?? undefined
+                      })(),
+                      benchmarkReturn: BENCHMARK[h.category]?.ret ?? 5,
+                    }))}
+                    regime={intel?.regime ?? 'UNKNOWN'}
+                    vix={intel?.vix ?? null}
+                    commentary={intel?.commentary ?? ''}
+                  />
+                </>
+              )}
             </div>
           )}
         </div>
