@@ -264,7 +264,9 @@ function ProjCard({ label, ret, color, desc }: { label: string; ret: number; col
 export default function PortfolioBuilderPage() {
   const [intel, setIntel]               = useState<Intel | null>(null)
   const [intelLoading, setIntelLoading] = useState(true)
-  const [tab, setTab]                   = useState<'build' | 'client' | 'compare' | 'dna'>('build')
+  const [tab, setTab]                   = useState<'build' | 'client' | 'dna' | 'compare'>('build')
+  const [savedSessions, setSavedSessions] = useState<Record<string, unknown>>({})
+  const [saveMsg, setSaveMsg]           = useState('')
   const [catFilter, setCatFilter]       = useState<string>('all')
   const [search, setSearch]             = useState('')
   const [holdings, setHoldings]         = useState<Holding[]>([])
@@ -277,6 +279,41 @@ export default function PortfolioBuilderPage() {
   const [customName, setCustomName]     = useState('')
   const [customCat, setCustomCat]       = useState('equity')
   const printRef = useRef<HTMLDivElement>(null)
+
+  // localStorage session persistence
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('portbuilder_sessions_v1')
+      if (raw) setSavedSessions(JSON.parse(raw))
+    } catch { /* ignore */ }
+  }, [])
+
+  function saveSession() {
+    if (!clientProfile.name.trim()) { setSaveMsg('Set a client name first.'); return }
+    const key = clientProfile.name.trim()
+    const sessions = { ...savedSessions, [key]: { holdings, clientHoldings, clientProfile, savedAt: new Date().toISOString() } }
+    setSavedSessions(sessions)
+    try { localStorage.setItem('portbuilder_sessions_v1', JSON.stringify(sessions)) } catch { /* ignore */ }
+    setSaveMsg(`Saved "${key}"`)
+    setTimeout(() => setSaveMsg(''), 3000)
+  }
+
+  function loadSession(key: string) {
+    const s = savedSessions[key] as { holdings: Holding[]; clientHoldings: Holding[]; clientProfile: ClientProfile }
+    if (!s) return
+    setHoldings(s.holdings ?? [])
+    setClientHoldings(s.clientHoldings ?? [])
+    setClientProfile(s.clientProfile ?? clientProfile)
+    setSaveMsg(`Loaded "${key}"`)
+    setTimeout(() => setSaveMsg(''), 3000)
+  }
+
+  function deleteSession(key: string) {
+    const sessions = { ...savedSessions }
+    delete sessions[key]
+    setSavedSessions(sessions)
+    try { localStorage.setItem('portbuilder_sessions_v1', JSON.stringify(sessions)) } catch { /* ignore */ }
+  }
 
   useEffect(() => {
     fetch('/api/nexus/financial/intel').then(r => r.json()).then(d => {
@@ -462,9 +499,33 @@ export default function PortfolioBuilderPage() {
             </div>
           )}
 
+          {/* Save / Load session bar */}
+          <div className="flex items-center gap-2">
+            <button onClick={saveSession}
+              className="text-[10px] px-3 py-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 transition">
+              💾 Save Session
+            </button>
+            {Object.keys(savedSessions).length > 0 && (
+              <div className="relative group">
+                <button className="text-[10px] px-3 py-1.5 rounded-lg border border-white/15 text-slate-400 hover:text-white transition">
+                  📂 Load ({Object.keys(savedSessions).length})
+                </button>
+                <div className="absolute left-0 top-full mt-1 z-20 hidden group-hover:block bg-[#0f1628] border border-white/15 rounded-xl shadow-xl min-w-[200px] py-1">
+                  {Object.keys(savedSessions).map(k => (
+                    <div key={k} className="flex items-center gap-2 px-3 py-2 hover:bg-white/5">
+                      <button onClick={() => loadSession(k)} className="flex-1 text-left text-[10px] text-white">{k}</button>
+                      <button onClick={() => deleteSession(k)} className="text-[9px] text-red-500 hover:text-red-400 shrink-0">✕</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {saveMsg && <span className="text-[10px] text-green-400">{saveMsg}</span>}
+          </div>
+
           {/* Tabs */}
           <div className="flex gap-1 bg-white/5 rounded-lg p-1">
-            {([['build', '📐 Build Portfolio'], ['client', '👤 Client Profile'], ['compare', '⚖️ Compare & Share'], ['dna', '🧬 DNA Wheel']] as const).map(([t, label]) => (
+            {([['build', '📐 Build Portfolio'], ['client', '👤 Client Profile'], ['dna', '🧬 PortDNA'], ['compare', '⚖️ Compare & Share']] as const).map(([t, label]) => (
               <button key={t} onClick={() => setTab(t)}
                 className={`flex-1 text-xs py-2 rounded-md font-medium transition ${tab === t ? 'bg-white/15 text-white' : 'text-slate-500 hover:text-white'}`}>
                 {label}
@@ -886,78 +947,163 @@ export default function PortfolioBuilderPage() {
             </div>
           )}
 
-          {/* ── TAB 3: COMPARE & SHARE ── */}
+          {/* ── TAB 4: COMPARE & SHARE ── */}
           {tab === 'compare' && (
             <div className="space-y-6">
               {(holdings.length === 0 || clientHoldings.length === 0) && (
                 <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-[11px] text-amber-300">
-                  Complete both the Portfolio Builder and Client Profile tabs first to compare.
+                  Complete both the Build Portfolio and Client Profile tabs first to compare.
                 </div>
               )}
 
-              {holdings.length > 0 && clientHoldings.length > 0 && (
-                <>
-                  {/* Side-by-side */}
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { label: 'Manager Portfolio', holdings: holdings, proj, side: 'manager' as const },
-                      { label: `${clientProfile.name || 'Client'} Profile`, holdings: clientHoldings, proj: cProj, side: 'client' as const },
-                    ].map(({ label, holdings: h, proj: p, side }) => (
-                      <div key={side} className={`rounded-xl border p-4 space-y-3 ${confirmed === side ? 'border-cyan-500/50 bg-cyan-500/5' : 'border-white/10 bg-white/3'}`}>
-                        <div className="text-xs font-semibold text-white">{label}</div>
-                        <div className="space-y-1.5">
-                          {h.map(x => (
-                            <div key={x.id} className="flex items-center justify-between text-[10px]">
-                              <span className="font-mono text-slate-300">{x.ticker}</span>
-                              <span className="font-mono text-white font-bold">{x.pct.toFixed(0)}%</span>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="border-t border-white/8 pt-2 space-y-1 text-[10px]">
-                          <div className="flex justify-between"><span className="text-slate-500">Manager est.</span><span className="text-purple-300 font-mono">{p.managerBlended >= 0 ? '+' : ''}{p.managerBlended.toFixed(1)}%</span></div>
-                          <div className="flex justify-between"><span className="text-slate-500">AceEconomy</span><span className={`font-mono ${p.aceBlended >= 0 ? 'text-green-400' : 'text-red-400'}`}>{p.aceBlended >= 0 ? '+' : ''}{p.aceBlended.toFixed(1)}%</span></div>
-                          <div className="flex justify-between"><span className="text-slate-500">Conservative</span><span className="text-slate-300 font-mono">{p.conservativeBlended >= 0 ? '+' : ''}{p.conservativeBlended.toFixed(1)}%</span></div>
-                        </div>
-                        {p.riskFlags.length > 0 && (
-                          <div className="text-[9px] text-amber-400">{p.riskFlags.length} risk flag{p.riskFlags.length > 1 ? 's' : ''}</div>
-                        )}
-                        <button onClick={() => handleConfirm(side)}
-                          className={`w-full py-2 rounded-lg text-xs font-bold transition ${confirmed === side ? 'bg-cyan-500 text-black' : 'bg-white/10 hover:bg-white/20 text-white'}`}>
-                          {confirmed === side ? '✓ Confirmed' : 'Confirm this Portfolio'}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+              {holdings.length > 0 && clientHoldings.length > 0 && (() => {
+                const mTotal2 = totalPct(holdings) || 1
+                const cTotal2 = totalPct(clientHoldings) || 1
+                const allCats = Array.from(new Set([
+                  ...holdings.map(h => h.category),
+                  ...clientHoldings.map(h => h.category),
+                ]))
+                const catData = allCats.map(cat => {
+                  const mPct = holdings.filter(h => h.category === cat).reduce((s, h) => s + (h.pct / mTotal2) * 100, 0)
+                  const cPct = clientHoldings.filter(h => h.category === cat).reduce((s, h) => s + (h.pct / cTotal2) * 100, 0)
+                  return { cat, mPct, cPct, delta: cPct - mPct }
+                }).sort((a, b) => b.mPct - a.mPct)
 
-                  {/* QR + PDF */}
-                  {confirmed && (
-                    <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/5 p-5 space-y-4">
-                      <div className="text-xs font-semibold text-white">
-                        Confirmed: {confirmed === 'manager' ? 'Manager Portfolio' : `${clientProfile.name || 'Client'} Risk-Adjusted Portfolio`}
+                const ROW_H = 32
+                const SVG_W = 520
+                const SVG_H = catData.length * ROW_H + 48
+                const LABEL_W = 80
+                const BAR_AREA = SVG_W - LABEL_W - 60
+                const CAT_COLORS: Record<string, string> = {
+                  equity:'#3b82f6', fixed_income:'#10b981', fx:'#f59e0b',
+                  commodities:'#f97316', private_equity:'#a855f7',
+                  philanthropy:'#ec4899', thematic:'#06b6d4', cash:'#64748b',
+                }
+                const CAT_SHORT: Record<string, string> = {
+                  equity:'Equity', fixed_income:'Bonds', fx:'FX',
+                  commodities:'Commod.', private_equity:'PE', philanthropy:'Impact',
+                  thematic:'Thematic', cash:'Cash',
+                }
+
+                return (
+                  <>
+                    {/* SVG Allocation Comparison Chart */}
+                    <div className="rounded-xl border border-white/10 bg-white/3 p-4 space-y-2">
+                      <div className="text-xs font-semibold text-white">Allocation Comparison by Category</div>
+                      <div className="flex items-center gap-4 text-[9px] text-slate-500">
+                        <span className="flex items-center gap-1"><span className="inline-block w-6 h-2 rounded" style={{ background: '#818cf8' }} /> Manager</span>
+                        <span className="flex items-center gap-1"><span className="inline-block w-6 h-2 rounded" style={{ background: '#22d3ee' }} /> Client ({clientProfile.name || 'Risk-Adjusted'})</span>
+                        <span className="ml-auto">Δ = Client minus Manager</span>
                       </div>
-                      <div className="flex gap-6 items-start">
-                        {qrUrl && (
-                          <div className="shrink-0 space-y-1">
-                            <img src={qrUrl} alt="Portfolio QR" className="rounded-lg bg-white p-1 w-32 h-32" />
-                            <p className="text-[9px] text-slate-600 text-center">Scan to share</p>
+                      <svg width={SVG_W} height={SVG_H} viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full overflow-visible">
+                        {/* Header labels */}
+                        <text x={LABEL_W} y={14} fill="#475569" fontSize={8} fontFamily="monospace">Manager</text>
+                        <text x={LABEL_W + BAR_AREA / 2} y={14} textAnchor="middle" fill="#475569" fontSize={8} fontFamily="monospace">0%</text>
+                        <text x={LABEL_W + BAR_AREA} y={14} textAnchor="end" fill="#475569" fontSize={8} fontFamily="monospace">Client</text>
+                        {catData.map(({ cat, mPct, cPct, delta }, i) => {
+                          const y = i * ROW_H + 22
+                          const mid = LABEL_W + BAR_AREA / 2
+                          const scale = BAR_AREA / 2 / 100
+                          const mW = mPct * scale
+                          const cW = cPct * scale
+                          const cc = CAT_COLORS[cat] ?? '#64748b'
+                          return (
+                            <g key={cat}>
+                              {/* category label */}
+                              <text x={LABEL_W - 6} y={y + 10} textAnchor="end" fill="#94a3b8" fontSize={9} fontFamily="monospace">
+                                {CAT_SHORT[cat] ?? cat}
+                              </text>
+                              {/* Manager bar — grows left from centre */}
+                              <rect x={mid - mW} y={y} width={mW} height={12} rx={2} fill="#818cf8" fillOpacity={0.7} />
+                              {/* Client bar — grows right from centre */}
+                              <rect x={mid} y={y} width={cW} height={12} rx={2} fill={cc} fillOpacity={0.55} />
+                              {/* Category dot */}
+                              <circle cx={mid} cy={y + 6} r={3} fill={cc} />
+                              {/* Percentage labels */}
+                              {mPct > 2 && <text x={mid - mW - 3} y={y + 9} textAnchor="end" fill="#818cf8" fontSize={7} fontFamily="monospace">{mPct.toFixed(0)}%</text>}
+                              {cPct > 2 && <text x={mid + cW + 3} y={y + 9} fill="#22d3ee" fontSize={7} fontFamily="monospace">{cPct.toFixed(0)}%</text>}
+                              {/* Delta */}
+                              <text x={SVG_W - 4} y={y + 9} textAnchor="end"
+                                fill={delta > 2 ? '#22d3ee' : delta < -2 ? '#f87171' : '#64748b'}
+                                fontSize={8} fontFamily="monospace">
+                                {delta > 0 ? '+' : ''}{delta.toFixed(0)}
+                              </text>
+                            </g>
+                          )
+                        })}
+                        {/* Centre line */}
+                        <line x1={LABEL_W + BAR_AREA / 2} y1={18} x2={LABEL_W + BAR_AREA / 2} y2={SVG_H - 4}
+                          stroke="rgba(255,255,255,0.08)" strokeWidth={1} strokeDasharray="3 3" />
+                      </svg>
+                    </div>
+
+                    {/* Side-by-side detail cards */}
+                    <div className="grid grid-cols-2 gap-3">
+                      {([
+                        { label: 'Manager Portfolio', holdings: holdings, proj, side: 'manager' as const },
+                        { label: `${clientProfile.name || 'Client'} Profile`, holdings: clientHoldings, proj: cProj, side: 'client' as const },
+                      ]).map(({ label, holdings: h, proj: p, side }) => (
+                        <div key={side} className={`rounded-xl border p-4 space-y-3 ${confirmed === side ? 'border-cyan-500/50 bg-cyan-500/5' : 'border-white/10 bg-white/3'}`}>
+                          <div className="text-xs font-semibold text-white">{label}</div>
+                          <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                            {h.map(x => (
+                              <div key={x.id} className="flex items-center justify-between text-[10px]">
+                                <span className="font-mono text-slate-300">{x.ticker}</span>
+                                <div className="flex items-center gap-1.5">
+                                  <div className="w-12 bg-white/8 rounded-full h-1">
+                                    <div className="h-1 rounded-full bg-cyan-500" style={{ width: `${Math.min(x.pct, 100)}%` }} />
+                                  </div>
+                                  <span className="font-mono text-white font-bold w-7 text-right">{x.pct.toFixed(0)}%</span>
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                        )}
-                        <div className="flex-1 space-y-2">
-                          <p className="text-[11px] text-slate-400 leading-relaxed">
-                            QR code encodes the confirmed portfolio allocation. Client can scan to view a summary of their holdings.
-                            Generate a PDF for a formal record including full assumptions and disclaimer.
-                          </p>
-                          <button onClick={handlePrint}
-                            className="w-full bg-white text-black font-bold text-xs py-2.5 rounded-lg hover:bg-gray-100 transition">
-                            🖨 Download / Print PDF
+                          <div className="border-t border-white/8 pt-2 space-y-1 text-[10px]">
+                            <div className="flex justify-between"><span className="text-slate-500">Manager est.</span><span className="text-purple-300 font-mono">{p.managerBlended >= 0 ? '+' : ''}{p.managerBlended.toFixed(1)}%</span></div>
+                            <div className="flex justify-between"><span className="text-slate-500">AceEconomy</span><span className={`font-mono ${p.aceBlended >= 0 ? 'text-green-400' : 'text-red-400'}`}>{p.aceBlended >= 0 ? '+' : ''}{p.aceBlended.toFixed(1)}%</span></div>
+                            <div className="flex justify-between"><span className="text-slate-500">Conservative</span><span className="text-slate-300 font-mono">{p.conservativeBlended >= 0 ? '+' : ''}{p.conservativeBlended.toFixed(1)}%</span></div>
+                          </div>
+                          {p.riskFlags.length > 0 && (
+                            <div className="text-[9px] text-amber-400">{p.riskFlags.length} risk flag{p.riskFlags.length > 1 ? 's' : ''}</div>
+                          )}
+                          <button onClick={() => handleConfirm(side)}
+                            className={`w-full py-2 rounded-lg text-xs font-bold transition ${confirmed === side ? 'bg-cyan-500 text-black' : 'bg-white/10 hover:bg-white/20 text-white'}`}>
+                            {confirmed === side ? '✓ Confirmed' : 'Confirm this Portfolio'}
                           </button>
-                          <p className="text-[9px] text-slate-600 text-center">Opens browser print dialog — save as PDF</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* QR + PDF */}
+                    {confirmed && (
+                      <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/5 p-5 space-y-4">
+                        <div className="text-xs font-semibold text-white">
+                          Confirmed: {confirmed === 'manager' ? 'Manager Portfolio' : `${clientProfile.name || 'Client'} Risk-Adjusted Portfolio`}
+                        </div>
+                        <div className="flex gap-6 items-start">
+                          {qrUrl && (
+                            <div className="shrink-0 space-y-1">
+                              <img src={qrUrl} alt="Portfolio QR" className="rounded-lg bg-white p-1 w-32 h-32" />
+                              <p className="text-[9px] text-slate-600 text-center">Scan to share</p>
+                            </div>
+                          )}
+                          <div className="flex-1 space-y-2">
+                            <p className="text-[11px] text-slate-400 leading-relaxed">
+                              QR code encodes the confirmed portfolio allocation. Client can scan to view a summary of their holdings.
+                              Generate a PDF for a formal record including full assumptions and disclaimer.
+                            </p>
+                            <button onClick={handlePrint}
+                              className="w-full bg-white text-black font-bold text-xs py-2.5 rounded-lg hover:bg-gray-100 transition">
+                              🖨 Download / Print PDF
+                            </button>
+                            <p className="text-[9px] text-slate-600 text-center">Opens browser print dialog — save as PDF</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
-                </>
-              )}
+                    )}
+                  </>
+                )
+              })()}
 
               {/* Disclaimer */}
               <div className="rounded-lg border border-white/8 bg-white/3 px-4 py-3 text-[9px] text-slate-600 leading-relaxed">
@@ -966,7 +1112,7 @@ export default function PortfolioBuilderPage() {
             </div>
           )}
 
-          {/* ── TAB 4: DNA WHEEL ── */}
+          {/* ── TAB 3: PORTDNA ── */}
           {tab === 'dna' && (
             <div className="space-y-4">
               {holdings.length === 0 ? (
@@ -977,32 +1123,33 @@ export default function PortfolioBuilderPage() {
                     → Go to Build Portfolio
                   </button>
                 </div>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between">
+              ) : (() => {
+                const toWheel = (hs: Holding[]) => hs.map(h => ({
+                  ...h,
+                  liveYtd: ((): number | undefined => {
+                    const lm: Record<string, AssetClass> = {}
+                    intel?.asset_classes?.forEach(a => { lm[a.ticker] = a })
+                    intel?.sectors?.forEach(s => { lm[s.ticker] = s as unknown as AssetClass })
+                    return lm[h.ticker]?.chg_ytd ?? undefined
+                  })(),
+                  benchmarkReturn: BENCHMARK[h.category]?.ret ?? 5,
+                }))
+                return (
+                  <>
                     <div>
-                      <h2 className="text-sm font-bold text-white">Portfolio DNA Wheel</h2>
-                      <p className="text-[10px] text-slate-500">Concentric rings ordered largest→innermost · Ring size = allocation · Colour = YTD performance</p>
+                      <h2 className="text-sm font-bold text-white">PortDNA</h2>
+                      <p className="text-[10px] text-slate-500">Semicircle · ring size = allocation · colour = YTD performance · hover / click for projections & drawdown</p>
                     </div>
-                    <span className="text-[9px] text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full">SVG · Phase 1</span>
-                  </div>
-                  <PortfolioDNAWheel
-                    holdings={holdings.map(h => ({
-                      ...h,
-                      liveYtd: (() => {
-                        const lm: Record<string, AssetClass> = {}
-                        intel?.asset_classes?.forEach(a => { lm[a.ticker] = a })
-                        intel?.sectors?.forEach(s => { lm[s.ticker] = s as unknown as AssetClass })
-                        return lm[h.ticker]?.chg_ytd ?? undefined
-                      })(),
-                      benchmarkReturn: BENCHMARK[h.category]?.ret ?? 5,
-                    }))}
-                    regime={intel?.regime ?? 'UNKNOWN'}
-                    vix={intel?.vix ?? null}
-                    commentary={intel?.commentary ?? ''}
-                  />
-                </>
-              )}
+                    <PortfolioDNAWheel
+                      holdings={toWheel(holdings)}
+                      clientHoldings={clientHoldings.length > 0 ? toWheel(clientHoldings) : undefined}
+                      regime={intel?.regime ?? 'UNKNOWN'}
+                      vix={intel?.vix ?? null}
+                      commentary={intel?.commentary ?? ''}
+                    />
+                  </>
+                )
+              })()}
             </div>
           )}
         </div>

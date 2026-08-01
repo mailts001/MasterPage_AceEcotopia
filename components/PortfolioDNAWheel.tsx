@@ -1,25 +1,26 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface WheelHolding {
   id: string; ticker: string; name: string; category: string
   pct: number; managerReturn: number
-  liveYtd?: number          // from AceEconomy, null = no live data
-  benchmarkReturn: number   // from category benchmark
+  liveYtd?: number
+  benchmarkReturn: number
 }
 
 interface RingData extends WheelHolding {
-  order: number             // 0 = outermost (largest pct)
+  order: number
   perfColor: string
   perfLabel: 'excellent' | 'good' | 'neutral' | 'watch' | 'poor' | 'no-data'
-  ytdAnn: number | null     // annualised from YTD
+  ytdAnn: number | null
   bearCase: number; baseCase: number; bullCase: number
+  maxDrawdown: number
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 
 const PERF_COLOR = {
   excellent: '#22c55e',
@@ -30,7 +31,7 @@ const PERF_COLOR = {
   'no-data': '#475569',
 }
 
-const PERF_BG = {
+const PERF_BG: Record<string, string> = {
   excellent: 'bg-green-500/20 text-green-300',
   good:      'bg-green-500/10 text-green-400',
   neutral:   'bg-amber-500/20 text-amber-300',
@@ -47,20 +48,35 @@ const CATEGORY_COLOR: Record<string, string> = {
   private_equity: '#a855f7',
   philanthropy:   '#ec4899',
   thematic:       '#06b6d4',
+  cash:           '#64748b',
 }
 
 const CATEGORY_LABEL: Record<string, string> = {
   equity: 'Equity', fixed_income: 'Fixed Income', fx: 'FX',
   commodities: 'Commodities', private_equity: 'Private Equity',
-  philanthropy: 'Philanthropy', thematic: 'Thematic',
+  philanthropy: 'Philanthropy', thematic: 'Thematic', cash: 'Cash',
 }
+
+// Historical worst-case drawdown by category (bear scenario, illustrative)
+const MAX_DRAWDOWN_EST: Record<string, number> = {
+  equity:         -35,
+  fixed_income:   -12,
+  fx:             -8,
+  commodities:    -25,
+  private_equity: -40,
+  philanthropy:    0,
+  thematic:       -60,
+  cash:            0,
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function annualise(ytd: number) {
   const m = new Date().getMonth() + 1
   return m > 0 ? (ytd / m) * 12 : ytd
 }
 
-function perfLabel(ytd: number | null): RingData['perfLabel'] {
+function getPerfLabel(ytd: number | null): RingData['perfLabel'] {
   if (ytd == null) return 'no-data'
   const a = annualise(ytd)
   if (a >= 15)  return 'excellent'
@@ -79,21 +95,23 @@ function buildRings(holdings: WheelHolding[], regime: string): RingData[] {
     return {
       ...h,
       order: i,
-      perfColor: PERF_COLOR[perfLabel(h.liveYtd ?? null)],
-      perfLabel: perfLabel(h.liveYtd ?? null),
+      perfColor: PERF_COLOR[getPerfLabel(h.liveYtd ?? null)],
+      perfLabel: getPerfLabel(h.liveYtd ?? null),
       ytdAnn,
       bearCase: base * 0.5,
       baseCase: base,
       bullCase: base * 1.6,
+      maxDrawdown: MAX_DRAWDOWN_EST[h.category] ?? -30,
     }
   })
 }
 
-// ── SVG Wheel ─────────────────────────────────────────────────────────────────
+// ── SVG helpers ───────────────────────────────────────────────────────────────
 
-const CX = 260, CY = 260   // SVG centre
-const INNER_R  = 44        // hub radius
-const RING_GAP = 4         // gap between rings
+const CX = 260, CY = 260
+const INNER_R  = 44
+const RING_GAP = 4
+const MAX_OUTER = 240
 
 function polarToXY(angle: number, r: number) {
   const rad = (angle - 90) * (Math.PI / 180)
@@ -115,37 +133,36 @@ function describeArc(startAngle: number, endAngle: number, innerR: number, outer
   ].join(' ')
 }
 
-// ── Main Component ─────────────────────────────────────────────────────────────
+// ── Main component ─────────────────────────────────────────────────────────────
 
 interface Props {
   holdings: WheelHolding[]
+  clientHoldings?: WheelHolding[]
   regime: string
   vix: number | null
   commentary: string
 }
 
-export default function PortfolioDNAWheel({ holdings, regime, vix, commentary }: Props) {
+export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vix, commentary }: Props) {
   const [rings, setRings]       = useState<RingData[]>([])
   const [hovered, setHovered]   = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
-  const [showProj, setShowProj] = useState(true)
-  const svgRef = useRef<SVGSVGElement>(null)
+  const [source, setSource]     = useState<'manager' | 'client'>('manager')
+
+  const hasClient = !!(clientHoldings && clientHoldings.length > 0)
+  const activeHoldings = (source === 'client' && hasClient) ? clientHoldings! : holdings
 
   useEffect(() => {
-    setRings(buildRings(holdings, regime))
-  }, [holdings, regime])
+    setRings(buildRings(activeHoldings, regime))
+    setSelected(null)
+    setHovered(null)
+  }, [activeHoldings, regime]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const total = holdings.reduce((s, h) => s + h.pct, 0) || 1
+  const total = activeHoldings.reduce((s, h) => s + h.pct, 0) || 1
 
-  // Ring geometry — outer ring = first (largest), each subsequent shrinks
-  // Max rings that fit: from INNER_R outward, each ring has thickness proportional to allocation
-  const MAX_OUTER = 240
-  const usable    = MAX_OUTER - INNER_R - RING_GAP * rings.length
-  const ringDims  = rings.map(r => ({
-    thickness: Math.max(12, (r.pct / total) * usable),
-  }))
+  const usable    = MAX_OUTER - INNER_R - RING_GAP * Math.max(rings.length, 1)
+  const ringDims  = rings.map(r => ({ thickness: Math.max(12, (r.pct / total) * usable) }))
 
-  // Compute cumulative inner radius for each ring (outermost first)
   const radii: { inner: number; outer: number }[] = []
   let cursor = MAX_OUTER
   for (let i = 0; i < rings.length; i++) {
@@ -156,93 +173,97 @@ export default function PortfolioDNAWheel({ holdings, regime, vix, commentary }:
     if (cursor < INNER_R + 10) break
   }
 
-  // For each ring, sweep angle = full 360° but leave a 2° gap
-  // Height extrusion simulated as drop shadow + brightness
   const selectedRing = rings.find(r => r.id === selected)
+  const hoveredRing  = rings.find(r => r.id === hovered)
+  const detailRing   = selectedRing ?? hoveredRing ?? null
+
+  const regMult = regime.includes('BULL') ? 1.1 : regime.includes('BEAR') ? 0.65 : 0.9
+  const blended = (key: 'bearCase' | 'baseCase' | 'bullCase') =>
+    rings.reduce((s, r) => s + (r.pct / total) * (r[key] as number), 0)
 
   return (
-    <div className="space-y-4">
-      {/* Legend bar */}
-      <div className="flex items-center gap-4 flex-wrap text-[10px]">
-        {Object.entries(PERF_COLOR).map(([k, c]) => (
-          k !== 'no-data' && <span key={k} className="flex items-center gap-1 text-slate-400">
-            <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: c }} />
+    <div className="space-y-3">
+
+      {/* Source toggle */}
+      {hasClient && (
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-slate-500">Showing:</span>
+          {(['manager', 'client'] as const).map(s => (
+            <button key={s} onClick={() => setSource(s)}
+              className={`text-[10px] px-3 py-1 rounded-full border transition ${
+                source === s
+                  ? 'border-cyan-500/50 bg-cyan-500/20 text-cyan-300'
+                  : 'border-white/10 text-slate-500 hover:text-white'
+              }`}>
+              {s === 'manager' ? '📐 Manager' : '👤 Client'}
+            </button>
+          ))}
+          <span className="text-[9px] text-slate-700 ml-2">Click a ring or list item for detail</span>
+        </div>
+      )}
+
+      {/* Performance legend */}
+      <div className="flex items-center gap-3 flex-wrap">
+        {Object.entries(PERF_COLOR).filter(([k]) => k !== 'no-data').map(([k, c]) => (
+          <span key={k} className="flex items-center gap-1 text-[9px] text-slate-400">
+            <span className="w-2 h-2 rounded-full" style={{ background: c }} />
             {k.charAt(0).toUpperCase() + k.slice(1)}
           </span>
         ))}
-        <span className="ml-auto text-slate-600">Ring size = allocation · Colour = YTD performance</span>
+        <span className="ml-auto text-[9px] text-slate-700">ring size = allocation · colour = YTD performance</span>
       </div>
 
-      <div className="flex gap-4 flex-col lg:flex-row">
-        {/* SVG Wheel */}
-        <div className="relative shrink-0">
-          <svg ref={svgRef} width={520} height={520} viewBox="0 0 520 520"
-            className="w-full max-w-[520px]"
-            style={{ filter: 'drop-shadow(0 0 40px rgba(6,182,212,0.08))' }}>
+      {/* Main layout: semicircle (left) + detail panel (right) */}
+      <div className="flex gap-4 items-start">
 
-            {/* Background */}
-            <circle cx={CX} cy={CY} r={MAX_OUTER + 10} fill="rgba(10,14,26,0.8)" />
+        {/* Semicircle SVG — full circles drawn, top-half visible via viewBox crop */}
+        <div className="shrink-0 w-full max-w-[280px]">
+          <svg
+            viewBox="0 0 520 268"
+            className="w-full"
+            style={{ filter: 'drop-shadow(0 0 28px rgba(6,182,212,0.07))' }}>
 
-            {/* Grid circles */}
-            {[60, 120, 180, 240].map(r => (
-              <circle key={r} cx={CX} cy={CY} r={r} fill="none"
-                stroke="rgba(255,255,255,0.03)" strokeWidth={1} />
+            {/* Background fill for visible area */}
+            <rect x={0} y={0} width={520} height={268} fill="rgba(10,14,26,0.5)" rx={8} />
+
+            {/* Grid semicircles */}
+            {[80, 140, 200].map(r => (
+              <path key={r}
+                d={`M ${CX - r} ${CY} A ${r} ${r} 0 0 1 ${CX + r} ${CY}`}
+                fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth={1} />
             ))}
 
-            {/* Rings */}
+            {/* Rings — full circles, only top half in viewBox */}
             {rings.map((ring, i) => {
               const dim = radii[i]
               if (!dim) return null
-              const startAngle = 0
-              const endAngle   = 358   // tiny gap at top
-              const path       = describeArc(startAngle, endAngle, dim.inner, dim.outer)
-              const isHov      = hovered === ring.id
-              const isSel      = selected === ring.id
-              const catColor   = CATEGORY_COLOR[ring.category] ?? '#64748b'
-              const perfC      = ring.perfColor
-
-              // 3D extrusion: simulate with a slightly offset duplicate + glow
-              const glowOpacity = ring.ytdAnn != null && ring.ytdAnn > 5 ? 0.35 : 0.12
-
+              const path   = describeArc(0, 358, dim.inner, dim.outer)
+              const isHov  = hovered === ring.id
+              const isSel  = selected === ring.id
+              const catC   = CATEGORY_COLOR[ring.category] ?? '#64748b'
               return (
                 <g key={ring.id}
                   style={{ cursor: 'pointer', transition: 'opacity 0.2s' }}
-                  opacity={hovered && !isHov && !isSel ? 0.45 : 1}
+                  opacity={hovered && !isHov && !isSel ? 0.35 : 1}
                   onMouseEnter={() => setHovered(ring.id)}
                   onMouseLeave={() => setHovered(null)}
                   onClick={() => setSelected(isSel ? null : ring.id)}>
-
-                  {/* Glow layer (simulates 3D extrusion upward for positive returns) */}
-                  {ring.ytdAnn != null && ring.ytdAnn > 0 && (
-                    <path d={path} fill={perfC} opacity={glowOpacity}
-                      transform={`translate(0, ${-Math.min(6, ring.ytdAnn * 0.3)})`} />
-                  )}
-
-                  {/* Main ring — category colour fill, perf colour stroke */}
                   <path d={path}
-                    fill={catColor}
-                    fillOpacity={isHov || isSel ? 0.55 : 0.30}
-                    stroke={isSel ? '#06b6d4' : isHov ? perfC : perfC}
+                    fill={catC}
+                    fillOpacity={isHov || isSel ? 0.6 : 0.30}
+                    stroke={isSel ? '#06b6d4' : ring.perfColor}
                     strokeWidth={isSel ? 2.5 : isHov ? 2 : 1.5}
-                    strokeOpacity={isSel ? 1 : isHov ? 0.9 : 0.7}
-                    style={{ transition: 'all 0.25s ease' }}
+                    strokeOpacity={isSel ? 1 : 0.75}
+                    style={{ transition: 'all 0.2s' }}
                   />
-
-                  {/* Projection shell (semi-transparent outer arc) */}
-                  {showProj && dim.outer + 6 < MAX_OUTER + 8 && (
-                    <path d={describeArc(0, 120, dim.outer + 1, dim.outer + 5)}
-                      fill={perfC} fillOpacity={0.25} stroke="none" />
-                  )}
-
-                  {/* Ticker label — arc midpoint */}
+                  {/* Ticker at top of ring (angle 0 = 12-o'clock) */}
                   {(() => {
                     const midR = (dim.inner + dim.outer) / 2
-                    const midAngle = 179  // halfway through 358°
-                    const p = polarToXY(midAngle, midR)
-                    const fontSize = dim.outer - dim.inner > 20 ? 9 : 7
+                    const p    = polarToXY(0, midR)
+                    const fs   = dim.outer - dim.inner > 18 ? 8 : 6
                     return (
                       <text x={p.x} y={p.y} textAnchor="middle" dominantBaseline="middle"
-                        fill="white" fontSize={fontSize} fontWeight="bold" fontFamily="monospace"
+                        fill="white" fontSize={fs} fontWeight="bold" fontFamily="monospace"
                         opacity={isHov || isSel ? 1 : 0.7}>
                         {ring.ticker}
                       </text>
@@ -253,165 +274,149 @@ export default function PortfolioDNAWheel({ holdings, regime, vix, commentary }:
             })}
 
             {/* Hub */}
-            <circle cx={CX} cy={CY} r={INNER_R} fill="rgba(10,14,26,0.95)"
-              stroke="rgba(6,182,212,0.3)" strokeWidth={1.5} />
-            <text x={CX} y={CY - 6} textAnchor="middle" fill="#94a3b8" fontSize={8} fontFamily="monospace">PORTFOLIO</text>
-            <text x={CX} y={CY + 6} textAnchor="middle" fill="#06b6d4" fontSize={10} fontWeight="bold">DNA</text>
+            <circle cx={CX} cy={CY} r={INNER_R}
+              fill="rgba(10,14,26,0.95)" stroke="rgba(6,182,212,0.4)" strokeWidth={1.5} />
+            <text x={CX} y={CY - 8} textAnchor="middle" fill="#94a3b8" fontSize={7} fontFamily="monospace">PORT</text>
+            <text x={CX} y={CY + 5} textAnchor="middle" fill="#06b6d4" fontSize={9} fontWeight="bold">DNA</text>
 
-            {/* Hovered ring tooltip inside SVG */}
-            {hovered && (() => {
-              const r = rings.find(x => x.id === hovered)
-              if (!r) return null
-              return (
-                <g>
-                  <rect x={CX - 65} y={10} width={130} height={56} rx={6}
-                    fill="rgba(10,14,26,0.95)" stroke="rgba(6,182,212,0.3)" strokeWidth={1} />
-                  <text x={CX} y={28} textAnchor="middle" fill="white" fontSize={10} fontWeight="bold">{r.ticker}</text>
-                  <text x={CX} y={42} textAnchor="middle" fill="#94a3b8" fontSize={8}>{r.name.slice(0, 22)}</text>
-                  <text x={CX} y={56} textAnchor="middle" fill="#06b6d4" fontSize={10} fontWeight="bold">{r.pct.toFixed(1)}%</text>
-                </g>
-              )
-            })()}
+            {/* Flat baseline */}
+            <line x1={20} y1={260} x2={500} y2={260} stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
 
-            {/* Regime label */}
-            <text x={CX} y={510} textAnchor="middle" fill="#334155" fontSize={8} fontFamily="monospace">
-              Regime: {regime} · VIX {vix?.toFixed(0) ?? '—'} · ring size = allocation
+            {/* Regime / VIX label on baseline */}
+            <text x={CX} y={266} textAnchor="middle" fill="#334155" fontSize={7} fontFamily="monospace">
+              {regime} · VIX {vix?.toFixed(0) ?? '—'} · ×{regMult.toFixed(2)} regime adj
             </text>
           </svg>
-
-          {/* Projection toggle */}
-          <button onClick={() => setShowProj(p => !p)}
-            className="absolute bottom-10 right-2 text-[9px] text-slate-600 hover:text-slate-400 border border-white/8 px-2 py-1 rounded">
-            {showProj ? 'Hide' : 'Show'} projections
-          </button>
         </div>
 
-        {/* Right panel — ring legend + selected detail */}
-        <div className="flex-1 space-y-3 min-w-0">
+        {/* Right panel */}
+        <div className="flex-1 min-w-0 space-y-2.5">
 
-          {/* Ring index */}
-          <div className="space-y-1.5">
-            <div className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">Portfolio rings (outer → inner)</div>
+          {/* Portfolio scenario projections */}
+          <div className="rounded-lg border border-white/8 bg-white/3 p-3">
+            <div className="text-[9px] font-mono text-slate-500 uppercase tracking-wider mb-2">
+              Portfolio outlook — {regime}
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {([
+                { label: 'Bear', key: 'bearCase', color: 'text-red-400',   border: 'border-red-500/15'   },
+                { label: 'Base', key: 'baseCase', color: 'text-green-400', border: 'border-green-500/15' },
+                { label: 'Bull', key: 'bullCase', color: 'text-cyan-300',  border: 'border-cyan-500/15'  },
+              ] as const).map(({ label, key, color, border }) => (
+                <div key={label} className={`rounded border ${border} bg-white/3 py-2 text-center`}>
+                  <div className="text-[8px] text-slate-600">{label}</div>
+                  <div className={`text-sm font-bold font-mono ${color}`}>
+                    {blended(key) >= 0 ? '+' : ''}{blended(key).toFixed(1)}%
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-[8px] text-slate-700 mt-1.5">
+              Base = live YTD annualised × regime ×{regMult.toFixed(2)}. Bear = ×0.5, Bull = ×1.6. Estimates only.
+            </p>
+          </div>
+
+          {/* Holdings list */}
+          <div className="space-y-1 max-h-[200px] overflow-y-auto pr-0.5">
             {rings.map((r, i) => {
-              const dim = radii[i]
-              if (!dim) return null
+              if (!radii[i]) return null
               return (
-                <button key={r.id} onClick={() => setSelected(r.id === selected ? null : r.id)}
+                <button key={r.id}
+                  onClick={() => setSelected(r.id === selected ? null : r.id)}
                   onMouseEnter={() => setHovered(r.id)}
                   onMouseLeave={() => setHovered(null)}
-                  className={`w-full flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition ${
+                  className={`w-full flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-left transition ${
                     selected === r.id ? 'border-cyan-500/50 bg-cyan-500/8' :
                     hovered  === r.id ? 'border-white/20 bg-white/5' : 'border-white/8 bg-white/3'
                   }`}>
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0"
+                  <span className="w-2 h-2 rounded-full shrink-0"
                     style={{ background: CATEGORY_COLOR[r.category] ?? '#64748b' }} />
                   <span className="text-[10px] font-mono font-bold text-white">{r.ticker}</span>
                   <span className="text-[9px] text-slate-500 flex-1 truncate">{r.name}</span>
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full shrink-0 ${PERF_BG[r.perfLabel]}`}>
-                    {r.liveYtd != null ? `YTD ${r.liveYtd >= 0 ? '+' : ''}${r.liveYtd.toFixed(1)}%` : 'est.'}
+                  <span className={`text-[8px] px-1 py-0.5 rounded shrink-0 ${PERF_BG[r.perfLabel]}`}>
+                    {r.liveYtd != null ? `${r.liveYtd >= 0 ? '+' : ''}${r.liveYtd.toFixed(1)}%` : 'est'}
                   </span>
-                  <span className="text-[10px] font-bold text-cyan-300 shrink-0">{r.pct.toFixed(1)}%</span>
+                  <span className="text-[9px] font-bold font-mono text-cyan-300 shrink-0 w-7 text-right">
+                    {r.pct.toFixed(0)}%
+                  </span>
                 </button>
               )
             })}
           </div>
 
-          {/* Projection key */}
-          <div className="rounded-lg border border-white/8 bg-white/3 p-3 space-y-2">
-            <div className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">Portfolio Projections ({regime})</div>
-            <div className="grid grid-cols-3 gap-2 text-center">
-              {[
-                { label: 'Bear', key: 'bearCase', color: 'text-red-400' },
-                { label: 'Base', key: 'baseCase', color: 'text-green-400' },
-                { label: 'Bull', key: 'bullCase', color: 'text-cyan-300' },
-              ].map(({ label, key, color }) => {
-                const blended = rings.reduce((s, r) => {
-                  const w = r.pct / total
-                  return s + w * (r[key as keyof RingData] as number)
-                }, 0)
-                return (
-                  <div key={label} className="rounded-lg border border-white/8 bg-white/3 py-2">
-                    <div className="text-[9px] text-slate-600">{label}</div>
-                    <div className={`text-sm font-bold font-mono ${color}`}>
-                      {blended >= 0 ? '+' : ''}{blended.toFixed(1)}%
-                    </div>
+          {/* Asset detail panel (hover or click) */}
+          {detailRing && (
+            <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3 space-y-2 animate-in fade-in duration-150">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full"
+                    style={{ background: CATEGORY_COLOR[detailRing.category] ?? '#64748b' }} />
+                  <span className="text-sm font-bold font-mono text-white">{detailRing.ticker}</span>
+                  <span className={`text-[8px] px-1.5 py-0.5 rounded-full ${PERF_BG[detailRing.perfLabel]}`}>
+                    {detailRing.perfLabel.replace('-', ' ')}
+                  </span>
+                </div>
+                {selectedRing && (
+                  <button onClick={() => setSelected(null)} className="text-slate-600 hover:text-white text-xs">✕</button>
+                )}
+              </div>
+              <div className="text-[9px] text-slate-500 leading-snug">
+                {detailRing.name} · {CATEGORY_LABEL[detailRing.category] ?? detailRing.category}
+              </div>
+
+              {/* Detail grid */}
+              <div className="grid grid-cols-2 gap-1.5">
+                <div className="rounded border border-white/8 bg-white/3 px-2 py-1.5">
+                  <div className="text-[8px] text-slate-600">Allocation</div>
+                  <div className="text-xs font-bold font-mono text-cyan-300">{detailRing.pct.toFixed(1)}%</div>
+                </div>
+                <div className="rounded border border-white/8 bg-white/3 px-2 py-1.5">
+                  <div className="text-[8px] text-slate-600">YTD (AceEconomy)</div>
+                  <div className={`text-xs font-bold font-mono ${
+                    detailRing.liveYtd != null
+                      ? detailRing.liveYtd >= 0 ? 'text-green-400' : 'text-red-400'
+                      : 'text-slate-500'
+                  }`}>
+                    {detailRing.liveYtd != null
+                      ? `${detailRing.liveYtd >= 0 ? '+' : ''}${detailRing.liveYtd.toFixed(1)}%`
+                      : '— benchmark'}
                   </div>
-                )
-              })}
+                </div>
+                <div className="rounded border border-red-500/15 bg-red-500/5 px-2 py-1.5">
+                  <div className="text-[8px] text-slate-600">Bear case return</div>
+                  <div className={`text-xs font-bold font-mono ${detailRing.bearCase >= 0 ? 'text-slate-300' : 'text-red-400'}`}>
+                    {detailRing.bearCase >= 0 ? '+' : ''}{detailRing.bearCase.toFixed(1)}%
+                  </div>
+                </div>
+                <div className="rounded border border-cyan-500/15 bg-cyan-500/5 px-2 py-1.5">
+                  <div className="text-[8px] text-slate-600">Bull case return</div>
+                  <div className="text-xs font-bold font-mono text-cyan-300">
+                    +{detailRing.bullCase.toFixed(1)}%
+                  </div>
+                </div>
+                <div className="rounded border border-amber-500/15 bg-amber-500/5 px-2 py-1.5 col-span-2">
+                  <div className="text-[8px] text-slate-600 mb-0.5">Worst-case drawdown (bear scenario)</div>
+                  <div className="text-xs font-bold font-mono text-amber-300">{detailRing.maxDrawdown.toFixed(0)}%</div>
+                  <div className="text-[7px] text-slate-700 mt-0.5">
+                    {CATEGORY_LABEL[detailRing.category]} historical bear market estimate · not a guarantee
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-[8px] text-slate-700">
+                {detailRing.liveYtd != null
+                  ? `Live data from AceEconomy VPS. YTD annualised (${new Date().getMonth() + 1}mo) × regime ×${regMult.toFixed(2)} (${regime}).`
+                  : `No live feed for ${detailRing.ticker} — projections use ${CATEGORY_LABEL[detailRing.category]} benchmark ${detailRing.benchmarkReturn}% p.a.`}
+              </div>
             </div>
-            <p className="text-[9px] text-slate-700">Base = live YTD annualised × regime multiplier. Bear = ×0.5, Bull = ×1.6. Estimates only.</p>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Selected ring — detailed panel */}
-      {selectedRing && (
-        <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/5 p-5 space-y-4 animate-in fade-in duration-200">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full"
-                  style={{ background: CATEGORY_COLOR[selectedRing.category] ?? '#64748b' }} />
-                <span className="text-base font-bold font-mono text-white">{selectedRing.ticker}</span>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full ${PERF_BG[selectedRing.perfLabel]}`}>
-                  {selectedRing.perfLabel.replace('-', ' ')}
-                </span>
-              </div>
-              <div className="text-xs text-slate-400 mt-0.5">{selectedRing.name}</div>
-              <div className="text-[10px] text-slate-600">{CATEGORY_LABEL[selectedRing.category] ?? selectedRing.category}</div>
-            </div>
-            <button onClick={() => setSelected(null)} className="text-slate-600 hover:text-white text-lg leading-none">✕</button>
-          </div>
-
-          {/* Metrics grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {[
-              { label: 'Allocation',    value: `${selectedRing.pct.toFixed(1)}%`, color: 'text-cyan-300' },
-              { label: 'YTD',           value: selectedRing.liveYtd != null ? `${selectedRing.liveYtd >= 0 ? '+' : ''}${selectedRing.liveYtd.toFixed(1)}%` : '—', color: selectedRing.liveYtd != null ? (selectedRing.liveYtd >= 0 ? 'text-green-400' : 'text-red-400') : 'text-slate-500' },
-              { label: 'Ann. YTD',      value: selectedRing.ytdAnn != null ? `${selectedRing.ytdAnn >= 0 ? '+' : ''}${selectedRing.ytdAnn.toFixed(1)}%` : '—', color: 'text-slate-300' },
-              { label: 'Manager Est.',  value: `${selectedRing.managerReturn >= 0 ? '+' : ''}${selectedRing.managerReturn.toFixed(1)}%`, color: 'text-purple-300' },
-              { label: 'Bear Case',     value: `${selectedRing.bearCase >= 0 ? '+' : ''}${selectedRing.bearCase.toFixed(1)}%`, color: 'text-red-400' },
-              { label: 'Base Case',     value: `${selectedRing.baseCase >= 0 ? '+' : ''}${selectedRing.baseCase.toFixed(1)}%`, color: 'text-green-400' },
-              { label: 'Bull Case',     value: `${selectedRing.bullCase >= 0 ? '+' : ''}${selectedRing.bullCase.toFixed(1)}%`, color: 'text-cyan-300' },
-              { label: 'Benchmark',     value: `${selectedRing.benchmarkReturn.toFixed(1)}%`, color: 'text-slate-400' },
-            ].map(m => (
-              <div key={m.label} className="rounded-lg border border-white/8 bg-white/3 px-3 py-2">
-                <div className="text-[9px] text-slate-600 mb-0.5">{m.label}</div>
-                <div className={`text-sm font-bold font-mono ${m.color}`}>{m.value}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Data source note */}
-          <div className="text-[9px] text-slate-700">
-            {selectedRing.liveYtd != null
-              ? `Live data from AceEconomy. YTD annualised across ${new Date().getMonth() + 1} months. Regime adjusted ×${(regime.includes('BULL') ? 1.1 : regime.includes('BEAR') ? 0.65 : 0.9).toFixed(2)}.`
-              : `No live data for ${selectedRing.ticker} — projections use ${CATEGORY_LABEL[selectedRing.category]} benchmark (${selectedRing.benchmarkReturn}% p.a.).`}
-          </div>
-
-          {/* AI-style risk insight */}
-          <div className="rounded-lg border border-amber-500/15 bg-amber-500/5 px-3 py-2.5">
-            <div className="text-[10px] font-mono text-amber-400 mb-1">Portfolio Intelligence Note</div>
-            <p className="text-[10px] text-slate-400 leading-relaxed">
-              {selectedRing.pct > 40
-                ? `⚠ ${selectedRing.ticker} at ${selectedRing.pct.toFixed(0)}% is a dominant position — concentration risk is high. A drawdown in this single asset would materially impact overall portfolio performance.`
-                : selectedRing.category === 'thematic'
-                ? `🚀 Thematic allocations like ${selectedRing.ticker} carry higher volatility (typically 2–3× broader market). Suitable as satellite positions (5–15%). Regime: ${regime} — ${regime.includes('BULL') ? 'favourable environment for growth themes' : 'consider sizing down in risk-off regimes'}.`
-                : selectedRing.category === 'fixed_income' && regime.includes('BEAR')
-                ? `🛡 Fixed income allocation (${selectedRing.pct.toFixed(0)}%) provides defensive ballast in the current ${regime} regime. Duration risk applies if rates rise.`
-                : selectedRing.liveYtd != null && selectedRing.liveYtd < -5
-                ? `◈ ${selectedRing.ticker} is underperforming YTD (${selectedRing.liveYtd.toFixed(1)}%). Review whether this is a tactical or structural position. Current regime (${regime}) may be unfavourable.`
-                : `${selectedRing.ticker} appears appropriately sized at ${selectedRing.pct.toFixed(0)}% within the ${CATEGORY_LABEL[selectedRing.category]} allocation. Monitor regime shifts.`
-              }
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Market context bar */}
+      {/* Market context */}
       {commentary && (
-        <div className="rounded-lg border border-white/8 bg-white/3 px-4 py-2.5 text-[10px] text-slate-400">
-          <span className="text-slate-600 font-mono uppercase tracking-wider mr-2">AceEconomy:</span>
+        <div className="rounded-lg border border-white/8 bg-white/3 px-4 py-2 text-[9px] text-slate-500">
+          <span className="font-mono text-slate-600 uppercase tracking-wider mr-2">AceEconomy:</span>
           {commentary}
         </div>
       )}
