@@ -621,6 +621,10 @@ export default function FinancialDashboard() {
           {lastScan && (market === 'US' || market === 'HK' || market === 'JP' || market === 'SG') && (
             <p className="text-[11px] text-slate-600 mt-1">Last scan: {lastScan}</p>
           )}
+          <Link href="/citizen/dashboard/financial/portfolio-builder"
+            className="inline-flex items-center gap-2 mt-3 px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/8 text-amber-300 text-[11px] font-medium hover:bg-amber-500/15 transition">
+            📐 Portfolio Builder — allocation, projections & client sharing
+          </Link>
         </div>
 
         {/* Stats row */}
