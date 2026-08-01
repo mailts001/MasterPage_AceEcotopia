@@ -35,17 +35,20 @@ const BENCHMARK: Record<string, { ret: number; source: string }> = {
   commodities:     { ret: 4.0,  source: 'Bloomberg Commodity Index 20-yr avg' },
   private_equity:  { ret: 10.0, source: 'Cambridge Associates Global PE benchmark' },
   philanthropy:    { ret: 0.0,  source: 'Non-financial (impact) return' },
+  thematic:        { ret: 12.0, source: 'ARK Innovation / thematic ETF 5-yr avg (high variance)' },
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
   equity: 'Equity', fixed_income: 'Fixed Income / Bonds',
   fx: 'FX / Currency', commodities: 'Commodities & Alternatives',
   private_equity: 'Private Equity', philanthropy: 'Philanthropy / Impact',
+  thematic: 'Thematic / Strategic',
 }
 
 const CATEGORY_ICONS: Record<string, string> = {
   equity: '📈', fixed_income: '🏦', fx: '💱',
   commodities: '🛢', private_equity: '🏛', philanthropy: '🌱',
+  thematic: '🚀',
 }
 
 // Pre-populated catalog — hasLive=true means ticker exists in AceEconomy intel.asset_classes
@@ -81,8 +84,24 @@ const CATALOG: { ticker: string; name: string; category: string; hasLive: boolea
   { ticker: 'PSP',  name: 'Listed PE ETF (PSP)',  category: 'private_equity', hasLive: false },
   { ticker: 'PE-DIRECT', name: 'Direct PE / Buyout (unlisted)', category: 'private_equity', hasLive: false },
   // Philanthropy
-  { ticker: 'ESG',  name: 'ESG / Impact Fund',   category: 'philanthropy',    hasLive: false },
-  { ticker: 'CHARITY', name: 'Charitable Donation', category: 'philanthropy', hasLive: false },
+  { ticker: 'ESG',  name: 'ESG / Impact Fund',         category: 'philanthropy',    hasLive: false },
+  { ticker: 'CHARITY', name: 'Charitable Donation',    category: 'philanthropy',    hasLive: false },
+  // Thematic / Strategic
+  { ticker: 'BOTZ', name: 'AI & Robotics (BOTZ)',      category: 'thematic',        hasLive: false },
+  { ticker: 'AIQ',  name: 'Global AI & Tech (AIQ)',    category: 'thematic',        hasLive: false },
+  { ticker: 'ARKK', name: 'ARK Innovation (ARKK)',     category: 'thematic',        hasLive: false },
+  { ticker: 'ARKG', name: 'ARK Genomics (ARKG)',       category: 'thematic',        hasLive: false },
+  { ticker: 'ICLN', name: 'Clean Energy (ICLN)',       category: 'thematic',        hasLive: false },
+  { ticker: 'LIT',  name: 'Lithium & Battery Tech',    category: 'thematic',        hasLive: false },
+  { ticker: 'SOXX', name: 'Semiconductors (SOXX)',     category: 'thematic',        hasLive: false },
+  { ticker: 'IDRV', name: 'Autonomous & EV (IDRV)',    category: 'thematic',        hasLive: false },
+  { ticker: 'UFO',  name: 'Space Exploration (UFO)',   category: 'thematic',        hasLive: false },
+  { ticker: 'SKYY', name: 'Cloud Computing (SKYY)',    category: 'thematic',        hasLive: false },
+  { ticker: 'FIVG', name: '5G Networks (FIVG)',        category: 'thematic',        hasLive: false },
+  { ticker: 'INCO', name: 'India Growth (INCO)',       category: 'thematic',        hasLive: false },
+  { ticker: 'ASEA', name: 'ASEAN 40 (ASEA)',           category: 'thematic',        hasLive: false },
+  { ticker: 'SPACEX-PRE', name: 'SpaceX (pre-IPO / private)', category: 'thematic', hasLive: false },
+  { ticker: 'OPENAI-PRE', name: 'OpenAI (pre-IPO / private)', category: 'thematic', hasLive: false },
 ]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -180,11 +199,11 @@ function suggestFromRisk(risk: number, targetReturn: number): Record<string, num
   // Returns suggested allocations by category summing to 100
   const r = Math.min(5, Math.max(1, risk))
   const base: Record<string, number> =
-    r <= 1.5 ? { equity: 20, fixed_income: 55, fx: 5, commodities: 10, private_equity: 5, philanthropy: 5 } :
-    r <= 2.5 ? { equity: 35, fixed_income: 40, fx: 5, commodities: 10, private_equity: 8, philanthropy: 2 } :
-    r <= 3.5 ? { equity: 55, fixed_income: 25, fx: 5, commodities: 10, private_equity: 5, philanthropy: 0 } :
-    r <= 4.5 ? { equity: 70, fixed_income: 10, fx: 5, commodities: 10, private_equity: 5, philanthropy: 0 } :
-               { equity: 80, fixed_income: 5,  fx: 0, commodities: 10, private_equity: 5, philanthropy: 0 }
+    r <= 1.5 ? { equity: 20, fixed_income: 55, fx: 5, commodities: 10, private_equity: 5, philanthropy: 5,  thematic: 0  } :
+    r <= 2.5 ? { equity: 33, fixed_income: 38, fx: 5, commodities: 10, private_equity: 8, philanthropy: 2,  thematic: 4  } :
+    r <= 3.5 ? { equity: 50, fixed_income: 22, fx: 5, commodities: 10, private_equity: 5, philanthropy: 0,  thematic: 8  } :
+    r <= 4.5 ? { equity: 60, fixed_income: 8,  fx: 5, commodities: 10, private_equity: 5, philanthropy: 0,  thematic: 12 } :
+               { equity: 65, fixed_income: 5,  fx: 0, commodities: 8,  private_equity: 7, philanthropy: 0,  thematic: 15 }
 
   // Nudge equity vs bonds toward targetReturn using conservative benchmark
   const conservativeRet = Object.entries(base).reduce((s, [cat, w]) => s + (BENCHMARK[cat]?.ret ?? 0) * w / 100, 0)
