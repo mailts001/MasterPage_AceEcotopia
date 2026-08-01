@@ -214,8 +214,6 @@ export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vi
   const vX = (520 - vW) / 2
   const vY = Math.max(0, (260 - vH + 8))  // bias toward top of arc
 
-  // Top 3 holdings for below-semicircle summary
-  const top3 = [...rings].sort((a, b) => b.pct - a.pct).slice(0, 3)
 
   return (
     <div className="space-y-3">
@@ -266,7 +264,7 @@ export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vi
           <svg
             viewBox={`${vX} ${vY} ${vW} ${vH}`}
             className="w-full"
-            style={{ filter: 'drop-shadow(0 0 24px rgba(6,182,212,0.09))', overflow: 'visible' }}>
+            style={{ filter: 'drop-shadow(0 0 24px rgba(6,182,212,0.09))' }}>
 
             {/* Semicircular background — only the arc area, no rectangle */}
             <path
@@ -346,40 +344,86 @@ export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vi
             </text>
           </svg>
 
-          {/* Below-arc: top holdings summary */}
-          {top3.length > 0 && (
-            <div className="space-y-1">
-              <div className="text-[10px] font-mono text-slate-600 uppercase tracking-wider">Top holdings</div>
-              {top3.map(r => (
-                <div key={r.id}
-                  onMouseEnter={() => setHovered(r.id)}
-                  onMouseLeave={() => setHovered(null)}
-                  onClick={() => setSelected(r.id === selected ? null : r.id)}
-                  className={`flex items-center gap-2 cursor-pointer rounded-lg px-2.5 py-2 border transition ${
-                    selected === r.id ? 'border-cyan-500/40 bg-cyan-500/8' :
-                    hovered  === r.id ? 'border-white/20 bg-white/5' : 'border-white/8 bg-white/3'
-                  }`}>
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: CATEGORY_COLOR[r.category] ?? '#64748b' }} />
-                  <span className="text-[11px] font-mono font-bold text-white">{r.ticker}</span>
-                  <span className="text-[10px] text-slate-500 flex-1 truncate">{CATEGORY_LABEL[r.category]}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${PERF_BG[r.perfLabel]}`}>
-                    {r.liveYtd != null ? `${r.liveYtd >= 0 ? '+' : ''}${r.liveYtd.toFixed(1)}% YTD` : 'est'}
+          {/* Below-arc: clicked ring detail (empty hint when nothing selected) */}
+          {!detailRing ? (
+            <div className="rounded-lg border border-dashed border-white/10 py-4 text-center text-[10px] text-slate-700">
+              Click a ring above for return projections &amp; drawdown history
+            </div>
+          ) : (
+            <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3 space-y-2 animate-in fade-in duration-150">
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full" style={{ background: CATEGORY_COLOR[detailRing.category] ?? '#64748b' }} />
+                  <span className="text-sm font-bold font-mono text-white">{detailRing.ticker}</span>
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${PERF_BG[detailRing.perfLabel]}`}>
+                    {detailRing.perfLabel.replace('-', ' ')}
                   </span>
-                  <span className="text-[11px] font-bold font-mono text-cyan-300 shrink-0">{r.pct.toFixed(0)}%</span>
                 </div>
-              ))}
+                {selectedRing && (
+                  <button onClick={() => setSelected(null)} className="text-slate-600 hover:text-white text-xs">✕</button>
+                )}
+              </div>
+              <div className="text-[9px] text-slate-500">{detailRing.name} · {CATEGORY_LABEL[detailRing.category]}</div>
+
+              {/* Key numbers */}
+              <div className="grid grid-cols-2 gap-1.5">
+                <div className="rounded border border-white/8 bg-white/3 px-2 py-1.5">
+                  <div className="text-[8px] text-slate-600">Allocation</div>
+                  <div className="text-xs font-bold font-mono text-cyan-300">{detailRing.pct.toFixed(1)}%</div>
+                </div>
+                <div className="rounded border border-white/8 bg-white/3 px-2 py-1.5">
+                  <div className="text-[8px] text-slate-600">YTD live</div>
+                  <div className={`text-xs font-bold font-mono ${detailRing.liveYtd != null ? (detailRing.liveYtd >= 0 ? 'text-green-400' : 'text-red-400') : 'text-slate-500'}`}>
+                    {detailRing.liveYtd != null ? `${detailRing.liveYtd >= 0 ? '+' : ''}${detailRing.liveYtd.toFixed(1)}%` : '— benchmark'}
+                  </div>
+                </div>
+                <div className="rounded border border-red-500/15 bg-red-500/5 px-2 py-1.5">
+                  <div className="text-[8px] text-slate-600">Bear return est.</div>
+                  <div className={`text-xs font-bold font-mono ${detailRing.bearCase >= 0 ? 'text-slate-300' : 'text-red-400'}`}>
+                    {detailRing.bearCase >= 0 ? '+' : ''}{detailRing.bearCase.toFixed(1)}%
+                  </div>
+                </div>
+                <div className="rounded border border-cyan-500/15 bg-cyan-500/5 px-2 py-1.5">
+                  <div className="text-[8px] text-slate-600">Bull return est.</div>
+                  <div className="text-xs font-bold font-mono text-cyan-300">+{detailRing.bullCase.toFixed(1)}%</div>
+                </div>
+              </div>
+
+              {/* Historical drawdowns */}
+              <div className="rounded border border-amber-500/15 bg-amber-500/5 px-2.5 py-2 space-y-1">
+                <div className="text-[9px] font-mono text-amber-400 uppercase tracking-wider mb-1">
+                  Historical drawdowns — {CATEGORY_LABEL[detailRing.category]}
+                </div>
+                {(DRAWDOWN_HISTORY[detailRing.category] ?? []).map((dd, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <span className={`text-[10px] font-bold font-mono shrink-0 w-9 ${dd.pct < 0 ? 'text-red-400' : 'text-slate-500'}`}>
+                      {dd.pct}%
+                    </span>
+                    <div>
+                      <div className="text-[10px] text-slate-300 leading-tight">{dd.event}</div>
+                      <div className="text-[9px] text-slate-600">{dd.duration}</div>
+                    </div>
+                  </div>
+                ))}
+                <p className="text-[8px] text-slate-700 mt-0.5">Peak-to-trough. Past crises do not predict future severity.</p>
+              </div>
+
+              <div className="text-[8px] text-slate-700">
+                {detailRing.liveYtd != null
+                  ? `AceEconomy live · YTD annualised (${new Date().getMonth() + 1}mo) × regime ×${regMult.toFixed(2)} (${regime})`
+                  : `No live feed — using ${CATEGORY_LABEL[detailRing.category]} benchmark ${detailRing.benchmarkReturn}% p.a.`}
+              </div>
             </div>
           )}
         </div>
 
-        {/* Right panel */}
+        {/* Right panel: portfolio outlook + holdings list only */}
         <div className="flex-1 min-w-0 space-y-2.5">
 
-          {/* Portfolio scenario projections */}
-          <div className="rounded-lg border border-white/8 bg-white/3 p-3">
-            <div className="text-[10px] font-mono text-slate-500 uppercase tracking-wider mb-2">
-              Portfolio outlook — {regime}
-            </div>
+          {/* AceEconomy calculation explanation */}
+          <div className="rounded-lg border border-white/8 bg-white/3 p-3 space-y-2">
+            <div className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">Portfolio outlook — {regime}</div>
             <div className="grid grid-cols-3 gap-1.5">
               {([
                 { label: 'Bear', key: 'bearCase', color: 'text-red-400',   border: 'border-red-500/15'   },
@@ -394,13 +438,21 @@ export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vi
                 </div>
               ))}
             </div>
-            <p className="text-[8px] text-slate-700 mt-1.5 leading-snug">
-              Base = live YTD annualised × regime ×{regMult.toFixed(2)}. Bear = base×0.5 (return compression, not drawn-down capital). Bull = base×1.6. These are annualised return estimates, not point-in-time drawdown scenarios.
-            </p>
+            <details className="group">
+              <summary className="text-[9px] text-slate-600 cursor-pointer hover:text-slate-400 list-none flex items-center gap-1">
+                <span className="group-open:rotate-90 inline-block transition-transform">▶</span> How is Base calculated?
+              </summary>
+              <div className="text-[9px] text-slate-500 mt-1.5 leading-relaxed space-y-1">
+                <p><strong className="text-slate-400">Base (AceEconomy):</strong> For each holding, if AceEconomy VPS has live YTD data, it annualises it (YTD ÷ {new Date().getMonth() + 1} months × 12) then applies the regime multiplier (×{regMult.toFixed(2)} for {regime}). Holdings without live data fall back to long-run category benchmarks. The blended result is weighted by your portfolio allocations.</p>
+                <p><strong className="text-slate-400">Bear:</strong> Base × 0.5 — a return compression scenario (markets underperform trend). <strong className="text-slate-400">Bull:</strong> Base × 1.6 — outperformance.</p>
+                <p className="text-slate-700">These are estimated annual returns, not peak-to-trough drawdown figures. Click a ring for historical crisis drawdowns.</p>
+              </div>
+            </details>
           </div>
 
-          {/* Holdings list */}
-          <div className="space-y-1 max-h-[180px] overflow-y-auto pr-0.5">
+          {/* Holdings list — click to see detail below the wheel */}
+          <div className="text-[9px] text-slate-600 px-0.5">Click any holding to see projections &amp; drawdown ↙</div>
+          <div className="space-y-1 max-h-[240px] overflow-y-auto pr-0.5">
             {rings.map((r, i) => {
               if (!radii[i]) return null
               return (
@@ -425,80 +477,6 @@ export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vi
               )
             })}
           </div>
-
-          {/* Asset detail panel */}
-          {detailRing && (
-            <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3 space-y-2.5 animate-in fade-in duration-150">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: CATEGORY_COLOR[detailRing.category] ?? '#64748b' }} />
-                  <span className="text-sm font-bold font-mono text-white">{detailRing.ticker}</span>
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${PERF_BG[detailRing.perfLabel]}`}>
-                    {detailRing.perfLabel.replace('-', ' ')}
-                  </span>
-                </div>
-                {selectedRing && (
-                  <button onClick={() => setSelected(null)} className="text-slate-600 hover:text-white text-xs">✕</button>
-                )}
-              </div>
-              <div className="text-[10px] text-slate-500">{detailRing.name} · {CATEGORY_LABEL[detailRing.category]}</div>
-
-              {/* Return scenarios */}
-              <div className="grid grid-cols-2 gap-1.5">
-                <div className="rounded border border-white/8 bg-white/3 px-2 py-1.5">
-                  <div className="text-[8px] text-slate-600">Allocation</div>
-                  <div className="text-xs font-bold font-mono text-cyan-300">{detailRing.pct.toFixed(1)}%</div>
-                </div>
-                <div className="rounded border border-white/8 bg-white/3 px-2 py-1.5">
-                  <div className="text-[8px] text-slate-600">YTD (AceEconomy live)</div>
-                  <div className={`text-xs font-bold font-mono ${
-                    detailRing.liveYtd != null ? (detailRing.liveYtd >= 0 ? 'text-green-400' : 'text-red-400') : 'text-slate-500'
-                  }`}>
-                    {detailRing.liveYtd != null
-                      ? `${detailRing.liveYtd >= 0 ? '+' : ''}${detailRing.liveYtd.toFixed(1)}%`
-                      : '— using benchmark'}
-                  </div>
-                </div>
-                <div className="rounded border border-red-500/15 bg-red-500/5 px-2 py-1.5">
-                  <div className="text-[8px] text-slate-600">Bear case return</div>
-                  <div className={`text-xs font-bold font-mono ${detailRing.bearCase >= 0 ? 'text-slate-300' : 'text-red-400'}`}>
-                    {detailRing.bearCase >= 0 ? '+' : ''}{detailRing.bearCase.toFixed(1)}%
-                  </div>
-                </div>
-                <div className="rounded border border-cyan-500/15 bg-cyan-500/5 px-2 py-1.5">
-                  <div className="text-[8px] text-slate-600">Bull case return</div>
-                  <div className="text-xs font-bold font-mono text-cyan-300">+{detailRing.bullCase.toFixed(1)}%</div>
-                </div>
-              </div>
-
-              {/* Historical drawdown with crisis reference */}
-              <div className="rounded border border-amber-500/15 bg-amber-500/5 px-2.5 py-2 space-y-1.5">
-                <div className="text-[9px] font-mono text-amber-400 uppercase tracking-wider">
-                  Historical bear-market drawdowns — {CATEGORY_LABEL[detailRing.category]}
-                </div>
-                {(DRAWDOWN_HISTORY[detailRing.category] ?? []).map((dd, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <span className={`text-[10px] font-bold font-mono shrink-0 w-10 ${dd.pct < 0 ? 'text-red-400' : 'text-slate-500'}`}>
-                      {dd.pct < 0 ? '' : '~'}{dd.pct}%
-                    </span>
-                    <div className="min-w-0">
-                      <div className="text-[10px] text-slate-300 leading-tight">{dd.event}</div>
-                      <div className="text-[9px] text-slate-600">{dd.duration}</div>
-                    </div>
-                  </div>
-                ))}
-                <p className="text-[8px] text-slate-700 mt-1 leading-snug">
-                  Peak-to-trough drawdown figures. Past crises do not predict future severity or timing.
-                </p>
-              </div>
-
-              <div className="text-[8px] text-slate-700">
-                {detailRing.liveYtd != null
-                  ? `AceEconomy VPS live feed. YTD annualised over ${new Date().getMonth() + 1} months × regime ×${regMult.toFixed(2)} (${regime}).`
-                  : `No live feed for ${detailRing.ticker} — projections use ${CATEGORY_LABEL[detailRing.category]} long-run benchmark ${detailRing.benchmarkReturn}% p.a.`}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
