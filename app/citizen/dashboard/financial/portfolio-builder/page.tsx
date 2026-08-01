@@ -432,6 +432,25 @@ export default function PortfolioBuilderPage() {
               <h1 style={{ fontSize: 22, fontWeight: 'bold', marginBottom: 4 }}>Portfolio Allocation — {label}</h1>
               <p style={{ fontSize: 11, color: '#666', marginBottom: 20 }}>Generated {new Date().toLocaleString('en-SG')} · X68 Financial District · For discussion purposes only.</p>
               <h2 style={{ fontSize: 14, marginBottom: 8 }}>Asset Allocation</h2>
+              {/* Bar chart */}
+              <svg width="520" height={Math.max(40, ph.length * 28)} style={{ display: 'block', marginBottom: 16 }}>
+                {ph.map((h, i) => {
+                  const BAR_COLORS: Record<string, string> = {
+                    equity: '#3b82f6', fixed_income: '#22c55e', fx: '#eab308',
+                    commodities: '#f97316', private_equity: '#a855f7', philanthropy: '#ec4899',
+                    thematic: '#06b6d4', cash: '#94a3b8',
+                  }
+                  const barW = Math.round((h.pct / 100) * 380)
+                  const y = i * 28
+                  return (
+                    <g key={h.id}>
+                      <text x={0} y={y + 14} style={{ fontSize: 10, fontFamily: 'monospace', dominantBaseline: 'middle' }}>{h.ticker}</text>
+                      <rect x={52} y={y + 4} width={barW} height={18} fill={BAR_COLORS[h.category] ?? '#94a3b8'} rx={3} />
+                      <text x={52 + barW + 5} y={y + 14} style={{ fontSize: 10, fontFamily: 'sans-serif', dominantBaseline: 'middle' }}>{h.pct.toFixed(1)}%</text>
+                    </g>
+                  )
+                })}
+              </svg>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginBottom: 20 }}>
                 <thead><tr style={{ borderBottom: '1px solid #ccc' }}>
                   <th style={{ textAlign: 'left', padding: '4px 8px' }}>Ticker</th>
@@ -1145,9 +1164,23 @@ export default function PortfolioBuilderPage() {
                           )}
                           <div className="flex-1 space-y-2">
                             <p className="text-[11px] text-slate-400 leading-relaxed">
-                              QR code encodes the confirmed portfolio allocation. Client can scan to view a summary of their holdings.
-                              Generate a PDF for a formal record including full assumptions and disclaimer.
+                              QR code is <strong className="text-cyan-300">live</strong> — it encodes a unique URL on this platform.
+                              When scanned, clients see a read-only view of their confirmed portfolio allocation — no login required.
+                              Works instantly on any Vercel deployment.
                             </p>
+                            {qrUrl && (() => {
+                              const ph = confirmed === 'manager' ? holdings : clientHoldings
+                              const label = confirmed === 'manager' ? 'Manager Portfolio' : `${clientProfile.name || 'Client'} Risk-Adjusted Portfolio`
+                              const payload = { label, date: new Date().toLocaleDateString('en-SG'), holdings: ph.map(x => ({ ticker: x.ticker, name: x.name, pct: x.pct })) }
+                              const base64 = typeof window !== 'undefined' ? btoa(JSON.stringify(payload)) : ''
+                              const url = typeof window !== 'undefined' ? `${window.location.origin}/portfolio-view?d=${base64}` : ''
+                              return url ? (
+                                <p className="text-[9px] text-slate-600 break-all leading-snug">
+                                  <span className="text-slate-500">Link: </span>{url.slice(0, 80)}{url.length > 80 ? '…' : ''}
+                                </p>
+                              ) : null
+                            })()}
+                            <p className="text-[10px] text-slate-500">Generate a PDF for a formal record including the allocation chart, return scenarios, and disclaimer.</p>
                             <button onClick={handlePrint}
                               className="w-full bg-white text-black font-bold text-xs py-2.5 rounded-lg hover:bg-gray-100 transition">
                               🖨 Download / Print PDF
