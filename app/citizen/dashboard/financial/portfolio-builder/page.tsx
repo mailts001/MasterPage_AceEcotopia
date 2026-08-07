@@ -1220,32 +1220,74 @@ export default function PortfolioBuilderPage() {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-white/5">
-                            {[
-                              { label: 'Manager estimate',     mVal: proj.managerBlended,     cVal: cProj.managerBlended,     note: 'Weighted avg of manager-inputted expected returns'           },
-                              { label: 'AceEconomy (live)',    mVal: proj.aceBlended,         cVal: cProj.aceBlended,         note: 'Live YTD annualised × regime multiplier per holding'          },
-                              { label: 'Conservative benchmark', mVal: proj.conservativeBlended, cVal: cProj.conservativeBlended, note: 'Long-run asset class averages (no live data)' },
-                              { label: 'Bear case (−50% base)', mVal: proj.aceBlended * 0.5,  cVal: cProj.aceBlended * 0.5,   note: 'AceEconomy base compressed by 50% — return drag scenario'   },
-                              { label: 'Bull case (×1.6 base)', mVal: proj.aceBlended * 1.6,  cVal: cProj.aceBlended * 1.6,   note: 'AceEconomy base ×1.6 — strong outperformance scenario'      },
-                            ].map(({ label, mVal, cVal, note }) => {
-                              const delta = cVal - mVal
+                            {(() => {
+                              // SPY live YTD from AceEconomy intel feed
+                              const spyLive = intel?.asset_classes?.find(a => a.ticker === 'SPY')
+                              const spyYtdAnn = spyLive?.chg_ytd != null ? annualise(spyLive.chg_ytd) : null
+                              const spyVol = 16.0  // SPY historical ann. vol ~15-17%
+                              const spySharpe = spyYtdAnn != null ? (spyYtdAnn - RISK_FREE_RATE) / spyVol : null
+
+                              const rows: { label: string; mVal: number; cVal: number; note: string; highlight?: boolean }[] = [
+                                { label: 'Manager estimate',       mVal: proj.managerBlended,       cVal: cProj.managerBlended,       note: 'Weighted avg of manager-inputted expected returns'      },
+                                { label: 'AceEconomy (live)',      mVal: proj.aceBlended,           cVal: cProj.aceBlended,           note: 'Live YTD annualised × regime multiplier per holding'    },
+                                { label: 'Conservative benchmark', mVal: proj.conservativeBlended,  cVal: cProj.conservativeBlended,  note: 'Long-run asset class averages (no live data)'           },
+                                { label: 'Bear case (−50% base)',  mVal: proj.aceBlended * 0.5,     cVal: cProj.aceBlended * 0.5,     note: 'AceEconomy base compressed by 50% — return drag scenario' },
+                                { label: 'Bull case (×1.6 base)',  mVal: proj.aceBlended * 1.6,     cVal: cProj.aceBlended * 1.6,     note: 'AceEconomy base ×1.6 — strong outperformance scenario'  },
+                              ]
                               return (
-                                <tr key={label} className="hover:bg-white/3 transition">
-                                  <td className="py-2 pr-3">
-                                    <div className="text-slate-300">{label}</div>
-                                    <div className="text-[9px] text-slate-600">{note}</div>
-                                  </td>
-                                  <td className={`py-2 px-3 text-right font-mono font-bold ${mVal >= 0 ? 'text-indigo-300' : 'text-red-400'}`}>
-                                    {mVal >= 0 ? '+' : ''}{mVal.toFixed(1)}%
-                                  </td>
-                                  <td className={`py-2 px-3 text-right font-mono font-bold ${cVal >= 0 ? 'text-cyan-300' : 'text-red-400'}`}>
-                                    {cVal >= 0 ? '+' : ''}{cVal.toFixed(1)}%
-                                  </td>
-                                  <td className={`py-2 pl-3 text-right font-mono text-[10px] ${Math.abs(delta) < 0.5 ? 'text-slate-600' : delta > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                    {delta >= 0 ? '+' : ''}{delta.toFixed(1)}%
-                                  </td>
-                                </tr>
+                                <>
+                                  {rows.map(({ label, mVal, cVal, note }) => {
+                                    const delta = cVal - mVal
+                                    return (
+                                      <tr key={label} className="hover:bg-white/3 transition">
+                                        <td className="py-2 pr-3">
+                                          <div className="text-slate-300">{label}</div>
+                                          <div className="text-[9px] text-slate-600">{note}</div>
+                                        </td>
+                                        <td className={`py-2 px-3 text-right font-mono font-bold ${mVal >= 0 ? 'text-indigo-300' : 'text-red-400'}`}>
+                                          {mVal >= 0 ? '+' : ''}{mVal.toFixed(1)}%
+                                        </td>
+                                        <td className={`py-2 px-3 text-right font-mono font-bold ${cVal >= 0 ? 'text-cyan-300' : 'text-red-400'}`}>
+                                          {cVal >= 0 ? '+' : ''}{cVal.toFixed(1)}%
+                                        </td>
+                                        <td className={`py-2 pl-3 text-right font-mono text-[10px] ${Math.abs(delta) < 0.5 ? 'text-slate-600' : delta > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                          {delta >= 0 ? '+' : ''}{delta.toFixed(1)}%
+                                        </td>
+                                      </tr>
+                                    )
+                                  })}
+
+                                  {/* SPY passive benchmark separator + row */}
+                                  <tr><td colSpan={4} className="pt-1 pb-0"><div className="border-t border-white/8" /></td></tr>
+                                  <tr className="hover:bg-white/3 transition bg-white/2">
+                                    <td className="py-2 pr-3">
+                                      <div className="flex items-center gap-1.5 text-slate-300">
+                                        <span className="text-[9px] bg-orange-500/15 text-orange-300 px-1.5 py-0.5 rounded font-mono">SPY</span>
+                                        S&amp;P 500 passive benchmark
+                                      </div>
+                                      <div className="text-[9px] text-slate-600">
+                                        {spyYtdAnn != null
+                                          ? `Live YTD ${spyLive!.chg_ytd >= 0 ? '+' : ''}${spyLive!.chg_ytd.toFixed(1)}% annualised to ${spyYtdAnn.toFixed(1)}% · σ ~${spyVol}% · Sharpe ${spySharpe?.toFixed(2) ?? '—'} — are both portfolios beating the index?`
+                                          : 'SPY YTD data unavailable from AceEconomy feed'}
+                                      </div>
+                                    </td>
+                                    <td className={`py-2 px-3 text-right font-mono font-bold ${spyYtdAnn != null && proj.aceBlended > (spyYtdAnn ?? 0) ? 'text-green-400' : 'text-orange-300'}`}>
+                                      {spyYtdAnn != null
+                                        ? <>{spyYtdAnn >= 0 ? '+' : ''}{spyYtdAnn.toFixed(1)}% <span className="text-[9px] font-normal text-slate-600">{proj.aceBlended > (spyYtdAnn ?? 0) ? '▲ ahead' : '▼ behind'}</span></>
+                                        : <span className="text-slate-600">—</span>}
+                                    </td>
+                                    <td className={`py-2 px-3 text-right font-mono font-bold ${spyYtdAnn != null && cProj.aceBlended > (spyYtdAnn ?? 0) ? 'text-green-400' : 'text-orange-300'}`}>
+                                      {spyYtdAnn != null
+                                        ? <>{spyYtdAnn >= 0 ? '+' : ''}{spyYtdAnn.toFixed(1)}% <span className="text-[9px] font-normal text-slate-600">{cProj.aceBlended > (spyYtdAnn ?? 0) ? '▲ ahead' : '▼ behind'}</span></>
+                                        : <span className="text-slate-600">—</span>}
+                                    </td>
+                                    <td className="py-2 pl-3 text-right text-[9px] text-slate-600 font-mono">
+                                      {spySharpe != null ? `Sharpe ${spySharpe.toFixed(2)}` : '—'}
+                                    </td>
+                                  </tr>
+                                </>
                               )
-                            })}
+                            })()}
 
                             {/* Separator row */}
                             <tr><td colSpan={4} className="pt-1 pb-0"><div className="border-t border-white/8" /></td></tr>
