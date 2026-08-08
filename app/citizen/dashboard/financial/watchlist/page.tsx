@@ -157,7 +157,7 @@ function PeerBars({ ticker, peers, spy, period = '1y' }: {
 
 // ── Single ticker card ────────────────────────────────────────────────────────
 
-function TickerCard({ d }: { d: TickerData }) {
+function TickerCard({ d, onRemove, removing }: { d: TickerData; onRemove: () => void; removing: boolean }) {
   const [expanded, setExpanded] = useState(false)
   const sh = d.sharpe_1y
   const { label: shLabel, color: shColor } = sharpeLabel(sh)
@@ -197,6 +197,14 @@ function TickerCard({ d }: { d: TickerData }) {
         {d.bull_score != null && (
           <span className="text-[9px] text-slate-500">Score {d.bull_score}/4</span>
         )}
+        <button
+          onClick={onRemove}
+          disabled={removing}
+          title="Remove from watchlist"
+          className="ml-1 text-[11px] text-slate-600 hover:text-red-400 transition disabled:opacity-30"
+        >
+          {removing ? '…' : '✕'}
+        </button>
       </div>
 
       {/* Bull reasons */}
@@ -322,10 +330,14 @@ function AlertCriteriaPanel() {
 type Filter = 'all' | 'buy' | 'squeeze' | 'watch'
 
 export default function WatchlistSignalsPage() {
-  const [data, setData]       = useState<WatchlistResponse | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [filter, setFilter]   = useState<Filter>('all')
-  const [lastAt, setLastAt]   = useState<string | null>(null)
+  const [data, setData]         = useState<WatchlistResponse | null>(null)
+  const [loading, setLoading]   = useState(true)
+  const [filter, setFilter]     = useState<Filter>('all')
+  const [lastAt, setLastAt]     = useState<string | null>(null)
+  const [addInput, setAddInput] = useState('')
+  const [adding, setAdding]     = useState(false)
+  const [addErr, setAddErr]     = useState<string | null>(null)
+  const [removing, setRemoving] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -342,6 +354,42 @@ export default function WatchlistSignalsPage() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault()
+    const ticker = addInput.trim().toUpperCase()
+    if (!ticker) return
+    setAdding(true)
+    setAddErr(null)
+    try {
+      const res = await fetch('/api/citizen/watchlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ district: 'aceeconomy', asset_id: ticker, asset_meta: {} }),
+      })
+      if (!res.ok) { const j = await res.json(); setAddErr(j.error ?? 'Failed'); return }
+      setAddInput('')
+      await load()
+    } catch { setAddErr('Network error') }
+    finally { setAdding(false) }
+  }
+
+  async function handleRemove(ticker: string) {
+    // First, get the saved_assets id for this ticker
+    setRemoving(ticker)
+    try {
+      const listRes = await fetch('/api/citizen/watchlist')
+      const list: { id: string; asset_id: string }[] = await listRes.json()
+      const row = list.find(r => r.asset_id.toUpperCase() === ticker)
+      if (!row) return
+      await fetch('/api/citizen/watchlist', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: row.id }),
+      })
+      await load()
+    } finally { setRemoving(null) }
+  }
 
   const tickers = (data?.tickers ?? []).filter(t => !t.error)
   const errored = (data?.tickers ?? []).filter(t => !!t.error)
@@ -360,24 +408,45 @@ export default function WatchlistSignalsPage() {
     <div className="min-h-screen bg-[#0A0E1A] text-white px-4 py-6 max-w-3xl mx-auto space-y-6">
 
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <Link href="/citizen/dashboard/financial" className="text-[10px] text-slate-600 hover:text-slate-400 transition">
-            ← Financial District
-          </Link>
-          <h1 className="text-xl font-bold text-white mt-1">Watchlist Signals</h1>
-          <p className="text-[11px] text-slate-500 mt-0.5">
-            {tickers.length} ticker{tickers.length !== 1 ? 's' : ''} · live performance + nightly scan signals
-            {lastAt && ` · updated ${new Date(lastAt).toLocaleTimeString('en-SG', { hour: '2-digit', minute: '2-digit' })} SGT`}
-          </p>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <Link href="/citizen/dashboard/financial" className="text-[10px] text-slate-600 hover:text-slate-400 transition">
+              ← Financial District
+            </Link>
+            <h1 className="text-xl font-bold text-white mt-1">Watchlist Signals</h1>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              {tickers.length} ticker{tickers.length !== 1 ? 's' : ''} · live performance + nightly scan signals
+              {lastAt && ` · updated ${new Date(lastAt).toLocaleTimeString('en-SG', { hour: '2-digit', minute: '2-digit' })} SGT`}
+            </p>
+          </div>
+          <button
+            onClick={load}
+            disabled={loading}
+            className="text-[11px] border border-white/15 rounded-lg px-3 py-1.5 text-slate-400 hover:text-white hover:border-white/30 transition disabled:opacity-40"
+          >
+            {loading ? '…' : '↻ Refresh'}
+          </button>
         </div>
-        <button
-          onClick={load}
-          disabled={loading}
-          className="text-[11px] border border-white/15 rounded-lg px-3 py-1.5 text-slate-400 hover:text-white hover:border-white/30 transition disabled:opacity-40"
-        >
-          {loading ? '…' : '↻ Refresh'}
-        </button>
+
+        {/* Add ticker */}
+        <form onSubmit={handleAdd} className="flex gap-2 items-center">
+          <input
+            value={addInput}
+            onChange={e => { setAddInput(e.target.value.toUpperCase()); setAddErr(null) }}
+            placeholder="Add ticker — e.g. AAPL"
+            className="flex-1 bg-white/5 border border-white/12 rounded-lg px-3 py-2 text-[12px] text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50 font-mono uppercase"
+            maxLength={10}
+          />
+          <button
+            type="submit"
+            disabled={adding || !addInput.trim()}
+            className="text-[11px] px-4 py-2 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/25 transition disabled:opacity-40 whitespace-nowrap"
+          >
+            {adding ? 'Adding…' : '+ Add'}
+          </button>
+        </form>
+        {addErr && <p className="text-[11px] text-red-400">{addErr}</p>}
       </div>
 
       {/* Alert summary strip */}
@@ -429,11 +498,7 @@ export default function WatchlistSignalsPage() {
           <div className="text-3xl">⭐</div>
           <p className="text-slate-400 text-sm">No tickers in your financial watchlist yet.</p>
           <p className="text-[11px] text-slate-600">
-            Add tickers from the{' '}
-            <Link href="/citizen/dashboard" className="text-cyan-400 hover:underline">
-              Dashboard watchlist panel
-            </Link>{' '}
-            — choose Financial District and enter a ticker symbol.
+            Use the Add field above to enter a ticker symbol (e.g. AAPL, NVDA, QQQ).
           </p>
         </div>
       )}
@@ -449,7 +514,14 @@ export default function WatchlistSignalsPage() {
       {/* Ticker cards */}
       {!loading && filtered.length > 0 && (
         <div className="space-y-4">
-          {filtered.map(t => <TickerCard key={t.ticker} d={t} />)}
+          {filtered.map(t => (
+            <TickerCard
+              key={t.ticker}
+              d={t}
+              onRemove={() => handleRemove(t.ticker)}
+              removing={removing === t.ticker}
+            />
+          ))}
         </div>
       )}
 
