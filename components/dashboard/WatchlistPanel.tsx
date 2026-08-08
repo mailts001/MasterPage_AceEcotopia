@@ -5,7 +5,7 @@ import { routeToIATA } from '@/lib/airports'
 
 // Deep-link each district watchlist card to its signals page
 const DISTRICT_LINKS: Partial<Record<string, { href: string; label: string; external?: boolean }>> = {
-  aceeconomy: { href: '/citizen/dashboard/financial',  label: 'View signals →' },
+  aceeconomy: { href: '/citizen/dashboard/financial/watchlist', label: 'View signals →' },
   commerce:   { href: '/citizen/dashboard/commerce',   label: 'View opportunities →' },
   nexustravel:{ href: 'https://nexus-travel-seven.vercel.app', label: 'NexusTravel →', external: true },
   serenity:   { href: '/citizen/dashboard/wellness',   label: 'View events →' },
