@@ -70,15 +70,49 @@ const TICKER_SECTOR: Record<string, string> = {
   XLE: 'Energy', XLI: 'Industrials', XLY: 'Consumer Discretionary',
   XLP: 'Consumer Staples', XLU: 'Utilities', XLRE: 'Real Estate',
   XLC: 'Communication Services', XLB: 'Materials',
-  NVDA: 'Semiconductors', AAPL: 'Large Cap Tech', MSFT: 'Large Cap Tech',
-  AMZN: 'E-Commerce / Cloud', GOOGL: 'Digital Advertising / AI',
-  META: 'Social Media / AI', TSLA: 'EV / Clean Energy',
-  JPM: 'US Mega-Cap Banking', BAC: 'US Banking', GS: 'Investment Banking',
+  // Large-cap tech
+  NVDA: 'Semiconductors — AI/Data Centre', AAPL: 'Consumer Tech — Hardware & Services',
+  MSFT: 'Enterprise Tech — Cloud / AI', AMZN: 'E-Commerce & Cloud (AWS)',
+  GOOGL: 'Digital Advertising & AI', GOOG: 'Digital Advertising & AI',
+  META: 'Social Media & AI', TSLA: 'EV & Energy Storage',
+  NFLX: 'Streaming / Entertainment', UBER: 'Mobility & Delivery Platforms',
+  SHOP: 'E-Commerce SaaS', CRM: 'Enterprise SaaS (Salesforce)',
+  ADBE: 'Creative & Document SaaS', AMD: 'Semiconductors', INTC: 'Semiconductors',
+  QCOM: 'Mobile Semiconductors', AVGO: 'Semiconductors & Infrastructure',
+  // Industrials & energy
+  GEV: 'Industrials — Power & Grid (GE Vernova)',
+  GE: 'Industrials — Aerospace & Defence (GE Aerospace)',
+  HON: 'Industrials — Diversified', CAT: 'Industrials — Heavy Machinery',
+  BA: 'Aerospace & Defence', LMT: 'Aerospace & Defence', RTX: 'Aerospace & Defence',
+  UNP: 'Transportation — Rail', UPS: 'Logistics & Delivery',
+  XOM: 'Integrated Oil & Gas', CVX: 'Integrated Oil & Gas',
+  // Financials
+  JPM: 'US Banking — Diversified', BAC: 'US Banking — Consumer & Wealth',
+  GS: 'Investment Banking & Trading', MS: 'Investment Banking & Wealth',
+  WFC: 'US Banking — Consumer', C: 'US Banking — Global',
+  V: 'Payments Network', MA: 'Payments Network',
+  BLK: 'Asset Management', SCHW: 'Brokerage & Wealth Management',
+  // Healthcare
+  JNJ: 'Healthcare — Diversified', UNH: 'Managed Care / Health Insurance',
+  PFE: 'Pharmaceuticals', ABBV: 'Biopharmaceuticals', LLY: 'Pharmaceuticals — GLP-1',
+  // Consumer
+  AMZN_CONSUMER: 'Consumer Discretionary', WMT: 'Retail — Discount',
+  COST: 'Retail — Wholesale Club', HD: 'Home Improvement Retail',
+  MCD: 'Quick Service Restaurants', SBUX: 'Coffee & Consumer Experience',
+  KO: 'Beverages (Defensive)', PEP: 'Beverages & Snacks (Defensive)',
+  PG: 'Consumer Staples — Household', MDLZ: 'Consumer Staples — Packaged Foods',
+  // International
   HSBA: 'Global Banking', '0005.HK': 'HK Banking', '0941.HK': 'China Telecom',
-  '2330.TW': 'Semiconductors (TSMC)', ASML: 'Semiconductor Equipment',
+  '2330.TW': 'Semiconductors (TSMC)', ASML: 'Semiconductor Equipment (ASML)',
+  SAP: 'Enterprise Software (Europe)', NESN: 'Consumer Staples (Nestlé)',
+  NOVO: 'Pharmaceuticals — GLP-1 (Novo Nordisk)',
+  // Crypto
   BTC: 'Crypto — Bitcoin', ETH: 'Crypto — Ethereum',
+  SOL: 'Crypto — Solana', BNB: 'Crypto — Binance Ecosystem',
+  // REITs & alternatives
   VNQ: 'US REITs', REM: 'Mortgage REITs',
-  'TBILL-USD-3M': 'Cash / US T-Bill', 'TBILL-USD-6M': 'Cash / US T-Bill',
+  // Cash
+  'TBILL-USD-3M': 'Cash / US T-Bill 3M', 'TBILL-USD-6M': 'Cash / US T-Bill 6M',
   'TBILL-SGD-6M': 'Cash / SGD T-Bill', 'MMF-USD': 'Cash / Money Market',
 }
 
