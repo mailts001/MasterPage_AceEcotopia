@@ -392,8 +392,8 @@ function OverviewTable({ funds, perfs }: { funds: FundData[]; perfs: TickerData[
       <table className="text-[10px] w-max min-w-full">
         <thead>
           <tr className="border-b border-white/8 bg-white/3">
-            {cols.map(c => (
-              <th key={c.key} className={`text-left px-2 py-2 font-mono text-slate-500 font-normal whitespace-nowrap ${c.width}`}>
+            {cols.map((c, idx) => (
+              <th key={c.key} className={`text-left px-2 py-2 font-mono text-slate-500 font-normal whitespace-nowrap ${c.width} ${idx === 0 ? 'sticky left-0 z-10 bg-[#0f1425]' : ''}`}>
                 {c.label}
               </th>
             ))}
@@ -405,7 +405,7 @@ function OverviewTable({ funds, perfs }: { funds: FundData[]; perfs: TickerData[
             const { label: aLabel, color: aColor } = analystLabel(f.analyst_rec)
             return (
               <tr key={f.ticker} className="hover:bg-white/3 transition">
-                <td className="px-2 py-2 font-mono font-bold text-white whitespace-nowrap">{f.ticker}</td>
+                <td className="px-2 py-2 font-mono font-bold text-white whitespace-nowrap sticky left-0 z-10 bg-[#0a0e1a]">{f.ticker}</td>
                 <td className="px-2 py-2 whitespace-nowrap">
                   {p ? <SignalBadge signal={p.signal} /> : <span className="text-slate-600">—</span>}
                 </td>

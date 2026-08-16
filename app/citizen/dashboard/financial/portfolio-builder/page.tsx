@@ -308,6 +308,7 @@ export default function PortfolioBuilderPage() {
   const [dnaTimeframe, setDnaTimeframe] = useState<'ytd'|'1y'|'6m'|'3m'|'5d'|'overnight'>('ytd')
   const [dnaPerf, setDnaPerf]           = useState<Record<string, number>>({})
   const [dnaLoading, setDnaLoading]     = useState(false)
+  const [customOpen, setCustomOpen]     = useState(false)
   const printRef = useRef<HTMLDivElement>(null)
 
   // localStorage session persistence
@@ -368,7 +369,7 @@ export default function PortfolioBuilderPage() {
       id: uid(), ticker: t, name: customName.trim(), category: customCat, pct: 10,
       managerReturn: BENCHMARK[customCat]?.ret ?? 5, isCustom: true
     }])
-    setCustomTicker(''); setCustomName('')
+    setCustomTicker(''); setCustomName(''); setCustomOpen(false)
   }
 
   function updateHolding(id: string, field: 'pct' | 'managerReturn', val: number) {
@@ -570,23 +571,23 @@ export default function PortfolioBuilderPage() {
       </div>
 
       {/* Screen UI */}
-      <div className={`min-h-screen text-white transition-colors duration-300 ${bgLight ? 'bg-slate-100 text-slate-900' : 'bg-[#0A0E1A] text-white'}`}>
-        <nav className={`border-b px-4 py-3 flex items-center gap-3 sticky top-0 backdrop-blur z-10 transition-colors ${bgLight ? 'border-slate-300 bg-slate-100/95' : 'border-white/10 bg-[#0A0E1A]/95'}`}>
-          <Link href="/citizen/dashboard/financial" className="text-slate-500 hover:text-white text-sm">← Financial District</Link>
-          <span className="text-white/20">/</span>
-          <span className="text-sm font-semibold text-white">Portfolio Builder</span>
+      <div className={`min-h-screen transition-colors duration-300 ${bgLight ? 'bg-slate-100 text-slate-900' : 'bg-[#0A0E1A] text-white'}`}>
+        <nav className={`border-b px-4 py-3 flex items-center gap-3 sticky top-0 backdrop-blur z-10 transition-colors ${bgLight ? 'border-slate-300 bg-slate-100/95 text-slate-700' : 'border-white/10 bg-[#0A0E1A]/95 text-white'}`}>
+          <Link href="/citizen/dashboard/financial" className={`text-sm ${bgLight ? 'text-slate-500 hover:text-slate-800' : 'text-slate-500 hover:text-white'}`}>← Financial District</Link>
+          <span className={bgLight ? 'text-slate-300' : 'text-white/20'}>/</span>
+          <span className={`text-sm font-semibold ${bgLight ? 'text-slate-900' : 'text-white'}`}>Build PortfolioPlus</span>
           <span className="ml-auto text-[10px] text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full">Trial — open to all Citizens</span>
           <button onClick={() => setBgLight(b => !b)}
             title="Toggle light / dark background"
-            className="text-[11px] border border-white/20 rounded-lg px-2.5 py-1 text-slate-400 hover:text-white transition ml-2">
+            className={`text-[11px] border rounded-lg px-2.5 py-1 transition ml-2 ${bgLight ? 'border-slate-300 text-slate-600 hover:text-slate-900' : 'border-white/20 text-slate-400 hover:text-white'}`}>
             {bgLight ? '🌙 Dark' : '☀ Light'}
           </button>
         </nav>
 
         <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
           <div>
-            <h1 className="text-xl font-bold text-white">Portfolio Allocation Builder</h1>
-            <p className="text-[11px] text-slate-500 mt-1">Build, compare and share asset allocations with projected returns grounded in live AceEconomy market data.</p>
+            <h1 className={`text-xl font-bold ${bgLight ? 'text-slate-900' : 'text-white'}`}>Build PortfolioPlus</h1>
+            <p className={`text-[11px] mt-1 ${bgLight ? 'text-slate-500' : 'text-slate-500'}`}>Build, compare and share asset allocations with projected returns grounded in live AceEconomy market data.</p>
           </div>
 
           {intelLoading && <div className="h-10 rounded-lg bg-white/5 animate-pulse" />}
@@ -627,7 +628,7 @@ export default function PortfolioBuilderPage() {
 
           {/* Tabs */}
           <div className="flex gap-1 bg-white/5 rounded-lg p-1">
-            {([['build', '📐 Build Portfolio'], ['client', '⚖️ Balanced Profile'], ['dna', '🧬 PortDNA'], ['compare', '⚖️ Compare & Share']] as const).map(([t, label]) => (
+            {([['build', '📐 Build PortfolioPlus'], ['client', '⚖️ Balanced Profile'], ['dna', '🧬 PortDNA'], ['compare', '⚖️ Compare & Share']] as const).map(([t, label]) => (
               <button key={t} onClick={() => setTab(t)}
                 className={`flex-1 text-xs py-2 rounded-md font-medium transition ${tab === t ? 'bg-white/15 text-white' : 'text-slate-500 hover:text-white'}`}>
                 {label}
@@ -678,25 +679,33 @@ export default function PortfolioBuilderPage() {
                 </div>
 
                 {/* Custom asset */}
-                <details className="group">
-                  <summary className="text-[10px] text-red-400 cursor-pointer hover:text-red-300 list-none flex items-center gap-1">
-                    <span className="group-open:rotate-90 transition-transform inline-block">▶</span> Add custom / unlisted asset
-                  </summary>
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <input value={customTicker} onChange={e => setCustomTicker(e.target.value)} placeholder="Ticker / code"
-                      className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500/50 font-mono uppercase" />
-                    <input value={customName} onChange={e => setCustomName(e.target.value)} placeholder="Asset name"
-                      className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500/50" />
-                    <select value={customCat} onChange={e => setCustomCat(e.target.value)}
-                      className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none">
-                      {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                    </select>
-                    <button onClick={addCustom} className="bg-white/10 hover:bg-white/20 rounded-lg px-3 py-1.5 text-xs text-white transition">
-                      + Add Custom
-                    </button>
-                  </div>
-                  <p className="text-[9px] text-slate-700 mt-1">Custom assets use benchmark return assumptions — no live data available.</p>
-                </details>
+                <div>
+                  <button type="button" onClick={() => setCustomOpen(o => !o)}
+                    className="text-[10px] text-red-400 cursor-pointer hover:text-red-300 flex items-center gap-1">
+                    <span className={`transition-transform inline-block ${customOpen ? 'rotate-90' : ''}`}>▶</span>
+                    Add custom / unlisted asset
+                  </button>
+                  {customOpen && (
+                    <div className="mt-2 space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <input value={customTicker} onChange={e => setCustomTicker(e.target.value.toUpperCase())} placeholder="Ticker / code"
+                          className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500/50 font-mono uppercase" />
+                        <input value={customName} onChange={e => setCustomName(e.target.value)} placeholder="Asset name"
+                          className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500/50" />
+                        <select value={customCat} onChange={e => setCustomCat(e.target.value)}
+                          className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none">
+                          {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                        </select>
+                        <button onClick={addCustom}
+                          disabled={!customTicker.trim() || !customName.trim()}
+                          className="bg-cyan-500/15 hover:bg-cyan-500/30 border border-cyan-500/30 rounded-lg px-3 py-1.5 text-xs text-cyan-300 transition disabled:opacity-40">
+                          + Add &amp; Save to List
+                        </button>
+                      </div>
+                      <p className="text-[9px] text-slate-700">Custom assets use benchmark return assumptions — no live data available. Added immediately to portfolio.</p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Holdings table */}
@@ -1003,6 +1012,22 @@ export default function PortfolioBuilderPage() {
                 </button>
               </div>
 
+              {/* How assets are selected */}
+              <details className="rounded-xl border border-white/10 bg-white/3">
+                <summary className="px-4 py-3 text-xs font-semibold text-white cursor-pointer list-none flex items-center justify-between hover:bg-white/3 rounded-xl transition">
+                  <span>ℹ How are Balanced Portfolio assets selected?</span>
+                  <span className="text-slate-600 text-[10px]">▶ expand</span>
+                </summary>
+                <div className="px-4 pb-4 pt-1 space-y-3 text-[10px] text-slate-400 leading-relaxed">
+                  <p><strong className="text-slate-300">Step 1 — Risk-to-allocation framework.</strong> Your risk score (1–5) maps to a starting allocation across 8 asset classes. Conservative (1–2): mostly cash + bonds + low-equity. Moderate (3): balanced equity/bonds. Aggressive (4–5): equity + thematic heavy, minimal cash.</p>
+                  <p><strong className="text-slate-300">Step 2 — Target-return nudge.</strong> The algorithm compares the starting framework&apos;s conservative benchmark return against your target return. If the gap is &gt;0.5%, equity and fixed-income weights are nudged — more equity for higher targets, more bonds for lower. Capped at ±15% adjustment per category to avoid extreme concentration.</p>
+                  <p><strong className="text-slate-300">Step 3 — Asset proxy mapping.</strong> Each resulting category weight is mapped to a representative ETF from the catalog (e.g. Equity → SPY, Bonds → TLT, Gold → GLD). This is a starting point — you can replace any proxy with any specific asset from the catalog or add unlisted assets in the Build PortfolioPlus tab.</p>
+                  <p><strong className="text-slate-300">Dynamic adjustments.</strong> The allocation is recalculated each time you change the risk score or target return. If you manually adjust sliders after generating, those overrides persist until you click &ldquo;Generate&rdquo; again. There is no automatic rebalancing — all changes are intentional and yours to control.</p>
+                  <p><strong className="text-slate-300">What it does NOT do.</strong> It does not use live market prices or AI signals to select assets — it uses a deterministic framework based on your inputs. For signal-driven selection, use the Watchlist Signals page to identify candidates, then add them manually in Build PortfolioPlus.</p>
+                  <p className="text-slate-600 border-t border-white/5 pt-2">Balanced Profile is a starting framework for structured client conversations — not a financial plan. Always validate with the client&apos;s full circumstances and consult a licensed adviser before implementing.</p>
+                </div>
+              </details>
+
               {clientHoldings.length > 0 && (() => {
                 const cTotal = totalPct(clientHoldings)
                 const annualIncome = clientProfile.portfolioValue * 1000 * clientProfile.monthlyIncomePct / 100
@@ -1196,20 +1221,22 @@ export default function PortfolioBuilderPage() {
 
                 return (
                   <>
-                    {/* SVG Allocation Comparison Chart */}
+                    {/* SVG Allocation Complement Chart */}
                     <div className="rounded-xl border border-white/10 bg-white/3 p-4 space-y-2">
-                      <div className="text-xs font-semibold text-white">Allocation Comparison by Category</div>
+                      <div className="text-xs font-semibold text-white">How the Two Portfolios Complement Each Other</div>
+                      <p className="text-[10px] text-slate-500 leading-relaxed">
+                        PortfolioPlus (manager-constructed, active strategy) is shown on the left. Balanced Portfolio (risk-profile driven, systematic) on the right. Where they diverge by asset class, one covers the other&apos;s gaps — together they create broader diversification than either alone.
+                      </p>
                       <div className="flex items-center gap-4 text-[9px] text-slate-500">
-                        <span className="flex items-center gap-1"><span className="inline-block w-6 h-2 rounded" style={{ background: '#818cf8' }} /> Manager</span>
-                        <span className="flex items-center gap-1"><span className="inline-block w-6 h-2 rounded" style={{ background: '#22d3ee' }} /> Client ({clientProfile.name || 'Risk-Adjusted'})</span>
-                        <span className="ml-auto">Δ = Client minus Manager</span>
+                        <span className="flex items-center gap-1"><span className="inline-block w-6 h-2 rounded" style={{ background: '#818cf8' }} /> PortfolioPlus</span>
+                        <span className="flex items-center gap-1"><span className="inline-block w-6 h-2 rounded" style={{ background: '#22d3ee' }} /> Balanced Portfolio ({clientProfile.name || 'Risk-Adjusted'})</span>
                       </div>
                       <svg width={SVG_W} height={SVG_H} viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full overflow-visible">
                         {/* Header labels */}
-                        <text x={LABEL_W} y={14} fill="#475569" fontSize={8} fontFamily="monospace">Manager</text>
+                        <text x={LABEL_W} y={14} fill="#818cf8" fontSize={8} fontFamily="monospace">PortfolioPlus</text>
                         <text x={LABEL_W + BAR_AREA / 2} y={14} textAnchor="middle" fill="#475569" fontSize={8} fontFamily="monospace">0%</text>
-                        <text x={LABEL_W + BAR_AREA} y={14} textAnchor="end" fill="#475569" fontSize={8} fontFamily="monospace">Client</text>
-                        {catData.map(({ cat, mPct, cPct, delta }, i) => {
+                        <text x={LABEL_W + BAR_AREA} y={14} textAnchor="end" fill="#22d3ee" fontSize={8} fontFamily="monospace">Balanced Portfolio</text>
+                        {catData.map(({ cat, mPct, cPct }, i) => {
                           const y = i * ROW_H + 22
                           const mid = LABEL_W + BAR_AREA / 2
                           const scale = BAR_AREA / 2 / 100
@@ -1222,21 +1249,15 @@ export default function PortfolioBuilderPage() {
                               <text x={LABEL_W - 6} y={y + 10} textAnchor="end" fill="#94a3b8" fontSize={9} fontFamily="monospace">
                                 {CAT_SHORT[cat] ?? cat}
                               </text>
-                              {/* Manager bar — grows left from centre */}
+                              {/* PortfolioPlus bar — grows left from centre */}
                               <rect x={mid - mW} y={y} width={mW} height={12} rx={2} fill="#818cf8" fillOpacity={0.7} />
-                              {/* Client bar — grows right from centre */}
+                              {/* Balanced Portfolio bar — grows right from centre */}
                               <rect x={mid} y={y} width={cW} height={12} rx={2} fill={cc} fillOpacity={0.55} />
                               {/* Category dot */}
                               <circle cx={mid} cy={y + 6} r={3} fill={cc} />
                               {/* Percentage labels */}
                               {mPct > 2 && <text x={mid - mW - 3} y={y + 9} textAnchor="end" fill="#818cf8" fontSize={7} fontFamily="monospace">{mPct.toFixed(0)}%</text>}
                               {cPct > 2 && <text x={mid + cW + 3} y={y + 9} fill="#22d3ee" fontSize={7} fontFamily="monospace">{cPct.toFixed(0)}%</text>}
-                              {/* Delta */}
-                              <text x={SVG_W - 4} y={y + 9} textAnchor="end"
-                                fill={delta > 2 ? '#22d3ee' : delta < -2 ? '#f87171' : '#64748b'}
-                                fontSize={8} fontFamily="monospace">
-                                {delta > 0 ? '+' : ''}{delta.toFixed(0)}
-                              </text>
                             </g>
                           )
                         })}
@@ -1267,8 +1288,8 @@ export default function PortfolioBuilderPage() {
 
                       {/* AceEconomy explanation */}
                       <div className="rounded-lg border border-cyan-500/15 bg-cyan-500/5 px-3 py-2 text-[10px] text-slate-400 leading-relaxed">
-                        <span className="text-cyan-400 font-semibold">Why do the two AceEconomy figures differ?</span>{' '}
-                        Each portfolio holds different assets. AceEconomy fetches live YTD performance for each ticker from our VPS, annualises it, then applies the current regime multiplier (×{regimeMult(intel?.regime ?? '').toFixed(2)} {intel?.regime ?? ''}). Because the Manager and Client portfolios hold different assets in different weights, their blended market-driven estimates will differ — this is expected and correct, not an error.
+                        <span className="text-cyan-400 font-semibold">Why do figures sometimes converge at the same %?</span>{' '}
+                        When holdings have no live AceEconomy price data (e.g. unlisted assets, FX proxies, private equity), all three estimates fall back to the same long-run benchmark (Equity 7%, Bonds 3.5%, etc.) — so Manager, AceEconomy, and Conservative temporarily align. Add more SPY/QQQ/GLD-type holdings with live data to see differentiation. Each portfolio&apos;s AceEconomy figure also reflects its own unique mix — different assets and weights naturally produce different results.
                       </div>
 
                       <div className="overflow-x-auto">
@@ -1382,8 +1403,8 @@ export default function PortfolioBuilderPage() {
                     {/* Side-by-side detail cards */}
                     <div className="grid grid-cols-2 gap-3">
                       {([
-                        { label: 'Manager Portfolio', holdings: holdings, proj, side: 'manager' as const },
-                        { label: `${clientProfile.name || 'Client'} Profile`, holdings: clientHoldings, proj: cProj, side: 'client' as const },
+                        { label: 'PortfolioPlus', holdings: holdings, proj, side: 'manager' as const },
+                        { label: `Balanced Portfolio${clientProfile.name ? ` — ${clientProfile.name}` : ''}`, holdings: clientHoldings, proj: cProj, side: 'client' as const },
                       ]).map(({ label, holdings: h, proj: p, side }) => (
                         <div key={side} className={`rounded-xl border p-4 space-y-3 ${confirmed === side ? 'border-cyan-500/50 bg-cyan-500/5' : 'border-white/10 bg-white/3'}`}>
                           <div className="text-xs font-semibold text-white">{label}</div>
@@ -1554,6 +1575,46 @@ export default function PortfolioBuilderPage() {
                         {dnaLoading && <span className="text-[9px] text-slate-600 ml-1">…</span>}
                       </div>
                     </div>
+                    {/* Period portfolio impact */}
+                    {!dnaLoading && Object.keys(dnaPerf).length > 0 && (() => {
+                      const t2 = totalPct(holdings) || 1
+                      const periodBlended = holdings.reduce((sum, h) => {
+                        const ret = dnaPerf[h.ticker]
+                        return ret != null ? sum + (h.pct / t2) * ret : sum
+                      }, 0)
+                      const hasSomePerf = holdings.some(h => dnaPerf[h.ticker] != null)
+                      if (!hasSomePerf) return null
+                      const tfLabel = { overnight: '1D', '5d': '1W', '3m': '3M', '6m': '6M', '1y': '1Y', ytd: 'YTD' }[dnaTimeframe]
+                      return (
+                        <div className="rounded-xl border border-white/10 bg-white/3 p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">
+                              Portfolio weighted return · {tfLabel}
+                            </div>
+                            <div className={`text-2xl font-bold font-mono ${periodBlended >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                              {periodBlended >= 0 ? '+' : ''}{periodBlended.toFixed(1)}%
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {holdings.map(h => {
+                              const ret = dnaPerf[h.ticker]
+                              return (
+                                <div key={h.ticker} className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/4 px-2 py-1 text-[10px]">
+                                  <span className="font-mono font-bold text-white">{h.ticker}</span>
+                                  <span className="text-slate-600">{h.pct}%</span>
+                                  {ret != null
+                                    ? <span className={`font-mono font-semibold ${ret >= 0 ? 'text-green-400' : 'text-red-400'}`}>{ret >= 0 ? '+' : ''}{ret.toFixed(1)}%</span>
+                                    : <span className="text-slate-700 text-[9px]">no data</span>
+                                  }
+                                </div>
+                              )
+                            })}
+                          </div>
+                          <p className="text-[9px] text-slate-700">Weighted average · missing tickers excluded from blended figure · {tfLabel} performance from AceEconomy VPS or YTD from intel feed</p>
+                        </div>
+                      )
+                    })()}
+
                     <PortfolioDNAWheel
                       holdings={toWheel(holdings)}
                       clientHoldings={clientHoldings.length > 0 ? toWheel(clientHoldings) : undefined}
