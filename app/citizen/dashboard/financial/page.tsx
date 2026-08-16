@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
+
+const MacroOutlookModal = dynamic(() => import('@/components/MacroOutlookModal'), { ssr: false })
 
 interface BullishTicker {
   symbol: string
@@ -497,6 +500,7 @@ function EmptyState({ label }: { label: string }) {
 }
 
 export default function FinancialDashboard() {
+  const [showMacro, setShowMacro]   = useState(false)
   const [picks, setPicks]           = useState<Picks | null>(null)
   const [usPicks, setUsPicks]       = useState<Picks | null>(null)
   const [intel, setIntel]           = useState<Intel | null>(null)
@@ -600,6 +604,7 @@ export default function FinancialDashboard() {
     : null
 
   return (
+    <>
     <div className="min-h-screen bg-[#0A0E1A] text-white">
       <nav className="border-b border-white/10 px-6 py-4 flex items-center justify-between sticky top-0 bg-[#0A0E1A]/95 backdrop-blur z-10">
         <Link href="/" className="text-lg font-bold gradient-text">X68</Link>
@@ -630,6 +635,13 @@ export default function FinancialDashboard() {
               className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/8 text-cyan-300 text-[11px] font-medium hover:bg-cyan-500/15 transition">
               ⭐ Watchlist Signals — per-ticker performance, peers & alerts
             </Link>
+            <button
+              type="button"
+              onClick={() => setShowMacro(true)}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/8 text-emerald-300 text-[11px] font-medium hover:bg-emerald-500/15 transition"
+            >
+              🌐 Macro Outlook — economic calendar & PMI heatmap
+            </button>
           </div>
         </div>
 
@@ -2014,5 +2026,8 @@ export default function FinancialDashboard() {
 
       </div>
     </div>
+
+    {showMacro && <MacroOutlookModal onClose={() => setShowMacro(false)} />}
+    </>
   )
 }
