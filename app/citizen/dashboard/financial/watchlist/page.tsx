@@ -328,6 +328,141 @@ function AlertCriteriaPanel() {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 type Filter = 'all' | 'buy' | 'squeeze' | 'watch'
+type ViewMode = 'cards' | 'table'
+
+// ── Fundamentals types ────────────────────────────────────────────────────────
+
+interface FundData {
+  ticker: string
+  pe_trailing?: number | null; pe_forward?: number | null; peg?: number | null
+  eps?: number | null; roe?: number | null; div_yield?: number | null
+  beta?: number | null; sma50?: number | null; sma200?: number | null
+  target_price?: number | null; analyst_rec?: number | null; analyst_cnt?: number | null
+  price?: number | null; vs_sma50?: number | null; vs_sma200?: number | null
+  atr?: number | null; vs_atr?: number | null; rsi?: number | null
+  pattern?: string | null; iv_30d?: number | null; put_call_ratio?: number | null
+  error?: string
+}
+
+function analystLabel(rec: number | null | undefined) {
+  if (rec == null) return { label: '—', color: 'text-slate-600' }
+  if (rec <= 1.5) return { label: 'Strong Buy', color: 'text-green-400' }
+  if (rec <= 2.5) return { label: 'Buy',         color: 'text-green-300' }
+  if (rec <= 3.5) return { label: 'Hold',         color: 'text-yellow-300' }
+  if (rec <= 4.5) return { label: 'Underperform', color: 'text-orange-400' }
+  return              { label: 'Sell',         color: 'text-red-400' }
+}
+
+function OverviewTable({ funds, perfs }: { funds: FundData[]; perfs: TickerData[] }) {
+  const perfMap = Object.fromEntries(perfs.map(p => [p.ticker, p]))
+  const fmt = (v: number | null | undefined, dec = 1, suffix = '') =>
+    v == null ? '—' : `${v.toFixed(dec)}${suffix}`
+  const pctCell = (v: number | null | undefined) => {
+    if (v == null) return <span className="text-slate-600">—</span>
+    return <span className={v >= 0 ? 'text-green-400' : 'text-red-400'}>{v >= 0 ? '+' : ''}{v.toFixed(1)}%</span>
+  }
+
+  const cols = [
+    { key: 'ticker',         label: 'Ticker',      width: 'w-16' },
+    { key: 'signal',         label: 'Signal',      width: 'w-20' },
+    { key: 'price',          label: 'Price',       width: 'w-16' },
+    { key: 'overnight',      label: '1D %',        width: 'w-14' },
+    { key: '5d',             label: '1W %',        width: 'w-14' },
+    { key: '3m',             label: '3M %',        width: 'w-14' },
+    { key: '1y',             label: '1Y %',        width: 'w-14' },
+    { key: 'roe',            label: 'ROE',         width: 'w-14' },
+    { key: 'eps',            label: 'EPS',         width: 'w-14' },
+    { key: 'pe_trailing',    label: 'P/E',         width: 'w-14' },
+    { key: 'peg',            label: 'PEG',         width: 'w-14' },
+    { key: 'div_yield',      label: 'Div%',        width: 'w-14' },
+    { key: 'sharpe',         label: 'Sharpe',      width: 'w-14' },
+    { key: 'beta',           label: 'Beta',        width: 'w-14' },
+    { key: 'iv_30d',         label: 'IV30',        width: 'w-14' },
+    { key: 'put_call_ratio', label: 'P/C',         width: 'w-14' },
+    { key: 'analyst',        label: 'Analyst',     width: 'w-24' },
+    { key: 'target',         label: 'Target',      width: 'w-16' },
+    { key: 'vs_sma50',       label: 'vs SMA50',    width: 'w-16' },
+    { key: 'vs_sma200',      label: 'vs SMA200',   width: 'w-16' },
+    { key: 'vs_atr',         label: 'vs ATR',      width: 'w-14' },
+    { key: 'pattern',        label: 'Pattern',     width: 'w-32' },
+  ]
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-white/10 bg-white/2">
+      <table className="text-[10px] w-max min-w-full">
+        <thead>
+          <tr className="border-b border-white/8 bg-white/3">
+            {cols.map(c => (
+              <th key={c.key} className={`text-left px-2 py-2 font-mono text-slate-500 font-normal whitespace-nowrap ${c.width}`}>
+                {c.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/5">
+          {funds.map(f => {
+            const p = perfMap[f.ticker]
+            const { label: aLabel, color: aColor } = analystLabel(f.analyst_rec)
+            return (
+              <tr key={f.ticker} className="hover:bg-white/3 transition">
+                <td className="px-2 py-2 font-mono font-bold text-white whitespace-nowrap">{f.ticker}</td>
+                <td className="px-2 py-2 whitespace-nowrap">
+                  {p ? <SignalBadge signal={p.signal} /> : <span className="text-slate-600">—</span>}
+                </td>
+                <td className="px-2 py-2 font-mono text-slate-300 whitespace-nowrap">{fmt(f.price, 2)}</td>
+                <td className="px-2 py-2 whitespace-nowrap">{pctCell(p?.overnight)}</td>
+                <td className="px-2 py-2 whitespace-nowrap">{pctCell(p?.['5d'])}</td>
+                <td className="px-2 py-2 whitespace-nowrap">{pctCell(p?.['3m'])}</td>
+                <td className="px-2 py-2 whitespace-nowrap">{pctCell(p?.['1y'])}</td>
+                <td className="px-2 py-2 font-mono text-slate-300 whitespace-nowrap">
+                  {f.roe != null ? `${(f.roe * 100).toFixed(1)}%` : '—'}
+                </td>
+                <td className="px-2 py-2 font-mono text-slate-300 whitespace-nowrap">{fmt(f.eps, 2)}</td>
+                <td className="px-2 py-2 font-mono text-slate-300 whitespace-nowrap">{fmt(f.pe_trailing, 1, 'x')}</td>
+                <td className={`px-2 py-2 font-mono whitespace-nowrap ${f.peg != null && f.peg < 1 ? 'text-green-400' : f.peg != null && f.peg > 2 ? 'text-red-400' : 'text-slate-300'}`}>
+                  {fmt(f.peg, 2)}
+                </td>
+                <td className="px-2 py-2 font-mono text-slate-300 whitespace-nowrap">
+                  {f.div_yield != null ? `${(f.div_yield * 100).toFixed(2)}%` : '—'}
+                </td>
+                <td className={`px-2 py-2 font-mono whitespace-nowrap ${p?.sharpe_1y != null ? (p.sharpe_1y >= 1 ? 'text-green-400' : p.sharpe_1y >= 0.5 ? 'text-yellow-300' : 'text-amber-400') : 'text-slate-600'}`}>
+                  {fmt(p?.sharpe_1y, 2)}
+                </td>
+                <td className={`px-2 py-2 font-mono whitespace-nowrap ${f.beta != null && f.beta > 1.5 ? 'text-orange-400' : 'text-slate-300'}`}>
+                  {fmt(f.beta, 2)}
+                </td>
+                <td className={`px-2 py-2 font-mono whitespace-nowrap ${f.iv_30d != null && f.iv_30d > 50 ? 'text-red-400' : f.iv_30d != null && f.iv_30d > 30 ? 'text-amber-400' : 'text-slate-300'}`}>
+                  {fmt(f.iv_30d, 1, '%')}
+                </td>
+                <td className={`px-2 py-2 font-mono whitespace-nowrap ${f.put_call_ratio != null && f.put_call_ratio > 1 ? 'text-red-400' : f.put_call_ratio != null && f.put_call_ratio < 0.7 ? 'text-green-400' : 'text-slate-300'}`}>
+                  {fmt(f.put_call_ratio, 2)}
+                </td>
+                <td className={`px-2 py-2 whitespace-nowrap ${aColor}`}>{aLabel}</td>
+                <td className="px-2 py-2 font-mono text-slate-300 whitespace-nowrap">{fmt(f.target_price, 2)}</td>
+                <td className="px-2 py-2 whitespace-nowrap">{pctCell(f.vs_sma50)}</td>
+                <td className="px-2 py-2 whitespace-nowrap">{pctCell(f.vs_sma200)}</td>
+                <td className={`px-2 py-2 font-mono whitespace-nowrap ${f.vs_atr != null && Math.abs(f.vs_atr) > 3 ? 'text-orange-400' : 'text-slate-300'}`}>
+                  {fmt(f.vs_atr, 2, '×')}
+                </td>
+                <td className={`px-2 py-2 whitespace-nowrap ${
+                  f.pattern?.includes('Golden') ? 'text-green-400' :
+                  f.pattern?.includes('Death') ? 'text-red-400' :
+                  f.pattern?.includes('Overbought') ? 'text-orange-400' :
+                  f.pattern?.includes('Oversold') ? 'text-cyan-400' : 'text-slate-600'
+                }`}>
+                  {f.pattern ?? '—'}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+      <div className="px-3 py-2 text-[9px] text-slate-700 border-t border-white/5">
+        ROE as decimal (1.14 = 114%) · Div% annualised · IV30 = 30-day implied vol · P/C = put/call ratio (>1 = bearish) · vs ATR = price distance from 15d ago in ATR units · Sharpe = 1y · PEG &lt;1 = undervalued · Analyst 1=Strong Buy → 5=Sell · Not investment advice.
+      </div>
+    </div>
+  )
+}
 
 export default function WatchlistSignalsPage() {
   const [data, setData]         = useState<WatchlistResponse | null>(null)
@@ -338,6 +473,9 @@ export default function WatchlistSignalsPage() {
   const [adding, setAdding]     = useState(false)
   const [addErr, setAddErr]     = useState<string | null>(null)
   const [removing, setRemoving] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<ViewMode>('cards')
+  const [funds, setFunds]       = useState<FundData[]>([])
+  const [fundsLoading, setFundsLoading] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -354,6 +492,25 @@ export default function WatchlistSignalsPage() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  const fetchFunds = useCallback(async () => {
+    setFundsLoading(true)
+    try {
+      const res = await fetch('/api/citizen/watchlist/fundamentals')
+      const json = await res.json()
+      setFunds(json.tickers ?? [])
+    } catch {
+      setFunds([])
+    } finally {
+      setFundsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (viewMode === 'table' && funds.length === 0 && !fundsLoading) {
+      fetchFunds()
+    }
+  }, [viewMode, funds.length, fundsLoading, fetchFunds])
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
@@ -459,27 +616,44 @@ export default function WatchlistSignalsPage() {
         </div>
       )}
 
-      {/* Filters */}
+      {/* Filters + view toggle */}
       {tickers.length > 0 && (
-        <div className="flex gap-2 flex-wrap">
-          {([
-            { key: 'all',     label: `All (${tickers.length})` },
-            { key: 'buy',     label: `Buy (${buyCount})` },
-            { key: 'squeeze', label: `Squeeze (${squeezeCount})` },
-            { key: 'watch',   label: `Watch (${tickers.filter(t => t.signal === 'WATCH').length})` },
-          ] as { key: Filter; label: string }[]).map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setFilter(key)}
-              className={`text-[11px] px-3 py-1 rounded-full border transition ${
-                filter === key
-                  ? 'border-cyan-500/50 bg-cyan-500/10 text-cyan-300'
-                  : 'border-white/10 text-slate-500 hover:border-white/25 hover:text-slate-300'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {([
+              { key: 'all',     label: `All (${tickers.length})` },
+              { key: 'buy',     label: `Buy (${buyCount})` },
+              { key: 'squeeze', label: `Squeeze (${squeezeCount})` },
+              { key: 'watch',   label: `Watch (${tickers.filter(t => t.signal === 'WATCH').length})` },
+            ] as { key: Filter; label: string }[]).map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setFilter(key)}
+                className={`text-[11px] px-3 py-1 rounded-full border transition ${
+                  filter === key
+                    ? 'border-cyan-500/50 bg-cyan-500/10 text-cyan-300'
+                    : 'border-white/10 text-slate-500 hover:border-white/25 hover:text-slate-300'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-1 border border-white/10 rounded-lg overflow-hidden text-[11px]">
+            {(['cards', 'table'] as ViewMode[]).map(v => (
+              <button
+                key={v}
+                onClick={() => setViewMode(v)}
+                className={`px-3 py-1 transition ${
+                  viewMode === v
+                    ? 'bg-cyan-500/15 text-cyan-300'
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                {v === 'cards' ? '⊞ Cards' : '≡ Overview'}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -511,8 +685,26 @@ export default function WatchlistSignalsPage() {
         </div>
       )}
 
+      {/* Overview table */}
+      {!loading && viewMode === 'table' && tickers.length > 0 && (
+        <>
+          {fundsLoading ? (
+            <div className="rounded-xl border border-white/8 bg-white/3 p-6 text-center text-[11px] text-slate-600 animate-pulse">
+              Loading fundamentals…
+            </div>
+          ) : funds.length > 0 ? (
+            <OverviewTable funds={funds} perfs={filtered} />
+          ) : (
+            <div className="text-[11px] text-slate-600 text-center py-8">
+              No fundamentals data yet.{' '}
+              <button onClick={fetchFunds} className="text-cyan-500 hover:underline">Retry</button>
+            </div>
+          )}
+        </>
+      )}
+
       {/* Ticker cards */}
-      {!loading && filtered.length > 0 && (
+      {!loading && viewMode === 'cards' && filtered.length > 0 && (
         <div className="space-y-4">
           {filtered.map(t => (
             <TickerCard

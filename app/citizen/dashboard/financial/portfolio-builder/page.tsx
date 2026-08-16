@@ -304,6 +304,10 @@ export default function PortfolioBuilderPage() {
   const [customTicker, setCustomTicker] = useState('')
   const [customName, setCustomName]     = useState('')
   const [customCat, setCustomCat]       = useState('equity')
+  const [bgLight, setBgLight]           = useState(false)
+  const [dnaTimeframe, setDnaTimeframe] = useState<'ytd'|'1y'|'6m'|'3m'|'5d'|'overnight'>('ytd')
+  const [dnaPerf, setDnaPerf]           = useState<Record<string, number>>({})
+  const [dnaLoading, setDnaLoading]     = useState(false)
   const printRef = useRef<HTMLDivElement>(null)
 
   // localStorage session persistence
@@ -420,6 +424,44 @@ export default function PortfolioBuilderPage() {
 
   function handlePrint() { window.print() }
 
+  // Fetch multi-period performance for PortDNA timeframe view
+  const fetchDnaPerf = useCallback(async (tickers: string[], period: string) => {
+    if (tickers.length === 0) return
+    // For YTD, intel already has it — no extra fetch needed
+    if (period === 'ytd' && intel) {
+      const map: Record<string, number> = {}
+      intel.asset_classes.forEach(a => { if (a.chg_ytd != null) map[a.ticker] = a.chg_ytd })
+      setDnaPerf(map)
+      return
+    }
+    setDnaLoading(true)
+    try {
+      const fieldMap: Record<string, string> = { '1y': '1y', '6m': '6m', '3m': '3m', '5d': '5d', overnight: 'overnight' }
+      const field = fieldMap[period] ?? '1y'
+      const r = await fetch('/api/nexus/financial/perf-periods', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tickers }),
+      }).catch(() => null)
+      if (r?.ok) {
+        const d = await r.json()
+        const map: Record<string, number> = {}
+        ;(d.tickers ?? []).forEach((t: Record<string, unknown>) => {
+          const v = t[field]
+          if (typeof v === 'number') map[t.ticker as string] = v
+        })
+        setDnaPerf(map)
+      }
+    } finally {
+      setDnaLoading(false)
+    }
+  }, [intel])
+
+  useEffect(() => {
+    const tickers = holdings.map(h => h.ticker)
+    fetchDnaPerf(tickers, dnaTimeframe)
+  }, [dnaTimeframe, holdings, fetchDnaPerf])
+
   const proj  = computeProjections(holdings, intel)
   const cProj = computeProjections(clientHoldings, intel)
   const total = totalPct(holdings)
@@ -528,12 +570,17 @@ export default function PortfolioBuilderPage() {
       </div>
 
       {/* Screen UI */}
-      <div className="min-h-screen bg-[#0A0E1A] text-white">
-        <nav className="border-b border-white/10 px-4 py-3 flex items-center gap-3 sticky top-0 bg-[#0A0E1A]/95 backdrop-blur z-10">
+      <div className={`min-h-screen text-white transition-colors duration-300 ${bgLight ? 'bg-slate-100 text-slate-900' : 'bg-[#0A0E1A] text-white'}`}>
+        <nav className={`border-b px-4 py-3 flex items-center gap-3 sticky top-0 backdrop-blur z-10 transition-colors ${bgLight ? 'border-slate-300 bg-slate-100/95' : 'border-white/10 bg-[#0A0E1A]/95'}`}>
           <Link href="/citizen/dashboard/financial" className="text-slate-500 hover:text-white text-sm">← Financial District</Link>
           <span className="text-white/20">/</span>
           <span className="text-sm font-semibold text-white">Portfolio Builder</span>
           <span className="ml-auto text-[10px] text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full">Trial — open to all Citizens</span>
+          <button onClick={() => setBgLight(b => !b)}
+            title="Toggle light / dark background"
+            className="text-[11px] border border-white/20 rounded-lg px-2.5 py-1 text-slate-400 hover:text-white transition ml-2">
+            {bgLight ? '🌙 Dark' : '☀ Light'}
+          </button>
         </nav>
 
         <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
@@ -580,7 +627,7 @@ export default function PortfolioBuilderPage() {
 
           {/* Tabs */}
           <div className="flex gap-1 bg-white/5 rounded-lg p-1">
-            {([['build', '📐 Build Portfolio'], ['client', '👤 Client Profile'], ['dna', '🧬 PortDNA'], ['compare', '⚖️ Compare & Share']] as const).map(([t, label]) => (
+            {([['build', '📐 Build Portfolio'], ['client', '⚖️ Balanced Profile'], ['dna', '🧬 PortDNA'], ['compare', '⚖️ Compare & Share']] as const).map(([t, label]) => (
               <button key={t} onClick={() => setTab(t)}
                 className={`flex-1 text-xs py-2 rounded-md font-medium transition ${tab === t ? 'bg-white/15 text-white' : 'text-slate-500 hover:text-white'}`}>
                 {label}
@@ -632,7 +679,7 @@ export default function PortfolioBuilderPage() {
 
                 {/* Custom asset */}
                 <details className="group">
-                  <summary className="text-[10px] text-slate-500 cursor-pointer hover:text-white list-none flex items-center gap-1">
+                  <summary className="text-[10px] text-red-400 cursor-pointer hover:text-red-300 list-none flex items-center gap-1">
                     <span className="group-open:rotate-90 transition-transform inline-block">▶</span> Add custom / unlisted asset
                   </summary>
                   <div className="mt-2 grid grid-cols-2 gap-2">
@@ -670,16 +717,31 @@ export default function PortfolioBuilderPage() {
                           <span className="text-[10px]">{CATEGORY_ICONS[h.category] ?? '•'}</span>
                           <span className="text-xs font-mono font-bold text-white">{h.ticker}</span>
                           <span className="text-[10px] text-slate-500 truncate flex-1">{h.name}</span>
-                          {live ? (
-                            <span className={`text-[9px] font-mono ${live.chg_ytd >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                              YTD {live.chg_ytd >= 0 ? '+' : ''}{live.chg_ytd.toFixed(1)}%
-                            </span>
-                          ) : (
-                            <span className="text-[9px] text-slate-700">no live data</span>
-                          )}
                           {h.isCustom && <span className="text-[9px] text-amber-500 border border-amber-500/30 px-1 rounded">custom</span>}
                           <button onClick={() => removeHolding(h.id)} className="text-slate-700 hover:text-red-400 transition ml-1">✕</button>
                         </div>
+
+                        {/* Live price performance strip */}
+                        {live ? (
+                          <div className="grid grid-cols-4 gap-1 text-center text-[9px]">
+                            {[
+                              { label: '1D', val: live.chg_1d },
+                              { label: '5D', val: live.chg_5d },
+                              { label: '1M', val: live.chg_1m },
+                              { label: 'YTD', val: live.chg_ytd },
+                            ].map(({ label, val }) => (
+                              <div key={label} className="rounded border border-white/8 bg-white/3 px-1 py-1">
+                                <div className="text-slate-600">{label}</div>
+                                <div className={`font-mono font-bold ${val >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                  {val >= 0 ? '+' : ''}{val.toFixed(1)}%
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-[9px] text-slate-700 italic">No live price data — using benchmark assumptions</div>
+                        )}
+
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <label className="text-[9px] text-slate-600 block mb-1">Allocation: <span className="text-white font-mono">{h.pct}%</span></label>
@@ -707,7 +769,7 @@ export default function PortfolioBuilderPage() {
                           <summary className="text-[9px] text-slate-600 hover:text-slate-400 cursor-pointer list-none">▶ What do these mean?</summary>
                           <div className="absolute right-0 top-5 z-20 w-72 rounded-xl border border-white/10 bg-[#0d1220] p-3.5 shadow-xl text-[9px] text-slate-400 space-y-2 leading-relaxed">
                             <p><strong className="text-purple-300">Manager Projection</strong> — the weighted average of the expected-return % you entered per position. Reflects your own view of each holding.</p>
-                            <p><strong className="text-green-400">AceEconomy Driven</strong> — uses live YTD price data from the AceEconomy VPS feed, annualised over {new Date().getMonth() + 1} months, then adjusted by the current market regime multiplier. Falls back to long-run benchmarks for tickers without live data.</p>
+                            <p><strong className="text-green-400">Live Performance</strong> — uses live YTD price data from the AceEconomy VPS feed, annualised over {new Date().getMonth() + 1} months, then adjusted by the current market regime multiplier. Falls back to long-run benchmarks for tickers without live data.</p>
                             <p><strong className="text-slate-300">Conservative Benchmark</strong> — long-run historical averages per asset class (Equity 7%, Bonds 3.5%, Commodities 4%, PE 10%, Cash 4%, FX 0%).</p>
                             <p><strong className="text-amber-300">Volatility (σ)</strong> — weighted-average annualised standard deviation by asset class. This is an <em>upper bound</em> — actual portfolio vol is lower because diversification across uncorrelated assets reduces risk.</p>
                             <p><strong className="text-yellow-300">Sharpe Ratio</strong> — (return − 4.3% risk-free rate) ÷ volatility. Measures return per unit of risk. Above 1 = strong, 0.5–1 = acceptable, below 0.5 = the return doesn&apos;t adequately compensate for the risk taken.</p>
@@ -717,7 +779,7 @@ export default function PortfolioBuilderPage() {
                       <div className="flex gap-3">
                         <ProjCard label="Manager Projection" ret={proj.managerBlended} color="text-purple-300"
                           desc="Weighted avg of your per-position expected returns" />
-                        <ProjCard label="AceEconomy Driven" ret={proj.aceBlended} color={proj.aceBlended >= 0 ? 'text-green-400' : 'text-red-400'}
+                        <ProjCard label="Live Performance" ret={proj.aceBlended} color={proj.aceBlended >= 0 ? 'text-green-400' : 'text-red-400'}
                           desc={`Live YTD annualised × regime multiplier (${intel?.regime ?? '?'}, ×${regimeMult(intel?.regime ?? '').toFixed(1)})`} />
                         <ProjCard label="Conservative Benchmark" ret={proj.conservativeBlended} color="text-slate-300"
                           desc="Long-run asset class averages (MSCI World, Bloomberg Agg, etc.)" />
@@ -995,7 +1057,7 @@ export default function PortfolioBuilderPage() {
                           <summary className="text-[9px] text-slate-600 hover:text-slate-400 cursor-pointer list-none">▶ What do these mean?</summary>
                           <div className="absolute right-0 top-5 z-20 w-72 rounded-xl border border-white/10 bg-[#0d1220] p-3.5 shadow-xl text-[9px] text-slate-400 space-y-2 leading-relaxed">
                             <p><strong className="text-slate-300">Conservative Benchmark</strong> — long-run asset class averages independent of current market conditions. A realistic floor for what a diversified portfolio might return over time.</p>
-                            <p><strong className="text-green-400">AceEconomy Driven</strong> — live YTD returns from AceEconomy, annualised over {new Date().getMonth() + 1} months and adjusted for the current market regime (×{regimeMult(intel?.regime ?? '').toFixed(1)}). More responsive to current momentum than the conservative benchmark.</p>
+                            <p><strong className="text-green-400">Live Performance</strong> — live YTD returns from AceEconomy, annualised over {new Date().getMonth() + 1} months and adjusted for the current market regime (×{regimeMult(intel?.regime ?? '').toFixed(1)}). More responsive to current momentum than the conservative benchmark.</p>
                             <p><strong className="text-amber-300">Volatility (σ)</strong> — weighted-average annualised std dev by asset class. Upper bound — actual portfolio vol is lower due to diversification. Lower σ = smoother ride for the client.</p>
                             <p><strong className="text-yellow-300">Sharpe Ratio</strong> — return per unit of risk. Above 1 is considered strong. Below 0.5 means the client is not being adequately rewarded for the volatility they&apos;re taking on — consider rebalancing toward higher-quality or lower-vol assets.</p>
                           </div>
@@ -1017,7 +1079,7 @@ export default function PortfolioBuilderPage() {
                           </div>
                         </div>
                         <div className="flex-1 rounded-xl border border-white/10 bg-white/4 p-3 text-center">
-                          <div className="text-[9px] font-mono text-slate-500 uppercase tracking-wider mb-1">AceEconomy Driven</div>
+                          <div className="text-[9px] font-mono text-slate-500 uppercase tracking-wider mb-1">Live Performance</div>
                           <div className={`text-xl font-bold font-mono ${cProj.aceBlended >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                             {cProj.aceBlended >= 0 ? '+' : ''}{cProj.aceBlended.toFixed(1)}%
                           </div>
@@ -1214,9 +1276,8 @@ export default function PortfolioBuilderPage() {
                           <thead>
                             <tr className="border-b border-white/8">
                               <th className="text-left text-slate-500 font-normal py-1.5 pr-3">Scenario</th>
-                              <th className="text-right text-indigo-300 font-semibold py-1.5 px-3">Manager Portfolio</th>
-                              <th className="text-right text-cyan-300 font-semibold py-1.5 px-3">{clientProfile.name || 'Client'} Portfolio</th>
-                              <th className="text-right text-slate-500 font-normal py-1.5 pl-3">Δ (Client − Manager)</th>
+                              <th className="text-right text-indigo-300 font-semibold py-1.5 px-3">PortfolioPlus</th>
+                              <th className="text-right text-cyan-300 font-semibold py-1.5 px-3">Balanced Portfolio</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-white/5">
@@ -1236,38 +1297,33 @@ export default function PortfolioBuilderPage() {
                               ]
                               return (
                                 <>
-                                  {rows.map(({ label, mVal, cVal, note }) => {
-                                    const delta = cVal - mVal
-                                    return (
-                                      <tr key={label} className="hover:bg-white/3 transition">
-                                        <td className="py-2 pr-3">
-                                          <div className="text-slate-300">{label}</div>
-                                          <div className="text-[9px] text-slate-600">{note}</div>
-                                        </td>
-                                        <td className={`py-2 px-3 text-right font-mono font-bold ${mVal >= 0 ? 'text-indigo-300' : 'text-red-400'}`}>
-                                          {mVal >= 0 ? '+' : ''}{mVal.toFixed(1)}%
-                                        </td>
-                                        <td className={`py-2 px-3 text-right font-mono font-bold ${cVal >= 0 ? 'text-cyan-300' : 'text-red-400'}`}>
-                                          {cVal >= 0 ? '+' : ''}{cVal.toFixed(1)}%
-                                        </td>
-                                        <td className={`py-2 pl-3 text-right font-mono text-[10px] ${Math.abs(delta) < 0.5 ? 'text-slate-600' : delta > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                          {delta >= 0 ? '+' : ''}{delta.toFixed(1)}%
-                                        </td>
-                                      </tr>
-                                    )
-                                  })}
+                                  {rows.map(({ label, mVal, cVal, note }) => (
+                                    <tr key={label} className="hover:bg-white/3 transition">
+                                      <td className="py-2 pr-3">
+                                        <div className="text-slate-300">{label}</div>
+                                        <div className="text-[9px] text-slate-600">{note}</div>
+                                      </td>
+                                      <td className={`py-2 px-3 text-right font-mono font-bold ${mVal >= 0 ? 'text-indigo-300' : 'text-red-400'}`}>
+                                        {mVal >= 0 ? '+' : ''}{mVal.toFixed(1)}%
+                                      </td>
+                                      <td className={`py-2 px-3 text-right font-mono font-bold ${cVal >= 0 ? 'text-cyan-300' : 'text-red-400'}`}>
+                                        {cVal >= 0 ? '+' : ''}{cVal.toFixed(1)}%
+                                      </td>
+                                    </tr>
+                                  ))}
 
                                   {/* SPY passive benchmark separator + row */}
-                                  <tr><td colSpan={4} className="pt-1 pb-0"><div className="border-t border-white/8" /></td></tr>
+                                  <tr><td colSpan={3} className="pt-1 pb-0"><div className="border-t border-white/8" /></td></tr>
                                   <tr className="hover:bg-white/3 transition bg-white/2">
                                     <td className="py-2 pr-3">
                                       <div className="flex items-center gap-1.5 text-slate-300">
                                         <span className="text-[9px] bg-orange-500/15 text-orange-300 px-1.5 py-0.5 rounded font-mono">SPY</span>
                                         S&amp;P 500 passive benchmark
+                                        {spySharpe != null && <span className="text-[9px] text-slate-600 ml-2">Sharpe {spySharpe.toFixed(2)}</span>}
                                       </div>
                                       <div className="text-[9px] text-slate-600">
                                         {spyYtdAnn != null
-                                          ? `Live YTD ${spyLive!.chg_ytd >= 0 ? '+' : ''}${spyLive!.chg_ytd.toFixed(1)}% annualised to ${spyYtdAnn.toFixed(1)}% · σ ~${spyVol}% · Sharpe ${spySharpe?.toFixed(2) ?? '—'} — are both portfolios beating the index?`
+                                          ? `Live YTD ${spyLive!.chg_ytd >= 0 ? '+' : ''}${spyLive!.chg_ytd.toFixed(1)}% annualised to ${spyYtdAnn.toFixed(1)}% · σ ~${spyVol}% — are both portfolios beating the index?`
                                           : 'SPY YTD data unavailable from AceEconomy feed'}
                                       </div>
                                     </td>
@@ -1281,43 +1337,30 @@ export default function PortfolioBuilderPage() {
                                         ? <>{spyYtdAnn >= 0 ? '+' : ''}{spyYtdAnn.toFixed(1)}% <span className="text-[9px] font-normal text-slate-600">{cProj.aceBlended > (spyYtdAnn ?? 0) ? '▲ ahead' : '▼ behind'}</span></>
                                         : <span className="text-slate-600">—</span>}
                                     </td>
-                                    <td className="py-2 pl-3 text-right text-[9px] text-slate-600 font-mono">
-                                      {spySharpe != null ? `Sharpe ${spySharpe.toFixed(2)}` : '—'}
-                                    </td>
                                   </tr>
                                 </>
                               )
                             })()}
 
                             {/* Separator row */}
-                            <tr><td colSpan={4} className="pt-1 pb-0"><div className="border-t border-white/8" /></td></tr>
+                            <tr><td colSpan={3} className="pt-1 pb-0"><div className="border-t border-white/8" /></td></tr>
 
                             {/* Volatility row */}
-                            {(() => {
-                              const mVol = proj.portfolioVol, cVol = cProj.portfolioVol
-                              const delta = cVol - mVol
-                              return (
-                                <tr className="hover:bg-white/3 transition">
-                                  <td className="py-2 pr-3">
-                                    <div className="text-slate-300">Portfolio volatility (σ)</div>
-                                    <div className="text-[9px] text-slate-600">Weighted-avg annualised std dev by asset class · assumes zero cross-correlations (upper bound)</div>
-                                  </td>
-                                  <td className="py-2 px-3 text-right font-mono font-bold text-amber-300">{mVol.toFixed(1)}%</td>
-                                  <td className="py-2 px-3 text-right font-mono font-bold text-amber-300">{cVol.toFixed(1)}%</td>
-                                  <td className={`py-2 pl-3 text-right font-mono text-[10px] ${Math.abs(delta) < 0.3 ? 'text-slate-600' : delta > 0 ? 'text-red-400' : 'text-green-400'}`}>
-                                    {delta >= 0 ? '+' : ''}{delta.toFixed(1)}%
-                                  </td>
-                                </tr>
-                              )
-                            })()}
+                            <tr className="hover:bg-white/3 transition">
+                              <td className="py-2 pr-3">
+                                <div className="text-slate-300">Portfolio volatility (σ)</div>
+                                <div className="text-[9px] text-slate-600">Weighted-avg annualised std dev by asset class · upper bound</div>
+                              </td>
+                              <td className="py-2 px-3 text-right font-mono font-bold text-amber-300">{proj.portfolioVol.toFixed(1)}%</td>
+                              <td className="py-2 px-3 text-right font-mono font-bold text-amber-300">{cProj.portfolioVol.toFixed(1)}%</td>
+                            </tr>
 
                             {/* Sharpe rows */}
                             {([
-                              { label: 'Sharpe — AceEconomy',    mVal: proj.sharpeAce,          cVal: cProj.sharpeAce,          note: `(AceEconomy − ${RISK_FREE_RATE}% RFR) ÷ σ` },
+                              { label: 'Sharpe — Live Perf.',    mVal: proj.sharpeAce,          cVal: cProj.sharpeAce,          note: `(Live return − ${RISK_FREE_RATE}% RFR) ÷ σ` },
                               { label: 'Sharpe — Manager est.',  mVal: proj.sharpeManager,      cVal: cProj.sharpeManager,      note: `(Manager est. − ${RISK_FREE_RATE}% RFR) ÷ σ` },
                               { label: 'Sharpe — Conservative',  mVal: proj.sharpeConservative, cVal: cProj.sharpeConservative, note: `(Conservative − ${RISK_FREE_RATE}% RFR) ÷ σ` },
                             ] as const).map(({ label, mVal, cVal, note }) => {
-                              const delta = cVal - mVal
                               const sharpeColor = (v: number) => v >= 1 ? 'text-green-400' : v >= 0.5 ? 'text-yellow-300' : v >= 0 ? 'text-amber-400' : 'text-red-400'
                               return (
                                 <tr key={label} className="hover:bg-white/3 transition">
@@ -1327,9 +1370,6 @@ export default function PortfolioBuilderPage() {
                                   </td>
                                   <td className={`py-2 px-3 text-right font-mono font-bold ${sharpeColor(mVal)}`}>{mVal.toFixed(2)}</td>
                                   <td className={`py-2 px-3 text-right font-mono font-bold ${sharpeColor(cVal)}`}>{cVal.toFixed(2)}</td>
-                                  <td className={`py-2 pl-3 text-right font-mono text-[10px] ${Math.abs(delta) < 0.05 ? 'text-slate-600' : delta > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                    {delta >= 0 ? '+' : ''}{delta.toFixed(2)}
-                                  </td>
                                 </tr>
                               )
                             })}
@@ -1474,9 +1514,18 @@ export default function PortfolioBuilderPage() {
                   </button>
                 </div>
               ) : (() => {
+                const TIMEFRAMES: { key: typeof dnaTimeframe; label: string }[] = [
+                  { key: 'overnight', label: '1D' },
+                  { key: '5d',        label: '1W' },
+                  { key: '3m',        label: '3M' },
+                  { key: '6m',        label: '6M' },
+                  { key: '1y',        label: '1Y' },
+                  { key: 'ytd',       label: 'YTD' },
+                ]
+
                 const toWheel = (hs: Holding[]) => hs.map(h => ({
                   ...h,
-                  liveYtd: ((): number | undefined => {
+                  liveYtd: dnaPerf[h.ticker] ?? ((): number | undefined => {
                     const lm: Record<string, AssetClass> = {}
                     intel?.asset_classes?.forEach(a => { lm[a.ticker] = a })
                     intel?.sectors?.forEach(s => { lm[s.ticker] = s as unknown as AssetClass })
@@ -1486,9 +1535,24 @@ export default function PortfolioBuilderPage() {
                 }))
                 return (
                   <>
-                    <div>
-                      <h2 className="text-sm font-bold text-white">PortDNA</h2>
-                      <p className="text-[10px] text-slate-500">Semicircle · ring size = allocation · colour = YTD performance · hover / click for projections & drawdown</p>
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div>
+                        <h2 className="text-sm font-bold text-white">PortDNA</h2>
+                        <p className="text-[10px] text-slate-500">Semicircle · ring size = allocation · colour = performance · hover / click for projections & drawdown</p>
+                      </div>
+                      {/* Timeframe selector */}
+                      <div className="flex items-center gap-1 bg-white/5 rounded-lg p-1">
+                        {TIMEFRAMES.map(({ key, label }) => (
+                          <button key={key} onClick={() => setDnaTimeframe(key)}
+                            disabled={dnaLoading}
+                            className={`text-[10px] px-2.5 py-1 rounded-md font-mono transition ${
+                              dnaTimeframe === key ? 'bg-cyan-500/25 text-cyan-300' : 'text-slate-500 hover:text-white'
+                            }`}>
+                            {label}
+                          </button>
+                        ))}
+                        {dnaLoading && <span className="text-[9px] text-slate-600 ml-1">…</span>}
+                      </div>
                     </div>
                     <PortfolioDNAWheel
                       holdings={toWheel(holdings)}
