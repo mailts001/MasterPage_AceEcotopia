@@ -21,10 +21,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en">
       <body className="min-h-screen bg-[#0A0E1A] text-slate-200 antialiased">
-        {/* Runs synchronously before React hydrates — no flash-of-wrong-theme */}
-        <script dangerouslySetInnerHTML={{ __html: `try{if(localStorage.getItem('ace_fin_light')==='1'){document.documentElement.classList.add('ace-light')}}catch(e){}` }} />
         <LocaleProvider>
           <PageTracker />
           {children}
