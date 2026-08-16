@@ -305,6 +305,7 @@ export default function PortfolioBuilderPage() {
   const [customName, setCustomName]     = useState('')
   const [customCat, setCustomCat]       = useState('equity')
   const [bgLight, setBgLight]           = useState(false)
+  useEffect(() => { setBgLight(localStorage.getItem('ace_fin_light') === '1') }, [])
   const [dnaTimeframe, setDnaTimeframe] = useState<'ytd'|'1y'|'6m'|'3m'|'5d'|'overnight'>('ytd')
   const [dnaPerf, setDnaPerf]           = useState<Record<string, number>>({})
   const [dnaLoading, setDnaLoading]     = useState(false)
@@ -428,25 +429,43 @@ export default function PortfolioBuilderPage() {
   // Fetch multi-period performance for PortDNA timeframe view
   const fetchDnaPerf = useCallback(async (tickers: string[], period: string) => {
     if (tickers.length === 0) return
-    // For YTD, intel already has it — no extra fetch needed
-    if (period === 'ytd' && intel) {
-      const map: Record<string, number> = {}
-      intel.asset_classes.forEach(a => { if (a.chg_ytd != null) map[a.ticker] = a.chg_ytd })
-      setDnaPerf(map)
-      return
-    }
     setDnaLoading(true)
     try {
+      const map: Record<string, number> = {}
+
+      if (period === 'ytd') {
+        // Prefer intel feed for YTD (faster, no extra API call)
+        if (intel) {
+          intel.asset_classes.forEach(a => { if (a.chg_ytd != null) map[a.ticker] = a.chg_ytd })
+          intel.sectors?.forEach(s => { if ((s as AssetClass).chg_ytd != null) map[s.ticker] = (s as AssetClass).chg_ytd })
+        }
+        // Fetch from VPS for tickers not in intel (use 1y as proxy)
+        const missing = tickers.filter(t => map[t] == null)
+        if (missing.length > 0) {
+          const r = await fetch('/api/nexus/financial/perf-periods', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tickers: missing }),
+          }).catch(() => null)
+          if (r?.ok) {
+            const d = await r.json()
+            ;(d.tickers ?? []).forEach((t: Record<string, unknown>) => {
+              const v = t['1y']  // use 1y as YTD proxy for unlisted tickers
+              if (typeof v === 'number') map[t.ticker as string] = v
+            })
+          }
+        }
+        setDnaPerf(map)
+        return
+      }
+
       const fieldMap: Record<string, string> = { '1y': '1y', '6m': '6m', '3m': '3m', '5d': '5d', overnight: 'overnight' }
       const field = fieldMap[period] ?? '1y'
       const r = await fetch('/api/nexus/financial/perf-periods', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tickers }),
       }).catch(() => null)
       if (r?.ok) {
         const d = await r.json()
-        const map: Record<string, number> = {}
         ;(d.tickers ?? []).forEach((t: Record<string, unknown>) => {
           const v = t[field]
           if (typeof v === 'number') map[t.ticker as string] = v
@@ -577,7 +596,7 @@ export default function PortfolioBuilderPage() {
           <span className={bgLight ? 'text-slate-300' : 'text-white/20'}>/</span>
           <span className={`text-sm font-semibold ${bgLight ? 'text-slate-900' : 'text-white'}`}>Build PortfolioPlus</span>
           <span className="ml-auto text-[10px] text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full">Trial — open to all Citizens</span>
-          <button onClick={() => setBgLight(b => !b)}
+          <button onClick={() => { const next = !bgLight; setBgLight(next); localStorage.setItem('ace_fin_light', next ? '1' : '0') }}
             title="Toggle light / dark background"
             className={`text-[11px] border rounded-lg px-2.5 py-1 transition ml-2 ${bgLight ? 'border-slate-300 text-slate-600 hover:text-slate-900' : 'border-white/20 text-slate-400 hover:text-white'}`}>
             {bgLight ? '🌙 Dark' : '☀ Light'}
@@ -1575,42 +1594,71 @@ export default function PortfolioBuilderPage() {
                         {dnaLoading && <span className="text-[9px] text-slate-600 ml-1">…</span>}
                       </div>
                     </div>
-                    {/* Period portfolio impact */}
-                    {!dnaLoading && Object.keys(dnaPerf).length > 0 && (() => {
+                    {/* Portfolio snapshot — always visible, no layout jump */}
+                    {(() => {
                       const t2 = totalPct(holdings) || 1
-                      const periodBlended = holdings.reduce((sum, h) => {
-                        const ret = dnaPerf[h.ticker]
-                        return ret != null ? sum + (h.pct / t2) * ret : sum
-                      }, 0)
-                      const hasSomePerf = holdings.some(h => dnaPerf[h.ticker] != null)
-                      if (!hasSomePerf) return null
                       const tfLabel = { overnight: '1D', '5d': '1W', '3m': '3M', '6m': '6M', '1y': '1Y', ytd: 'YTD' }[dnaTimeframe]
+                      const hasSomePerf = holdings.some(h => dnaPerf[h.ticker] != null)
+                      const periodBlended = hasSomePerf
+                        ? holdings.reduce((sum, h) => { const ret = dnaPerf[h.ticker]; return ret != null ? sum + (h.pct / t2) * ret : sum }, 0)
+                        : null
+
+                      // Sector summary: group holdings by category with representative tickers
+                      const catGroups: Record<string, string[]> = {}
+                      holdings.forEach(h => { catGroups[h.category] = [...(catGroups[h.category] ?? []), h.ticker] })
+                      const sectorSummary = Object.entries(catGroups)
+                        .sort(([a], [b]) => {
+                          const wa = holdings.filter(h => h.category === a).reduce((s, h) => s + h.pct, 0)
+                          const wb = holdings.filter(h => h.category === b).reduce((s, h) => s + h.pct, 0)
+                          return wb - wa
+                        })
+                        .map(([cat, tickers]) => {
+                          const w = holdings.filter(h => h.category === cat).reduce((s, h) => s + h.pct, 0)
+                          return `${CATEGORY_LABELS[cat] ?? cat} ${(w / t2 * 100).toFixed(0)}% (${tickers.join(', ')})`
+                        })
+
                       return (
                         <div className="rounded-xl border border-white/10 bg-white/3 p-4 space-y-3">
+                          {/* Period return row */}
                           <div className="flex items-center justify-between">
                             <div className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">
-                              Portfolio weighted return · {tfLabel}
+                              Portfolio return · {tfLabel}
                             </div>
-                            <div className={`text-2xl font-bold font-mono ${periodBlended >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                              {periodBlended >= 0 ? '+' : ''}{periodBlended.toFixed(1)}%
-                            </div>
+                            {dnaLoading ? (
+                              <div className="text-[10px] text-slate-600 animate-pulse">loading…</div>
+                            ) : periodBlended != null ? (
+                              <div className={`text-xl font-bold font-mono ${periodBlended >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                {periodBlended >= 0 ? '+' : ''}{periodBlended.toFixed(1)}%
+                              </div>
+                            ) : (
+                              <div className="text-[10px] text-slate-700">—</div>
+                            )}
                           </div>
-                          <div className="flex flex-wrap gap-1.5">
+
+                          {/* Per-asset chips — always present */}
+                          <div className="flex flex-wrap gap-1.5 min-h-[28px]">
                             {holdings.map(h => {
                               const ret = dnaPerf[h.ticker]
                               return (
-                                <div key={h.ticker} className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/4 px-2 py-1 text-[10px]">
+                                <div key={h.ticker} className="flex items-center gap-1 rounded border border-white/10 bg-white/4 px-2 py-1 text-[10px]">
                                   <span className="font-mono font-bold text-white">{h.ticker}</span>
-                                  <span className="text-slate-600">{h.pct}%</span>
-                                  {ret != null
-                                    ? <span className={`font-mono font-semibold ${ret >= 0 ? 'text-green-400' : 'text-red-400'}`}>{ret >= 0 ? '+' : ''}{ret.toFixed(1)}%</span>
-                                    : <span className="text-slate-700 text-[9px]">no data</span>
-                                  }
+                                  <span className="text-slate-600 text-[9px]">{h.pct}%</span>
+                                  {dnaLoading ? <span className="text-slate-700 text-[9px]">…</span>
+                                    : ret != null
+                                      ? <span className={`font-mono ${ret >= 0 ? 'text-green-400' : 'text-red-400'}`}>{ret >= 0 ? '+' : ''}{ret.toFixed(1)}%</span>
+                                      : <span className="text-slate-700 text-[9px]">—</span>}
                                 </div>
                               )
                             })}
                           </div>
-                          <p className="text-[9px] text-slate-700">Weighted average · missing tickers excluded from blended figure · {tfLabel} performance from AceEconomy VPS or YTD from intel feed</p>
+
+                          {/* Sector/industry composition — always visible */}
+                          <div className="border-t border-white/8 pt-2 space-y-1">
+                            <div className="text-[9px] font-mono text-slate-600 uppercase tracking-wider">Sector composition</div>
+                            {sectorSummary.map((s, i) => (
+                              <div key={i} className="text-[9px] text-slate-500">{s}</div>
+                            ))}
+                          </div>
                         </div>
                       )
                     })()}
@@ -1625,6 +1673,8 @@ export default function PortfolioBuilderPage() {
                       sharpeAce={proj.sharpeAce}
                       clientPortfolioVol={clientHoldings.length > 0 ? cProj.portfolioVol : undefined}
                       clientSharpeAce={clientHoldings.length > 0 ? cProj.sharpeAce : undefined}
+                      dnaPerf={dnaPerf}
+                      dnaTimeframe={dnaTimeframe}
                     />
                   </>
                 )

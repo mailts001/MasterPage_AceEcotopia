@@ -20,6 +20,30 @@ interface RingData extends WheelHolding {
   maxDrawdown: number
 }
 
+// ── Company descriptions (short, for click detail panel) ─────────────────────
+const TICKER_INFO: Record<string, { sector: string; desc: string }> = {
+  SPY:  { sector: 'US Broad Market', desc: 'S&P 500 ETF — 500 largest US companies, cap-weighted. Primary US equity benchmark.' },
+  QQQ:  { sector: 'US Tech / Growth', desc: 'Nasdaq-100 ETF — top 100 non-financial Nasdaq companies. ~60% technology concentration.' },
+  IWM:  { sector: 'US Small-Cap', desc: 'Russell 2000 ETF — 2,000 small-cap US stocks. Higher volatility and domestic-cycle sensitivity than large-caps.' },
+  EEM:  { sector: 'Emerging Markets', desc: 'MSCI Emerging Markets ETF — diversified EM exposure including China, India, Taiwan, Korea.' },
+  VEA:  { sector: 'International Developed', desc: 'FTSE Developed ex-US/Canada ETF — Europe, Japan, Australia. Currency-sensitive.' },
+  TLT:  { sector: 'Long-Duration Treasuries', desc: 'iShares 20+ Year Treasury Bond ETF. Inverse rate sensitivity — rallies when rates fall, drops sharply when rates rise.' },
+  LQD:  { sector: 'Investment-Grade Bonds', desc: 'iShares IG Corporate Bond ETF. Blend of credit and rate risk; yields premium over Treasuries.' },
+  HYG:  { sector: 'High-Yield Bonds', desc: 'iShares High Yield Corporate Bond ETF. Higher credit risk; more correlated with equities than investment-grade bonds.' },
+  GLD:  { sector: 'Precious Metals', desc: 'SPDR Gold Shares — physical gold proxy. Safe-haven asset; performs well in inflation and risk-off regimes.' },
+  VNQ:  { sector: 'US REITs', desc: 'Vanguard Real Estate ETF — US real estate investment trusts. Income-oriented; sensitive to interest rate direction.' },
+  XLK:  { sector: 'US Technology Sector', desc: 'Technology Select Sector SPDR — US tech sector concentrated in Apple, Microsoft, Nvidia, Broadcom.' },
+  XLV:  { sector: 'US Healthcare Sector', desc: 'Health Care Select Sector SPDR — defensive sector; lower cyclicality than broad market.' },
+  XLF:  { sector: 'US Financials Sector', desc: 'Financials Select Sector SPDR — banks, insurance, diversified financials. Benefits from rising rates.' },
+  ARKK: { sector: 'Disruptive Innovation', desc: 'ARK Innovation ETF — highly concentrated in early-stage disruptive tech. Very high volatility (β≈1.5+).' },
+  BOTZ: { sector: 'AI & Robotics', desc: 'Global X Robotics & AI ETF — automation, industrial robots, AI software. Secular growth theme.' },
+  SOXX: { sector: 'Semiconductors', desc: 'iShares Semiconductor ETF — chip designers and manufacturers. High cyclicality, supply-chain sensitive.' },
+  ICLN: { sector: 'Clean Energy', desc: 'iShares Global Clean Energy ETF — solar, wind, hydrogen. Policy-sensitive; high rate sensitivity.' },
+  USO:  { sector: 'Crude Oil', desc: 'United States Oil Fund — WTI crude oil futures proxy. High vol; macro and geopolitical sensitive.' },
+  SLV:  { sector: 'Silver', desc: 'iShares Silver Trust — physical silver. Dual industrial/precious metal demand; higher vol than gold.' },
+  UUP:  { sector: 'US Dollar', desc: 'Invesco DB US Dollar Index Bullish Fund — DXY proxy. Inversely correlated with risk assets and EM.' },
+}
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const PERF_COLOR = {
@@ -172,9 +196,11 @@ interface Props {
   sharpeAce?: number
   clientPortfolioVol?: number
   clientSharpeAce?: number
+  dnaPerf?: Record<string, number>
+  dnaTimeframe?: string
 }
 
-export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vix, commentary, portfolioVol, sharpeAce, clientPortfolioVol, clientSharpeAce }: Props) {
+export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vix, commentary, portfolioVol, sharpeAce, clientPortfolioVol, clientSharpeAce, dnaPerf = {}, dnaTimeframe = 'ytd' }: Props) {
   const [rings, setRings]       = useState<RingData[]>([])
   const [hovered, setHovered]   = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
@@ -370,6 +396,14 @@ export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vi
               </div>
               <div className="text-[9px] text-slate-500">{detailRing.name} · {CATEGORY_LABEL[detailRing.category]}</div>
 
+              {/* Company / sector description */}
+              {TICKER_INFO[detailRing.ticker] && (
+                <div className="rounded border border-white/8 bg-white/3 px-2.5 py-2 space-y-1">
+                  <div className="text-[8px] text-cyan-400 font-mono uppercase tracking-wider">{TICKER_INFO[detailRing.ticker].sector}</div>
+                  <p className="text-[9px] text-slate-400 leading-relaxed">{TICKER_INFO[detailRing.ticker].desc}</p>
+                </div>
+              )}
+
               {/* Key numbers */}
               <div className="grid grid-cols-2 gap-1.5">
                 <div className="rounded border border-white/8 bg-white/3 px-2 py-1.5">
@@ -382,14 +416,25 @@ export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vi
                     {detailRing.liveYtd != null ? `${detailRing.liveYtd >= 0 ? '+' : ''}${detailRing.liveYtd.toFixed(1)}%` : '— benchmark'}
                   </div>
                 </div>
+                {/* Selected period performance */}
+                {dnaPerf[detailRing.ticker] != null && (
+                  <div className="rounded border border-white/8 bg-white/3 px-2 py-1.5 col-span-2">
+                    <div className="text-[8px] text-slate-600">
+                      {({ overnight: '1D', '5d': '1W', '3m': '3M', '6m': '6M', '1y': '1Y', ytd: 'YTD' } as Record<string,string>)[dnaTimeframe] ?? dnaTimeframe} performance
+                    </div>
+                    <div className={`text-sm font-bold font-mono ${dnaPerf[detailRing.ticker] >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {dnaPerf[detailRing.ticker] >= 0 ? '+' : ''}{dnaPerf[detailRing.ticker].toFixed(1)}%
+                    </div>
+                  </div>
+                )}
                 <div className="rounded border border-red-500/15 bg-red-500/5 px-2 py-1.5">
-                  <div className="text-[8px] text-slate-600">Bear return est.</div>
+                  <div className="text-[8px] text-slate-600">Bear case est.</div>
                   <div className={`text-xs font-bold font-mono ${detailRing.bearCase >= 0 ? 'text-slate-300' : 'text-red-400'}`}>
                     {detailRing.bearCase >= 0 ? '+' : ''}{detailRing.bearCase.toFixed(1)}%
                   </div>
                 </div>
                 <div className="rounded border border-cyan-500/15 bg-cyan-500/5 px-2 py-1.5">
-                  <div className="text-[8px] text-slate-600">Bull return est.</div>
+                  <div className="text-[8px] text-slate-600">Bull case est.</div>
                   <div className="text-xs font-bold font-mono text-cyan-300">+{detailRing.bullCase.toFixed(1)}%</div>
                 </div>
               </div>
