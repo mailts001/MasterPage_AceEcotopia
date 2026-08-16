@@ -458,7 +458,7 @@ function OverviewTable({ funds, perfs }: { funds: FundData[]; perfs: TickerData[
         </tbody>
       </table>
       <div className="px-3 py-2 text-[9px] text-slate-700 border-t border-white/5">
-        ROE as decimal (1.14 = 114%) · Div% annualised · IV30 = 30-day implied vol · P/C = put/call ratio (>1 = bearish) · vs ATR = price distance from 15d ago in ATR units · Sharpe = 1y · PEG &lt;1 = undervalued · Analyst 1=Strong Buy → 5=Sell · Not investment advice.
+        ROE as decimal (1.14 = 114%) · Div% annualised · IV30 = 30-day implied vol · P/C = put/call ratio (&gt;1 = bearish) · vs ATR = price distance from 15d ago in ATR units · Sharpe = 1y · PEG &lt;1 = undervalued · Analyst 1=Strong Buy to 5=Sell · Not investment advice.
       </div>
     </div>
   )
