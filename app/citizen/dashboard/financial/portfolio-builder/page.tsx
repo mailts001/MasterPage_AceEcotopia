@@ -57,6 +57,31 @@ const BENCHMARK: Record<string, { ret: number; source: string }> = {
   cash:            { ret: 4.0,  source: 'US T-Bill / money market indicative rate (verify current rate)' },
 }
 
+// Sector/industry labels per ticker — used for DNA sector composition breakdown
+const TICKER_SECTOR: Record<string, string> = {
+  SPY: 'US Broad Market', QQQ: 'US Tech / Growth', IWM: 'US Small Cap',
+  VTI: 'US Total Market', VEA: 'Developed Markets Intl', VWO: 'Emerging Markets',
+  EEM: 'Emerging Markets', GLD: 'Gold / Precious Metals', SLV: 'Silver',
+  GDX: 'Gold Miners', TLT: 'Long Duration Treasuries', AGG: 'US Aggregate Bonds',
+  BND: 'Total Bond Market', LQD: 'Corporate Bonds', HYG: 'High Yield Bonds',
+  SHY: 'Short Duration Treasuries', BNDX: 'Intl Bonds', EMB: 'EM Bonds',
+  USO: 'Crude Oil', DBC: 'Commodities Broad', DBA: 'Agriculture',
+  XLK: 'Technology', XLF: 'Financials', XLV: 'Healthcare',
+  XLE: 'Energy', XLI: 'Industrials', XLY: 'Consumer Discretionary',
+  XLP: 'Consumer Staples', XLU: 'Utilities', XLRE: 'Real Estate',
+  XLC: 'Communication Services', XLB: 'Materials',
+  NVDA: 'Semiconductors', AAPL: 'Large Cap Tech', MSFT: 'Large Cap Tech',
+  AMZN: 'E-Commerce / Cloud', GOOGL: 'Digital Advertising / AI',
+  META: 'Social Media / AI', TSLA: 'EV / Clean Energy',
+  JPM: 'US Mega-Cap Banking', BAC: 'US Banking', GS: 'Investment Banking',
+  HSBA: 'Global Banking', '0005.HK': 'HK Banking', '0941.HK': 'China Telecom',
+  '2330.TW': 'Semiconductors (TSMC)', ASML: 'Semiconductor Equipment',
+  BTC: 'Crypto — Bitcoin', ETH: 'Crypto — Ethereum',
+  VNQ: 'US REITs', REM: 'Mortgage REITs',
+  'TBILL-USD-3M': 'Cash / US T-Bill', 'TBILL-USD-6M': 'Cash / US T-Bill',
+  'TBILL-SGD-6M': 'Cash / SGD T-Bill', 'MMF-USD': 'Cash / Money Market',
+}
+
 const CATEGORY_LABELS: Record<string, string> = {
   equity: 'Equity', fixed_income: 'Fixed Income / Bonds',
   fx: 'FX / Currency', commodities: 'Commodities & Alternatives',
@@ -305,7 +330,18 @@ export default function PortfolioBuilderPage() {
   const [customName, setCustomName]     = useState('')
   const [customCat, setCustomCat]       = useState('equity')
   const [bgLight, setBgLight]           = useState(false)
-  useEffect(() => { setBgLight(localStorage.getItem('ace_fin_light') === '1') }, [])
+  useEffect(() => {
+    const val = localStorage.getItem('ace_fin_light') === '1'
+    setBgLight(val)
+    document.body.style.backgroundColor = val ? '#f1f5f9' : ''
+    document.body.style.color           = val ? '#0f172a' : ''
+  }, [])
+  const applyTheme = (next: boolean) => {
+    setBgLight(next)
+    localStorage.setItem('ace_fin_light', next ? '1' : '0')
+    document.body.style.backgroundColor = next ? '#f1f5f9' : ''
+    document.body.style.color           = next ? '#0f172a' : ''
+  }
   const [dnaTimeframe, setDnaTimeframe] = useState<'ytd'|'1y'|'6m'|'3m'|'5d'|'overnight'>('ytd')
   const [dnaPerf, setDnaPerf]           = useState<Record<string, number>>({})
   const [dnaLoading, setDnaLoading]     = useState(false)
@@ -425,6 +461,116 @@ export default function PortfolioBuilderPage() {
   }
 
   function handlePrint() { window.print() }
+
+  function handlePrintDNA() {
+    const tfLabel = ({ overnight: '1D', '5d': '1W', '3m': '3M', '6m': '6M', '1y': '1Y', ytd: 'YTD' } as Record<string,string>)[dnaTimeframe] ?? dnaTimeframe
+    const t2 = holdings.reduce((s, h) => s + h.pct, 0) || 100
+    const blended = holdings.reduce((sum, h) => { const r = dnaPerf[h.ticker]; return r != null ? sum + (h.pct / t2) * r : sum }, 0)
+    const hasPerf = holdings.some(h => dnaPerf[h.ticker] != null)
+
+    const secMap: Record<string, { tickers: string[]; weight: number; perfSum: number; wSum: number }> = {}
+    holdings.forEach(h => {
+      const sec = TICKER_SECTOR[h.ticker] ?? CATEGORY_LABELS[h.category] ?? h.category
+      if (!secMap[sec]) secMap[sec] = { tickers: [], weight: 0, perfSum: 0, wSum: 0 }
+      secMap[sec].tickers.push(h.ticker)
+      secMap[sec].weight += h.pct / t2 * 100
+      const r = dnaPerf[h.ticker]; if (r != null) { secMap[sec].perfSum += r * (h.pct / t2); secMap[sec].wSum += h.pct / t2 }
+    })
+    const sectors = Object.entries(secMap).sort(([,a],[,b]) => b.weight - a.weight)
+
+    const html = `<!DOCTYPE html><html><head><title>PortfolioPlus DNA Report</title>
+<style>
+  body{font-family:Arial,sans-serif;color:#111;background:#fff;margin:0;padding:40px;font-size:12px}
+  h1{font-size:22px;font-weight:700;margin:0 0 4px}
+  h2{font-size:14px;font-weight:600;margin:24px 0 8px;border-bottom:1px solid #ddd;padding-bottom:4px}
+  .subtitle{color:#666;font-size:11px;margin-bottom:24px}
+  table{width:100%;border-collapse:collapse;margin-bottom:16px}
+  th{text-align:left;padding:5px 8px;border-bottom:2px solid #222;font-size:11px;background:#f5f5f5}
+  td{padding:5px 8px;border-bottom:1px solid #eee;vertical-align:top}
+  .right{text-align:right}
+  .bold{font-weight:700}
+  .green{color:#16a34a}
+  .red{color:#dc2626}
+  .chip{display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:700;margin:2px 2px 0 0}
+  .metrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px}
+  .metric{border:1px solid #ddd;border-radius:6px;padding:10px 12px}
+  .metric-label{color:#666;font-size:10px;text-transform:uppercase;letter-spacing:.05em}
+  .metric-value{font-size:20px;font-weight:700;margin-top:2px}
+  .disclaimer{font-size:10px;color:#666;border-top:1px solid #ccc;margin-top:24px;padding-top:12px;line-height:1.6}
+  @media print{body{padding:24px}@page{margin:1.5cm}}
+</style></head><body>
+  <h1>PortfolioPlus DNA Report</h1>
+  <p class="subtitle">Generated ${new Date().toLocaleString('en-SG')} &nbsp;·&nbsp; X68 AceEconomy Financial District &nbsp;·&nbsp; For professional discussion only</p>
+
+  <h2>Portfolio Overview</h2>
+  <div class="metrics">
+    <div class="metric">
+      <div class="metric-label">Assets</div>
+      <div class="metric-value">${holdings.length}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Portfolio Return · ${tfLabel}</div>
+      <div class="metric-value ${hasPerf ? (blended >= 0 ? 'green' : 'red') : ''}">${hasPerf ? (blended >= 0 ? '+' : '') + blended.toFixed(1) + '%' : '—'}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Est. Volatility (σ)</div>
+      <div class="metric-value">${proj.portfolioVol.toFixed(1)}%</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Sharpe Ratio</div>
+      <div class="metric-value">${proj.sharpeAce.toFixed(2)}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Market Regime</div>
+      <div class="metric-value" style="font-size:14px">${intel?.regime ?? '—'}</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">VIX</div>
+      <div class="metric-value">${intel?.vix?.toFixed(0) ?? '—'}</div>
+    </div>
+  </div>
+
+  <h2>Asset Allocation · ${tfLabel} Performance</h2>
+  <table>
+    <thead><tr><th>Ticker</th><th>Name</th><th>Sector / Industry</th><th class="right">Weight</th><th class="right">${tfLabel} Return</th></tr></thead>
+    <tbody>${holdings.map(h => {
+      const r = dnaPerf[h.ticker]
+      const sec = TICKER_SECTOR[h.ticker] ?? CATEGORY_LABELS[h.category] ?? h.category
+      const cls = r == null ? '' : r >= 0 ? 'green' : 'red'
+      return `<tr><td class="bold" style="font-family:monospace">${h.ticker}</td><td>${h.name}</td><td>${sec}</td><td class="right bold">${(h.pct/t2*100).toFixed(1)}%</td><td class="right bold ${cls}">${r != null ? (r>=0?'+':'')+r.toFixed(1)+'%' : '—'}</td></tr>`
+    }).join('')}</tbody>
+  </table>
+
+  <h2>Sector / Industry Breakdown · ${tfLabel}</h2>
+  <table>
+    <thead><tr><th>Sector</th><th>Tickers</th><th class="right">Weight</th><th class="right">Blended ${tfLabel}</th></tr></thead>
+    <tbody>${sectors.map(([sec, g]) => {
+      const perf = g.wSum > 0 ? g.perfSum / g.wSum : null
+      const cls = perf == null ? '' : perf >= 0 ? 'green' : 'red'
+      return `<tr><td class="bold">${sec}</td><td style="color:#555">${g.tickers.join(', ')}</td><td class="right">${g.weight.toFixed(0)}%</td><td class="right bold ${cls}">${perf != null ? (perf>=0?'+':'')+perf.toFixed(1)+'%' : '—'}</td></tr>`
+    }).join('')}</tbody>
+  </table>
+
+  <h2>Return Projections (Annual Estimates)</h2>
+  <table>
+    <thead><tr><th>Scenario</th><th class="right">Est. Return p.a.</th><th>Methodology</th></tr></thead>
+    <tbody>
+      <tr><td>Manager Projection</td><td class="right bold">${proj.managerBlended>=0?'+':''}${proj.managerBlended.toFixed(1)}%</td><td style="color:#555;font-size:10px">Weighted avg of manager-inputted expected returns</td></tr>
+      <tr><td>AceEconomy Market-Driven</td><td class="right bold">${proj.aceBlended>=0?'+':''}${proj.aceBlended.toFixed(1)}%</td><td style="color:#555;font-size:10px">Live YTD annualised × regime multiplier (${intel?.regime ?? '?'}, ×${regimeMult(intel?.regime ?? 'UNKNOWN').toFixed(1)})</td></tr>
+      <tr><td>Conservative Benchmark</td><td class="right bold">${proj.conservativeBlended>=0?'+':''}${proj.conservativeBlended.toFixed(1)}%</td><td style="color:#555;font-size:10px">Long-run asset class historical averages</td></tr>
+      <tr><td>Bear Case</td><td class="right bold red">${(proj.aceBlended*0.5>=0?'+':'')}${(proj.aceBlended*0.5).toFixed(1)}%</td><td style="color:#555;font-size:10px">AceEconomy base compressed by 50%</td></tr>
+      <tr><td>Bull Case</td><td class="right bold green">+${(proj.aceBlended*1.6).toFixed(1)}%</td><td style="color:#555;font-size:10px">AceEconomy base ×1.6</td></tr>
+    </tbody>
+  </table>
+
+  ${proj.riskFlags.length > 0 ? `<h2>Risk Considerations</h2><ul>${proj.riskFlags.map(f=>`<li style="margin-bottom:4px">${f.message}</li>`).join('')}</ul>` : ''}
+
+  <p class="disclaimer"><strong>Disclaimer:</strong> This PortfolioPlus DNA Report is generated for illustrative and professional discussion purposes only. It does not constitute financial advice, an investment recommendation, or a solicitation to buy or sell any security. All return projections and scenario estimates carry significant uncertainty and are not a guarantee of future performance. Past performance and historical benchmark returns are not indicative of future results. Sector classifications, benchmark rates, and risk metrics are indicative. Investors and their advisers should conduct independent due diligence and consult a licensed financial professional before making any investment decisions. Market data as of ${new Date().toLocaleDateString('en-SG')}.</p>
+</body></html>`
+
+    const w = window.open('', '_blank')
+    if (w) { w.document.write(html); w.document.close(); setTimeout(() => w.print(), 600) }
+  }
 
   // Fetch multi-period performance for PortDNA timeframe view
   const fetchDnaPerf = useCallback(async (tickers: string[], period: string) => {
@@ -596,7 +742,7 @@ export default function PortfolioBuilderPage() {
           <span className={bgLight ? 'text-slate-300' : 'text-white/20'}>/</span>
           <span className={`text-sm font-semibold ${bgLight ? 'text-slate-900' : 'text-white'}`}>Build PortfolioPlus</span>
           <span className="ml-auto text-[10px] text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full">Trial — open to all Citizens</span>
-          <button onClick={() => { const next = !bgLight; setBgLight(next); localStorage.setItem('ace_fin_light', next ? '1' : '0') }}
+          <button type="button" onClick={() => applyTheme(!bgLight)}
             title="Toggle light / dark background"
             className={`text-[11px] border rounded-lg px-2.5 py-1 transition ml-2 ${bgLight ? 'border-slate-300 text-slate-600 hover:text-slate-900' : 'border-white/20 text-slate-400 hover:text-white'}`}>
             {bgLight ? '🌙 Dark' : '☀ Light'}
@@ -1603,19 +1749,24 @@ export default function PortfolioBuilderPage() {
                         ? holdings.reduce((sum, h) => { const ret = dnaPerf[h.ticker]; return ret != null ? sum + (h.pct / t2) * ret : sum }, 0)
                         : null
 
-                      // Sector summary: group holdings by category with representative tickers
-                      const catGroups: Record<string, string[]> = {}
-                      holdings.forEach(h => { catGroups[h.category] = [...(catGroups[h.category] ?? []), h.ticker] })
-                      const sectorSummary = Object.entries(catGroups)
-                        .sort(([a], [b]) => {
-                          const wa = holdings.filter(h => h.category === a).reduce((s, h) => s + h.pct, 0)
-                          const wb = holdings.filter(h => h.category === b).reduce((s, h) => s + h.pct, 0)
-                          return wb - wa
-                        })
-                        .map(([cat, tickers]) => {
-                          const w = holdings.filter(h => h.category === cat).reduce((s, h) => s + h.pct, 0)
-                          return `${CATEGORY_LABELS[cat] ?? cat} ${(w / t2 * 100).toFixed(0)}% (${tickers.join(', ')})`
-                        })
+                      // Sector composition: group by real sector name, compute weight + blended period perf
+                      const secGroups: Record<string, { tickers: string[]; weight: number; perfSum: number; perfCount: number }> = {}
+                      holdings.forEach(h => {
+                        const sec = TICKER_SECTOR[h.ticker] ?? CATEGORY_LABELS[h.category] ?? h.category
+                        if (!secGroups[sec]) secGroups[sec] = { tickers: [], weight: 0, perfSum: 0, perfCount: 0 }
+                        secGroups[sec].tickers.push(h.ticker)
+                        secGroups[sec].weight += h.pct / t2 * 100
+                        const ret = dnaPerf[h.ticker]
+                        if (ret != null) { secGroups[sec].perfSum += ret * (h.pct / t2); secGroups[sec].perfCount++ }
+                      })
+                      const sectorSummary = Object.entries(secGroups)
+                        .sort(([, a], [, b]) => b.weight - a.weight)
+                        .map(([sec, g]) => ({
+                          label: sec,
+                          weight: g.weight,
+                          perf: g.perfCount > 0 ? g.perfSum / (g.weight / 100) : null,
+                          tickers: g.tickers,
+                        }))
 
                       return (
                         <div className="rounded-xl border border-white/10 bg-white/3 p-4 space-y-3">
@@ -1653,10 +1804,24 @@ export default function PortfolioBuilderPage() {
                           </div>
 
                           {/* Sector/industry composition — always visible */}
-                          <div className="border-t border-white/8 pt-2 space-y-1">
-                            <div className="text-[9px] font-mono text-slate-600 uppercase tracking-wider">Sector composition</div>
+                          <div className="border-t border-white/8 pt-2 space-y-1.5">
+                            <div className="text-[9px] font-mono text-slate-600 uppercase tracking-wider">Sector / Industry breakdown · {tfLabel}</div>
                             {sectorSummary.map((s, i) => (
-                              <div key={i} className="text-[9px] text-slate-500">{s}</div>
+                              <div key={i} className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="text-[9px] text-slate-400 truncate">{s.label}</span>
+                                  <span className="text-[8px] text-slate-600 shrink-0">({s.tickers.join(', ')})</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span className="text-[9px] font-mono text-slate-500">{s.weight.toFixed(0)}%</span>
+                                  {s.perf != null && !dnaLoading && (
+                                    <span className={`text-[9px] font-mono font-bold ${s.perf >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                      {s.perf >= 0 ? '+' : ''}{s.perf.toFixed(1)}%
+                                    </span>
+                                  )}
+                                  {dnaLoading && <span className="text-[8px] text-slate-700">…</span>}
+                                </div>
+                              </div>
                             ))}
                           </div>
                         </div>
@@ -1676,6 +1841,16 @@ export default function PortfolioBuilderPage() {
                       dnaPerf={dnaPerf}
                       dnaTimeframe={dnaTimeframe}
                     />
+
+                    {/* DNA Print CTA */}
+                    <div className="rounded-xl border border-white/10 bg-white/3 p-4 space-y-2">
+                      <div className="text-[10px] text-slate-500">Generate a professional PDF report with full allocation breakdown, sector composition, period performance, and return projections — ready to send directly to clients.</div>
+                      <button type="button" onClick={handlePrintDNA}
+                        className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs py-2.5 rounded-lg transition flex items-center justify-center gap-2">
+                        <span>🖨</span> Print PortDNA Client Report
+                      </button>
+                      <p className="text-[9px] text-slate-600 text-center">Opens a formatted report in a new tab · Save as PDF from print dialog</p>
+                    </div>
                   </>
                 )
               })()}

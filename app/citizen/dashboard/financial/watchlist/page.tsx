@@ -341,6 +341,9 @@ interface FundData {
   price?: number | null; vs_sma50?: number | null; vs_sma200?: number | null
   atr?: number | null; vs_atr?: number | null; rsi?: number | null
   pattern?: string | null; iv_30d?: number | null; put_call_ratio?: number | null
+  next_earnings?: string | null; ex_div?: string | null
+  news?: { title: string; sentiment: 'positive' | 'negative' | 'neutral' }[]
+  news_sentiment?: 'positive' | 'negative' | 'neutral' | null
   error?: string
 }
 
@@ -385,6 +388,9 @@ function OverviewTable({ funds, perfs }: { funds: FundData[]; perfs: TickerData[
     { key: 'vs_sma200',      label: 'vs SMA200',   width: 'w-16' },
     { key: 'vs_atr',         label: 'vs ATR',      width: 'w-14' },
     { key: 'pattern',        label: 'Pattern',     width: 'w-32' },
+    { key: 'next_earnings',  label: 'Earnings',    width: 'w-22' },
+    { key: 'ex_div',         label: 'Ex-Div',      width: 'w-20' },
+    { key: 'news',           label: 'News',        width: 'w-48' },
   ]
 
   return (
@@ -452,6 +458,22 @@ function OverviewTable({ funds, perfs }: { funds: FundData[]; perfs: TickerData[
                 }`}>
                   {f.pattern ?? '—'}
                 </td>
+                <td className="px-2 py-2 whitespace-nowrap text-slate-400">{f.next_earnings ?? '—'}</td>
+                <td className="px-2 py-2 whitespace-nowrap text-slate-400">{f.ex_div ?? '—'}</td>
+                <td className="px-2 py-2 max-w-[12rem]">
+                  {f.news && f.news.length > 0 ? (
+                    <div className="space-y-0.5">
+                      {f.news.slice(0, 2).map((n, i) => (
+                        <div key={i} className="flex items-start gap-1">
+                          <span className={`shrink-0 text-[8px] mt-0.5 ${n.sentiment === 'positive' ? 'text-green-400' : n.sentiment === 'negative' ? 'text-red-400' : 'text-slate-600'}`}>
+                            {n.sentiment === 'positive' ? '▲' : n.sentiment === 'negative' ? '▼' : '●'}
+                          </span>
+                          <span className="text-[9px] text-slate-500 leading-tight line-clamp-1">{n.title}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : <span className="text-slate-700">—</span>}
+                </td>
               </tr>
             )
           })}
@@ -476,6 +498,21 @@ export default function WatchlistSignalsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('cards')
   const [funds, setFunds]       = useState<FundData[]>([])
   const [fundsLoading, setFundsLoading] = useState(false)
+  const [bgLight, setBgLight]   = useState(false)
+
+  useEffect(() => {
+    const val = localStorage.getItem('ace_fin_light') === '1'
+    setBgLight(val)
+    document.body.style.backgroundColor = val ? '#f1f5f9' : ''
+    document.body.style.color           = val ? '#0f172a' : ''
+  }, [])
+
+  const applyTheme = (next: boolean) => {
+    setBgLight(next)
+    localStorage.setItem('ace_fin_light', next ? '1' : '0')
+    document.body.style.backgroundColor = next ? '#f1f5f9' : ''
+    document.body.style.color           = next ? '#0f172a' : ''
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -562,7 +599,7 @@ export default function WatchlistSignalsPage() {
   const buyCount     = tickers.filter(t => t.signal === 'BUY').length
 
   return (
-    <div className="min-h-screen bg-[#0A0E1A] text-white px-4 py-6 max-w-3xl mx-auto space-y-6">
+    <div className={`min-h-screen px-4 py-6 max-w-3xl mx-auto space-y-6 transition-colors ${bgLight ? 'bg-slate-100 text-slate-900' : 'bg-[#0A0E1A] text-white'}`}>
 
       {/* Header */}
       <div className="space-y-3">
@@ -571,19 +608,25 @@ export default function WatchlistSignalsPage() {
             <Link href="/citizen/dashboard/financial" className="text-[10px] text-slate-600 hover:text-slate-400 transition">
               ← Financial District
             </Link>
-            <h1 className="text-xl font-bold text-white mt-1">Watchlist Signals</h1>
+            <h1 className={`text-xl font-bold mt-1 ${bgLight ? 'text-slate-900' : 'text-white'}`}>Watchlist Signals</h1>
             <p className="text-[11px] text-slate-500 mt-0.5">
               {tickers.length} ticker{tickers.length !== 1 ? 's' : ''} · live performance + nightly scan signals
               {lastAt && ` · updated ${new Date(lastAt).toLocaleTimeString('en-SG', { hour: '2-digit', minute: '2-digit' })} SGT`}
             </p>
           </div>
-          <button
-            onClick={load}
-            disabled={loading}
-            className="text-[11px] border border-white/15 rounded-lg px-3 py-1.5 text-slate-400 hover:text-white hover:border-white/30 transition disabled:opacity-40"
-          >
-            {loading ? '…' : '↻ Refresh'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => applyTheme(!bgLight)}
+              className={`text-[11px] border rounded-lg px-2.5 py-1 transition ${bgLight ? 'border-slate-300 text-slate-600 hover:text-slate-900' : 'border-white/20 text-slate-400 hover:text-white'}`}>
+              {bgLight ? '🌙 Dark' : '☀ Light'}
+            </button>
+            <button
+              onClick={load}
+              disabled={loading}
+              className="text-[11px] border border-white/15 rounded-lg px-3 py-1.5 text-slate-400 hover:text-white hover:border-white/30 transition disabled:opacity-40"
+            >
+              {loading ? '…' : '↻ Refresh'}
+            </button>
+          </div>
         </div>
 
         {/* Add ticker */}
