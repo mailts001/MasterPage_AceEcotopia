@@ -22,11 +22,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
+      <body className="min-h-screen bg-[#0A0E1A] text-slate-200 antialiased">
         {/* Runs synchronously before React hydrates — no flash-of-wrong-theme */}
         <script dangerouslySetInnerHTML={{ __html: `try{if(localStorage.getItem('ace_fin_light')==='1'){document.documentElement.classList.add('ace-light')}}catch(e){}` }} />
-      </head>
-      <body className="min-h-screen bg-[#0A0E1A] text-slate-200 antialiased">
         <LocaleProvider>
           <PageTracker />
           {children}
