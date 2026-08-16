@@ -42,6 +42,24 @@ const TICKER_INFO: Record<string, { sector: string; desc: string }> = {
   USO:  { sector: 'Crude Oil', desc: 'United States Oil Fund — WTI crude oil futures proxy. High vol; macro and geopolitical sensitive.' },
   SLV:  { sector: 'Silver', desc: 'iShares Silver Trust — physical silver. Dual industrial/precious metal demand; higher vol than gold.' },
   UUP:  { sector: 'US Dollar', desc: 'Invesco DB US Dollar Index Bullish Fund — DXY proxy. Inversely correlated with risk assets and EM.' },
+  GEV:  { sector: 'Industrials — Power & Grid', desc: 'GE Vernova — electric power generation (gas, nuclear, hydro), wind turbines (onshore & offshore), and electrification / grid solutions. Spun off from GE in 2024.' },
+  NVDA: { sector: 'Semiconductors — AI / Data Centre', desc: 'Nvidia — dominant GPU supplier for AI training and inference. Also data centre networking (NVLink, InfiniBand) and automotive/robotics.' },
+  AAPL: { sector: 'Consumer Tech — Hardware & Services', desc: 'Apple — iPhone, Mac, iPad hardware ecosystem; high-margin Services (App Store, iCloud, Apple Pay) now ~25% of revenue.' },
+  MSFT: { sector: 'Enterprise Tech — Cloud / AI', desc: 'Microsoft — Azure cloud platform (#2 globally), Office 365, Dynamics, and 49% stake in OpenAI. Diversified across enterprise software and AI.' },
+  AMZN: { sector: 'E-Commerce & Cloud (AWS)', desc: 'Amazon — world\'s largest e-commerce marketplace and AWS cloud (#1 globally ~32% share). High-margin advertising segment growing fast.' },
+  GOOGL:{ sector: 'Digital Advertising & AI (Alphabet)', desc: 'Alphabet — Google Search and YouTube advertising (~77% of revenue); Google Cloud; Waymo autonomous vehicles; DeepMind AI.' },
+  META: { sector: 'Social Media & AR/AI', desc: 'Meta — Facebook, Instagram, WhatsApp (~3.3bn daily users). Advertising-driven; investing heavily in AI (Llama) and AR/VR (Ray-Ban glasses, Quest).' },
+  TSLA: { sector: 'EV & Energy Storage', desc: 'Tesla — EV market leader in North America; Powerwall/Megapack energy storage; FSD autonomous driving; Dojo AI supercomputer.' },
+  JPM:  { sector: 'US Banking — Diversified', desc: 'JPMorgan Chase — largest US bank by assets. Investment banking, commercial banking, consumer and wealth management.' },
+  BAC:  { sector: 'US Banking — Consumer & Wealth', desc: 'Bank of America — broad consumer banking, Merrill Lynch wealth management, global markets.' },
+  GS:   { sector: 'Investment Banking & Trading', desc: 'Goldman Sachs — premier global investment bank; equities/FICC trading; asset and wealth management.' },
+  XLE:  { sector: 'Energy Sector', desc: 'Energy Select Sector SPDR — US energy companies (ExxonMobil, Chevron, ConocoPhillips). Highly correlated with oil prices.' },
+  XLI:  { sector: 'Industrials Sector', desc: 'Industrial Select Sector SPDR — aerospace/defence, machinery, transportation. Economically cyclical.' },
+  XLY:  { sector: 'Consumer Discretionary', desc: 'Consumer Discretionary Select Sector SPDR — Amazon, Tesla, Home Depot, McDonald\'s. Cyclical; sensitive to consumer spending.' },
+  XLP:  { sector: 'Consumer Staples (Defensive)', desc: 'Consumer Staples Select Sector SPDR — P&G, Costco, Coca-Cola. Defensive; lower cyclicality than broad market.' },
+  DBC:  { sector: 'Broad Commodities', desc: 'Invesco DB Commodity Index Tracking Fund — diversified across energy, metals, and agriculture futures.' },
+  AGG:  { sector: 'US Aggregate Bonds', desc: 'iShares Core US Aggregate Bond ETF — broad US investment-grade bond market (Treasuries, MBS, corporates).' },
+  BND:  { sector: 'Total Bond Market', desc: 'Vanguard Total Bond Market ETF — similar to AGG; broad US investment-grade bond exposure.' },
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -198,13 +216,17 @@ interface Props {
   clientSharpeAce?: number
   dnaPerf?: Record<string, number>
   dnaTimeframe?: string
+  dnaSide?: 'manager' | 'client'
+  onSideChange?: (s: 'manager' | 'client') => void
 }
 
-export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vix, commentary, portfolioVol, sharpeAce, clientPortfolioVol, clientSharpeAce, dnaPerf = {}, dnaTimeframe = 'ytd' }: Props) {
+export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vix, commentary, portfolioVol, sharpeAce, clientPortfolioVol, clientSharpeAce, dnaPerf = {}, dnaTimeframe = 'ytd', dnaSide, onSideChange }: Props) {
   const [rings, setRings]       = useState<RingData[]>([])
   const [hovered, setHovered]   = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
-  const [source, setSource]     = useState<'manager' | 'client'>('manager')
+  const [internalSource, setInternalSource] = useState<'manager' | 'client'>('manager')
+  const source = dnaSide ?? internalSource
+  const setSource = (s: 'manager' | 'client') => { setInternalSource(s); onSideChange?.(s) }
   const [zoom, setZoom]         = useState(1.0)   // 1 = full semicircle, 2 = 2× zoom
 
   const hasClient      = !!(clientHoldings && clientHoldings.length > 0)
@@ -257,7 +279,7 @@ export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vi
                 ? 'border-cyan-500/50 bg-cyan-500/20 text-cyan-300'
                 : 'border-white/10 text-slate-500 hover:text-white'
             }`}>
-            {s === 'manager' ? '📐 Manager' : '👤 Client'}
+            {s === 'manager' ? '📐 PortfolioPlus' : '⚖️ Balanced Profile'}
           </button>
         ))}
         <div className="ml-auto flex items-center gap-1.5">
@@ -406,36 +428,46 @@ export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vi
 
               {/* Key numbers */}
               <div className="grid grid-cols-2 gap-1.5">
-                <div className="rounded border border-white/8 bg-white/3 px-2 py-1.5">
-                  <div className="text-[8px] text-slate-600">Allocation</div>
-                  <div className="text-xs font-bold font-mono text-cyan-300">{detailRing.pct.toFixed(1)}%</div>
-                </div>
-                <div className="rounded border border-white/8 bg-white/3 px-2 py-1.5">
-                  <div className="text-[8px] text-slate-600">YTD live</div>
-                  <div className={`text-xs font-bold font-mono ${detailRing.liveYtd != null ? (detailRing.liveYtd >= 0 ? 'text-green-400' : 'text-red-400') : 'text-slate-500'}`}>
-                    {detailRing.liveYtd != null ? `${detailRing.liveYtd >= 0 ? '+' : ''}${detailRing.liveYtd.toFixed(1)}%` : '— benchmark'}
+                {/* Period performance — most prominent */}
+                <div className="col-span-2 rounded border border-cyan-500/20 bg-cyan-500/5 px-2.5 py-2 flex items-center justify-between">
+                  <div>
+                    <div className="text-[8px] text-slate-500 uppercase tracking-wider">
+                      {source === 'client' ? 'Balanced Profile' : 'PortfolioPlus'} · {({ overnight: '1D', '5d': '1W', '3m': '3M', '6m': '6M', '1y': '1Y', ytd: 'YTD' } as Record<string,string>)[dnaTimeframe] ?? dnaTimeframe} return
+                    </div>
+                    <div className="text-[9px] text-slate-600 mt-0.5">Actual price change for selected period</div>
+                  </div>
+                  <div className={`text-lg font-bold font-mono ${dnaPerf[detailRing.ticker] != null ? (dnaPerf[detailRing.ticker] >= 0 ? 'text-green-400' : 'text-red-400') : detailRing.liveYtd != null ? (detailRing.liveYtd >= 0 ? 'text-green-400' : 'text-red-400') : 'text-slate-600'}`}>
+                    {dnaPerf[detailRing.ticker] != null
+                      ? `${dnaPerf[detailRing.ticker] >= 0 ? '+' : ''}${dnaPerf[detailRing.ticker].toFixed(1)}%`
+                      : detailRing.liveYtd != null
+                        ? `${detailRing.liveYtd >= 0 ? '+' : ''}${detailRing.liveYtd.toFixed(1)}%`
+                        : '—'}
                   </div>
                 </div>
-                {/* Selected period performance */}
-                {dnaPerf[detailRing.ticker] != null && (
-                  <div className="rounded border border-white/8 bg-white/3 px-2 py-1.5 col-span-2">
-                    <div className="text-[8px] text-slate-600">
-                      {({ overnight: '1D', '5d': '1W', '3m': '3M', '6m': '6M', '1y': '1Y', ytd: 'YTD' } as Record<string,string>)[dnaTimeframe] ?? dnaTimeframe} performance
-                    </div>
-                    <div className={`text-sm font-bold font-mono ${dnaPerf[detailRing.ticker] >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {dnaPerf[detailRing.ticker] >= 0 ? '+' : ''}{dnaPerf[detailRing.ticker].toFixed(1)}%
-                    </div>
-                  </div>
-                )}
+                {/* Portfolio weight */}
+                <div className="rounded border border-white/8 bg-white/3 px-2 py-1.5">
+                  <div className="text-[8px] text-slate-600">Portfolio weight</div>
+                  <div className="text-sm font-bold font-mono text-cyan-300">{detailRing.pct.toFixed(1)}%</div>
+                  <div className="text-[8px] text-slate-700">of total allocation</div>
+                </div>
+                {/* Manager expected return */}
+                <div className="rounded border border-white/8 bg-white/3 px-2 py-1.5">
+                  <div className="text-[8px] text-slate-600">Expected return (p.a.)</div>
+                  <div className="text-sm font-bold font-mono text-white">{detailRing.managerReturn >= 0 ? '+' : ''}{detailRing.managerReturn.toFixed(1)}%</div>
+                  <div className="text-[8px] text-slate-700">manager estimate</div>
+                </div>
+                {/* Bear / Bull scenario estimates */}
                 <div className="rounded border border-red-500/15 bg-red-500/5 px-2 py-1.5">
                   <div className="text-[8px] text-slate-600">Bear case est.</div>
                   <div className={`text-xs font-bold font-mono ${detailRing.bearCase >= 0 ? 'text-slate-300' : 'text-red-400'}`}>
                     {detailRing.bearCase >= 0 ? '+' : ''}{detailRing.bearCase.toFixed(1)}%
                   </div>
+                  <div className="text-[8px] text-slate-700">annual scenario est.</div>
                 </div>
                 <div className="rounded border border-cyan-500/15 bg-cyan-500/5 px-2 py-1.5">
                   <div className="text-[8px] text-slate-600">Bull case est.</div>
                   <div className="text-xs font-bold font-mono text-cyan-300">+{detailRing.bullCase.toFixed(1)}%</div>
+                  <div className="text-[8px] text-slate-700">annual scenario est.</div>
                 </div>
               </div>
 

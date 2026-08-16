@@ -18,6 +18,12 @@ body {
   font-family: 'Inter', system-ui, sans-serif;
 }
 
+/* Light mode — applied instantly by inline <script> before React hydrates */
+html.ace-light body {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(20px); }
   to   { opacity: 1; transform: translateY(0); }

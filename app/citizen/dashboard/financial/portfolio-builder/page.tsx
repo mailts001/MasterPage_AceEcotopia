@@ -333,16 +333,15 @@ export default function PortfolioBuilderPage() {
   useEffect(() => {
     const val = localStorage.getItem('ace_fin_light') === '1'
     setBgLight(val)
-    document.body.style.backgroundColor = val ? '#f1f5f9' : ''
-    document.body.style.color           = val ? '#0f172a' : ''
+    document.documentElement.classList.toggle('ace-light', val)
   }, [])
   const applyTheme = (next: boolean) => {
     setBgLight(next)
     localStorage.setItem('ace_fin_light', next ? '1' : '0')
-    document.body.style.backgroundColor = next ? '#f1f5f9' : ''
-    document.body.style.color           = next ? '#0f172a' : ''
+    document.documentElement.classList.toggle('ace-light', next)
   }
   const [dnaTimeframe, setDnaTimeframe] = useState<'ytd'|'1y'|'6m'|'3m'|'5d'|'overnight'>('ytd')
+  const [dnaSide, setDnaSide]           = useState<'manager'|'client'>('manager')
   const [dnaPerf, setDnaPerf]           = useState<Record<string, number>>({})
   const [dnaLoading, setDnaLoading]     = useState(false)
   const [customOpen, setCustomOpen]     = useState(false)
@@ -463,13 +462,16 @@ export default function PortfolioBuilderPage() {
   function handlePrint() { window.print() }
 
   function handlePrintDNA() {
+    const activeH = (dnaSide === 'client' && clientHoldings.length > 0) ? clientHoldings : holdings
+    const activeP = dnaSide === 'client' ? cProj : proj
+    const activeLabel = dnaSide === 'client' ? 'Balanced Profile' : 'PortfolioPlus'
     const tfLabel = ({ overnight: '1D', '5d': '1W', '3m': '3M', '6m': '6M', '1y': '1Y', ytd: 'YTD' } as Record<string,string>)[dnaTimeframe] ?? dnaTimeframe
-    const t2 = holdings.reduce((s, h) => s + h.pct, 0) || 100
-    const blended = holdings.reduce((sum, h) => { const r = dnaPerf[h.ticker]; return r != null ? sum + (h.pct / t2) * r : sum }, 0)
-    const hasPerf = holdings.some(h => dnaPerf[h.ticker] != null)
+    const t2 = activeH.reduce((s, h) => s + h.pct, 0) || 100
+    const blended = activeH.reduce((sum, h) => { const r = dnaPerf[h.ticker]; return r != null ? sum + (h.pct / t2) * r : sum }, 0)
+    const hasPerf = activeH.some(h => dnaPerf[h.ticker] != null)
 
     const secMap: Record<string, { tickers: string[]; weight: number; perfSum: number; wSum: number }> = {}
-    holdings.forEach(h => {
+    activeH.forEach(h => {
       const sec = TICKER_SECTOR[h.ticker] ?? CATEGORY_LABELS[h.category] ?? h.category
       if (!secMap[sec]) secMap[sec] = { tickers: [], weight: 0, perfSum: 0, wSum: 0 }
       secMap[sec].tickers.push(h.ticker)
@@ -478,94 +480,192 @@ export default function PortfolioBuilderPage() {
     })
     const sectors = Object.entries(secMap).sort(([,a],[,b]) => b.weight - a.weight)
 
-    const html = `<!DOCTYPE html><html><head><title>PortfolioPlus DNA Report</title>
+    // ── SVG: horizontal allocation bars ──────────────────────────────────────
+    const BAR_COLORS: Record<string,string> = {
+      equity:'#3b82f6', fixed_income:'#22c55e', fx:'#eab308',
+      commodities:'#f97316', private_equity:'#a855f7', thematic:'#06b6d4', cash:'#94a3b8',
+    }
+    const barH = 24, barGap = 4, barLabelW = 60, barAreaW = 340
+    const allocationSvgH = activeH.length * (barH + barGap)
+    const allocationSvg = `<svg width="520" height="${allocationSvgH}" xmlns="http://www.w3.org/2000/svg">
+      ${activeH.map((h, i) => {
+        const w2 = Math.round((h.pct / t2) * barAreaW)
+        const y = i * (barH + barGap)
+        const r = dnaPerf[h.ticker]
+        const perfTxt = r != null ? `${r >= 0 ? '+' : ''}${r.toFixed(1)}%` : ''
+        const perfCol = r != null ? (r >= 0 ? '#16a34a' : '#dc2626') : '#999'
+        return `<text x="0" y="${y + barH/2 + 4}" font-size="11" font-family="monospace" fill="#111" font-weight="bold">${h.ticker}</text>
+        <rect x="${barLabelW}" y="${y+2}" width="${w2}" height="${barH-4}" fill="${BAR_COLORS[h.category] ?? '#94a3b8'}" rx="3"/>
+        <text x="${barLabelW + w2 + 5}" y="${y + barH/2 + 4}" font-size="11" font-family="Arial" fill="#555">${(h.pct/t2*100).toFixed(1)}%</text>
+        <text x="${barLabelW + barAreaW + 20}" y="${y + barH/2 + 4}" font-size="11" font-family="monospace" fill="${perfCol}" font-weight="bold">${perfTxt}</text>`
+      }).join('')}
+    </svg>`
+
+    // ── SVG: donut chart for sector weights ──────────────────────────────────
+    const PIE_COLORS = ['#3b82f6','#22c55e','#f97316','#a855f7','#eab308','#06b6d4','#ec4899','#94a3b8','#84cc16','#f43f5e']
+    const cx = 100, cy = 100, r1 = 80, r2 = 50
+    let angle = -90
+    const piePaths = sectors.map(([sec, g], i) => {
+      const sweep = (g.weight / 100) * 360
+      const startA = angle; const endA = angle + sweep
+      angle = endA
+      const toRad = (a: number) => a * Math.PI / 180
+      const sx = cx + r1 * Math.cos(toRad(startA)); const sy = cy + r1 * Math.sin(toRad(startA))
+      const ex = cx + r1 * Math.cos(toRad(endA));   const ey = cy + r1 * Math.sin(toRad(endA))
+      const ix = cx + r2 * Math.cos(toRad(endA));   const iy = cy + r2 * Math.sin(toRad(endA))
+      const jx = cx + r2 * Math.cos(toRad(startA)); const jy = cy + r2 * Math.sin(toRad(startA))
+      const large = sweep > 180 ? 1 : 0
+      return `<path d="M${sx},${sy} A${r1},${r1} 0 ${large} 1 ${ex},${ey} L${ix},${iy} A${r2},${r2} 0 ${large} 0 ${jx},${jy} Z" fill="${PIE_COLORS[i % PIE_COLORS.length]}" stroke="#fff" stroke-width="1.5"/>`
+    })
+    const legend = sectors.map(([sec, g], i) =>
+      `<rect x="215" y="${12 + i * 18}" width="12" height="12" fill="${PIE_COLORS[i % PIE_COLORS.length]}" rx="2"/>
+       <text x="232" y="${22 + i * 18}" font-size="10" font-family="Arial" fill="#111">${sec} (${g.weight.toFixed(0)}%)</text>`
+    ).join('')
+    const donutSvg = `<svg width="520" height="${Math.max(210, 30 + sectors.length * 18)}" xmlns="http://www.w3.org/2000/svg">
+      ${piePaths.join('')}
+      <circle cx="${cx}" cy="${cy}" r="${r2 - 2}" fill="white"/>
+      <text x="${cx}" y="${cy - 6}" text-anchor="middle" font-size="9" fill="#666" font-family="Arial">Portfolio</text>
+      <text x="${cx}" y="${cy + 10}" text-anchor="middle" font-size="11" fill="#111" font-weight="bold" font-family="Arial">Sectors</text>
+      ${legend}
+    </svg>`
+
+    // ── SVG: scenario bar chart ───────────────────────────────────────────────
+    const scenarios = [
+      { label: 'Manager Est.', val: activeP.managerBlended, col: '#3b82f6' },
+      { label: 'Live Market', val: activeP.aceBlended, col: '#06b6d4' },
+      { label: 'Conservative', val: activeP.conservativeBlended, col: '#94a3b8' },
+      { label: 'Bear Case', val: activeP.aceBlended * 0.5, col: '#ef4444' },
+      { label: 'Bull Case', val: activeP.aceBlended * 1.6, col: '#22c55e' },
+    ]
+    const maxAbs = Math.max(...scenarios.map(s => Math.abs(s.val)), 1)
+    const scenSvgH = scenarios.length * 32 + 30
+    const scLabelW = 90, scAreaW = 280, scMidX = scLabelW + scAreaW / 2
+    const scenSvg = `<svg width="520" height="${scenSvgH}" xmlns="http://www.w3.org/2000/svg">
+      <line x1="${scMidX}" y1="0" x2="${scMidX}" y2="${scenSvgH - 20}" stroke="#ddd" stroke-width="1"/>
+      <text x="${scMidX}" y="${scenSvgH - 6}" text-anchor="middle" font-size="9" fill="#999" font-family="Arial">0%</text>
+      ${scenarios.map((s, i) => {
+        const y = 8 + i * 32
+        const barW = Math.abs(s.val) / maxAbs * (scAreaW / 2 - 4)
+        const positive = s.val >= 0
+        const bx = positive ? scMidX : scMidX - barW
+        return `<text x="${scLabelW - 5}" y="${y + 16}" text-anchor="end" font-size="10" font-family="Arial" fill="#333">${s.label}</text>
+          <rect x="${bx}" y="${y + 4}" width="${barW}" height="20" fill="${s.col}" rx="3" opacity="0.85"/>
+          <text x="${positive ? scMidX + barW + 4 : scMidX - barW - 4}" y="${y + 17}" text-anchor="${positive ? 'start' : 'end'}" font-size="10" font-family="monospace" fill="${s.val >= 0 ? '#16a34a' : '#dc2626'}" font-weight="bold">${s.val >= 0 ? '+' : ''}${s.val.toFixed(1)}%</text>`
+      }).join('')}
+    </svg>`
+
+    const html = `<!DOCTYPE html><html><head><title>${activeLabel} — PortDNA Report</title>
 <style>
-  body{font-family:Arial,sans-serif;color:#111;background:#fff;margin:0;padding:40px;font-size:12px}
-  h1{font-size:22px;font-weight:700;margin:0 0 4px}
-  h2{font-size:14px;font-weight:600;margin:24px 0 8px;border-bottom:1px solid #ddd;padding-bottom:4px}
-  .subtitle{color:#666;font-size:11px;margin-bottom:24px}
-  table{width:100%;border-collapse:collapse;margin-bottom:16px}
-  th{text-align:left;padding:5px 8px;border-bottom:2px solid #222;font-size:11px;background:#f5f5f5}
-  td{padding:5px 8px;border-bottom:1px solid #eee;vertical-align:top}
+  body{font-family:Arial,sans-serif;color:#111;background:#fff;margin:0;padding:36px 40px;font-size:12px}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0A0E1A;padding-bottom:12px;margin-bottom:4px}
+  .header h1{font-size:24px;font-weight:800;margin:0;color:#0A0E1A}
+  .header .badge{background:#0A0E1A;color:#00D4FF;font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px;margin-top:4px;display:inline-block}
+  .subtitle{color:#666;font-size:11px;margin:8px 0 20px}
+  h2{font-size:13px;font-weight:700;margin:20px 0 8px;color:#0A0E1A;border-bottom:1px solid #e2e8f0;padding-bottom:4px;text-transform:uppercase;letter-spacing:.04em}
+  table{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:11px}
+  th{text-align:left;padding:5px 8px;border-bottom:2px solid #0A0E1A;font-size:10px;background:#f8fafc;text-transform:uppercase;letter-spacing:.03em}
+  td{padding:5px 8px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
   .right{text-align:right}
   .bold{font-weight:700}
   .green{color:#16a34a}
   .red{color:#dc2626}
-  .chip{display:inline-block;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:700;margin:2px 2px 0 0}
-  .metrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px}
-  .metric{border:1px solid #ddd;border-radius:6px;padding:10px 12px}
-  .metric-label{color:#666;font-size:10px;text-transform:uppercase;letter-spacing:.05em}
-  .metric-value{font-size:20px;font-weight:700;margin-top:2px}
-  .disclaimer{font-size:10px;color:#666;border-top:1px solid #ccc;margin-top:24px;padding-top:12px;line-height:1.6}
-  @media print{body{padding:24px}@page{margin:1.5cm}}
+  .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+  .metric{border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;background:#f8fafc}
+  .metric-label{color:#64748b;font-size:9px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+  .metric-value{font-size:22px;font-weight:800;margin-top:3px;color:#0A0E1A}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+  .disclaimer{font-size:9px;color:#888;border-top:1px solid #e2e8f0;margin-top:20px;padding-top:10px;line-height:1.7}
+  @media print{body{padding:16px 20px}@page{margin:1cm;size:A4}h2{page-break-before:auto}}
+  svg{display:block;max-width:100%}
 </style></head><body>
-  <h1>PortfolioPlus DNA Report</h1>
-  <p class="subtitle">Generated ${new Date().toLocaleString('en-SG')} &nbsp;·&nbsp; X68 AceEconomy Financial District &nbsp;·&nbsp; For professional discussion only</p>
+
+  <div class="header">
+    <div>
+      <h1>${activeLabel}</h1>
+      <div class="badge">PortDNA Client Report</div>
+    </div>
+    <div style="text-align:right;color:#666;font-size:10px">
+      <div style="font-weight:700;font-size:13px;color:#111">${new Date().toLocaleDateString('en-SG', { day:'numeric', month:'long', year:'numeric' })}</div>
+      <div>For professional discussion only</div>
+      <div>Market regime: <strong>${intel?.regime ?? '—'}</strong> · VIX ${intel?.vix?.toFixed(0) ?? '—'}</div>
+    </div>
+  </div>
+  <p class="subtitle">Prepared by X68 Financial District · ${activeH.length} holdings · All projections are indicative estimates only</p>
 
   <h2>Portfolio Overview</h2>
   <div class="metrics">
     <div class="metric">
-      <div class="metric-label">Assets</div>
-      <div class="metric-value">${holdings.length}</div>
+      <div class="metric-label">Holdings</div>
+      <div class="metric-value">${activeH.length}</div>
     </div>
     <div class="metric">
-      <div class="metric-label">Portfolio Return · ${tfLabel}</div>
-      <div class="metric-value ${hasPerf ? (blended >= 0 ? 'green' : 'red') : ''}">${hasPerf ? (blended >= 0 ? '+' : '') + blended.toFixed(1) + '%' : '—'}</div>
+      <div class="metric-label">Return · ${tfLabel}</div>
+      <div class="metric-value" style="color:${hasPerf ? (blended >= 0 ? '#16a34a' : '#dc2626') : '#94a3b8'}">${hasPerf ? (blended >= 0 ? '+' : '') + blended.toFixed(1) + '%' : '—'}</div>
     </div>
     <div class="metric">
       <div class="metric-label">Est. Volatility (σ)</div>
-      <div class="metric-value">${proj.portfolioVol.toFixed(1)}%</div>
+      <div class="metric-value">${activeP.portfolioVol.toFixed(1)}%</div>
     </div>
     <div class="metric">
       <div class="metric-label">Sharpe Ratio</div>
-      <div class="metric-value">${proj.sharpeAce.toFixed(2)}</div>
+      <div class="metric-value">${activeP.sharpeAce.toFixed(2)}</div>
     </div>
     <div class="metric">
       <div class="metric-label">Market Regime</div>
-      <div class="metric-value" style="font-size:14px">${intel?.regime ?? '—'}</div>
+      <div class="metric-value" style="font-size:15px">${intel?.regime ?? '—'}</div>
     </div>
     <div class="metric">
-      <div class="metric-label">VIX</div>
-      <div class="metric-value">${intel?.vix?.toFixed(0) ?? '—'}</div>
+      <div class="metric-label">Manager Est. p.a.</div>
+      <div class="metric-value" style="color:#3b82f6">${activeP.managerBlended >= 0 ? '+' : ''}${activeP.managerBlended.toFixed(1)}%</div>
     </div>
   </div>
 
   <h2>Asset Allocation · ${tfLabel} Performance</h2>
-  <table>
-    <thead><tr><th>Ticker</th><th>Name</th><th>Sector / Industry</th><th class="right">Weight</th><th class="right">${tfLabel} Return</th></tr></thead>
-    <tbody>${holdings.map(h => {
+  ${allocationSvg}
+  <table style="margin-top:8px">
+    <thead><tr><th>Ticker</th><th>Name</th><th>Sector / Industry</th><th class="right">Weight %</th><th class="right">${tfLabel} Return</th></tr></thead>
+    <tbody>${activeH.map(h => {
       const r = dnaPerf[h.ticker]
       const sec = TICKER_SECTOR[h.ticker] ?? CATEGORY_LABELS[h.category] ?? h.category
       const cls = r == null ? '' : r >= 0 ? 'green' : 'red'
-      return `<tr><td class="bold" style="font-family:monospace">${h.ticker}</td><td>${h.name}</td><td>${sec}</td><td class="right bold">${(h.pct/t2*100).toFixed(1)}%</td><td class="right bold ${cls}">${r != null ? (r>=0?'+':'')+r.toFixed(1)+'%' : '—'}</td></tr>`
+      return `<tr><td class="bold" style="font-family:monospace">${h.ticker}</td><td>${h.name}</td><td style="color:#555;font-size:10px">${sec}</td><td class="right bold">${(h.pct/t2*100).toFixed(1)}%</td><td class="right bold ${cls}">${r != null ? (r>=0?'+':'')+r.toFixed(1)+'%' : '—'}</td></tr>`
     }).join('')}</tbody>
   </table>
 
-  <h2>Sector / Industry Breakdown · ${tfLabel}</h2>
+  <div class="two-col">
+    <div>
+      <h2>Sector / Industry Breakdown</h2>
+      ${donutSvg}
+    </div>
+    <div>
+      <h2>Return Scenarios (Annual)</h2>
+      ${scenSvg}
+      <table style="margin-top:8px">
+        <thead><tr><th>Scenario</th><th class="right">Est. p.a.</th></tr></thead>
+        <tbody>
+          <tr><td>Manager Estimate</td><td class="right bold" style="color:#3b82f6">${activeP.managerBlended>=0?'+':''}${activeP.managerBlended.toFixed(1)}%</td></tr>
+          <tr><td>Live Market (${tfLabel} annualised)</td><td class="right bold">${activeP.aceBlended>=0?'+':''}${activeP.aceBlended.toFixed(1)}%</td></tr>
+          <tr><td>Conservative Benchmark</td><td class="right bold" style="color:#94a3b8">${activeP.conservativeBlended>=0?'+':''}${activeP.conservativeBlended.toFixed(1)}%</td></tr>
+          <tr><td>Bear Case (−50% base)</td><td class="right bold red">${(activeP.aceBlended*0.5>=0?'+':'')}${(activeP.aceBlended*0.5).toFixed(1)}%</td></tr>
+          <tr><td>Bull Case (×1.6 base)</td><td class="right bold green">+${(activeP.aceBlended*1.6).toFixed(1)}%</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h2>Sector Performance · ${tfLabel}</h2>
   <table>
-    <thead><tr><th>Sector</th><th>Tickers</th><th class="right">Weight</th><th class="right">Blended ${tfLabel}</th></tr></thead>
+    <thead><tr><th>Sector / Industry</th><th>Tickers</th><th class="right">Weight</th><th class="right">Blended ${tfLabel}</th></tr></thead>
     <tbody>${sectors.map(([sec, g]) => {
       const perf = g.wSum > 0 ? g.perfSum / g.wSum : null
       const cls = perf == null ? '' : perf >= 0 ? 'green' : 'red'
-      return `<tr><td class="bold">${sec}</td><td style="color:#555">${g.tickers.join(', ')}</td><td class="right">${g.weight.toFixed(0)}%</td><td class="right bold ${cls}">${perf != null ? (perf>=0?'+':'')+perf.toFixed(1)+'%' : '—'}</td></tr>`
+      return `<tr><td class="bold">${sec}</td><td style="color:#555;font-size:10px">${g.tickers.join(', ')}</td><td class="right">${g.weight.toFixed(0)}%</td><td class="right bold ${cls}">${perf != null ? (perf>=0?'+':'')+perf.toFixed(1)+'%' : '—'}</td></tr>`
     }).join('')}</tbody>
   </table>
 
-  <h2>Return Projections (Annual Estimates)</h2>
-  <table>
-    <thead><tr><th>Scenario</th><th class="right">Est. Return p.a.</th><th>Methodology</th></tr></thead>
-    <tbody>
-      <tr><td>Manager Projection</td><td class="right bold">${proj.managerBlended>=0?'+':''}${proj.managerBlended.toFixed(1)}%</td><td style="color:#555;font-size:10px">Weighted avg of manager-inputted expected returns</td></tr>
-      <tr><td>AceEconomy Market-Driven</td><td class="right bold">${proj.aceBlended>=0?'+':''}${proj.aceBlended.toFixed(1)}%</td><td style="color:#555;font-size:10px">Live YTD annualised × regime multiplier (${intel?.regime ?? '?'}, ×${regimeMult(intel?.regime ?? 'UNKNOWN').toFixed(1)})</td></tr>
-      <tr><td>Conservative Benchmark</td><td class="right bold">${proj.conservativeBlended>=0?'+':''}${proj.conservativeBlended.toFixed(1)}%</td><td style="color:#555;font-size:10px">Long-run asset class historical averages</td></tr>
-      <tr><td>Bear Case</td><td class="right bold red">${(proj.aceBlended*0.5>=0?'+':'')}${(proj.aceBlended*0.5).toFixed(1)}%</td><td style="color:#555;font-size:10px">AceEconomy base compressed by 50%</td></tr>
-      <tr><td>Bull Case</td><td class="right bold green">+${(proj.aceBlended*1.6).toFixed(1)}%</td><td style="color:#555;font-size:10px">AceEconomy base ×1.6</td></tr>
-    </tbody>
-  </table>
+  ${activeP.riskFlags.length > 0 ? `<h2>Risk Considerations</h2><ul style="font-size:11px;padding-left:18px">${activeP.riskFlags.map(f=>`<li style="margin-bottom:4px">${f.message}</li>`).join('')}</ul>` : ''}
 
-  ${proj.riskFlags.length > 0 ? `<h2>Risk Considerations</h2><ul>${proj.riskFlags.map(f=>`<li style="margin-bottom:4px">${f.message}</li>`).join('')}</ul>` : ''}
-
-  <p class="disclaimer"><strong>Disclaimer:</strong> This PortfolioPlus DNA Report is generated for illustrative and professional discussion purposes only. It does not constitute financial advice, an investment recommendation, or a solicitation to buy or sell any security. All return projections and scenario estimates carry significant uncertainty and are not a guarantee of future performance. Past performance and historical benchmark returns are not indicative of future results. Sector classifications, benchmark rates, and risk metrics are indicative. Investors and their advisers should conduct independent due diligence and consult a licensed financial professional before making any investment decisions. Market data as of ${new Date().toLocaleDateString('en-SG')}.</p>
+  <p class="disclaimer"><strong>Important Disclaimer:</strong> This PortDNA Client Report is prepared by X68 Financial District for illustrative and professional discussion purposes only. It does not constitute financial advice, an investment recommendation, or a solicitation to buy or sell any security. All return projections and scenario estimates carry significant uncertainty and are not a guarantee of future performance. Past performance is not indicative of future results. Sector classifications, benchmark assumptions, and risk metrics used are indicative. Clients and their advisers should conduct independent due diligence and seek advice from a licensed financial professional before making investment decisions. Live market data as of ${new Date().toLocaleDateString('en-SG')}. Regime: ${intel?.regime ?? 'UNKNOWN'} · Regime multiplier ×${regimeMult(intel?.regime ?? 'UNKNOWN').toFixed(2)}.</p>
 </body></html>`
 
     const w = window.open('', '_blank')
@@ -710,12 +810,12 @@ export default function PortfolioBuilderPage() {
                 </tr></thead>
                 <tbody>
                   <tr style={{ borderBottom: '1px solid #eee' }}><td style={{ padding: '4px 8px' }}>Manager Projection</td><td style={{ padding: '4px 8px', fontWeight: 'bold', textAlign: 'right' }}>{pp.managerBlended >= 0 ? '+' : ''}{pp.managerBlended.toFixed(1)}% p.a.</td><td style={{ padding: '4px 8px', color: '#666', fontSize: 10 }}>Weighted avg of manager-inputted expected returns</td></tr>
-                  <tr style={{ borderBottom: '1px solid #eee' }}><td style={{ padding: '4px 8px' }}>AceEconomy Market-Driven</td><td style={{ padding: '4px 8px', fontWeight: 'bold', textAlign: 'right' }}>{pp.aceBlended >= 0 ? '+' : ''}{pp.aceBlended.toFixed(1)}% p.a.</td><td style={{ padding: '4px 8px', color: '#666', fontSize: 10 }}>Live YTD annualised × regime multiplier</td></tr>
+                  <tr style={{ borderBottom: '1px solid #eee' }}><td style={{ padding: '4px 8px' }}>Market-Driven (Live Data)</td><td style={{ padding: '4px 8px', fontWeight: 'bold', textAlign: 'right' }}>{pp.aceBlended >= 0 ? '+' : ''}{pp.aceBlended.toFixed(1)}% p.a.</td><td style={{ padding: '4px 8px', color: '#666', fontSize: 10 }}>Live YTD annualised × regime multiplier</td></tr>
                   <tr style={{ borderBottom: '1px solid #eee' }}><td style={{ padding: '4px 8px' }}>Conservative Benchmark</td><td style={{ padding: '4px 8px', fontWeight: 'bold', textAlign: 'right' }}>{pp.conservativeBlended >= 0 ? '+' : ''}{pp.conservativeBlended.toFixed(1)}% p.a.</td><td style={{ padding: '4px 8px', color: '#666', fontSize: 10 }}>Long-run asset class averages</td></tr>
-                  <tr style={{ borderBottom: '1px solid #eee' }}><td style={{ padding: '4px 8px' }}>Bear Case (−50% base)</td><td style={{ padding: '4px 8px', fontWeight: 'bold', textAlign: 'right' }}>{(pp.aceBlended * 0.5) >= 0 ? '+' : ''}{(pp.aceBlended * 0.5).toFixed(1)}% p.a.</td><td style={{ padding: '4px 8px', color: '#666', fontSize: 10 }}>AceEconomy base compressed by 50%</td></tr>
-                  <tr style={{ borderBottom: '1px solid #eee' }}><td style={{ padding: '4px 8px' }}>Bull Case (×1.6 base)</td><td style={{ padding: '4px 8px', fontWeight: 'bold', textAlign: 'right' }}>{(pp.aceBlended * 1.6) >= 0 ? '+' : ''}{(pp.aceBlended * 1.6).toFixed(1)}% p.a.</td><td style={{ padding: '4px 8px', color: '#666', fontSize: 10 }}>AceEconomy base ×1.6</td></tr>
+                  <tr style={{ borderBottom: '1px solid #eee' }}><td style={{ padding: '4px 8px' }}>Bear Case (−50% base)</td><td style={{ padding: '4px 8px', fontWeight: 'bold', textAlign: 'right' }}>{(pp.aceBlended * 0.5) >= 0 ? '+' : ''}{(pp.aceBlended * 0.5).toFixed(1)}% p.a.</td><td style={{ padding: '4px 8px', color: '#666', fontSize: 10 }}>Live data base compressed by 50%</td></tr>
+                  <tr style={{ borderBottom: '1px solid #eee' }}><td style={{ padding: '4px 8px' }}>Bull Case (×1.6 base)</td><td style={{ padding: '4px 8px', fontWeight: 'bold', textAlign: 'right' }}>{(pp.aceBlended * 1.6) >= 0 ? '+' : ''}{(pp.aceBlended * 1.6).toFixed(1)}% p.a.</td><td style={{ padding: '4px 8px', color: '#666', fontSize: 10 }}>Live data base ×1.6</td></tr>
                   <tr style={{ borderBottom: '1px solid #eee', background: '#fafafa' }}><td style={{ padding: '4px 8px', fontWeight: 'bold' }}>Portfolio Volatility (σ)</td><td style={{ padding: '4px 8px', fontWeight: 'bold', textAlign: 'right' }}>{pp.portfolioVol.toFixed(1)}%</td><td style={{ padding: '4px 8px', color: '#666', fontSize: 10 }}>Weighted-avg annualised σ (upper bound — no cross-correlations)</td></tr>
-                  <tr style={{ borderBottom: '1px solid #eee', background: '#fafafa' }}><td style={{ padding: '4px 8px', fontWeight: 'bold' }}>Sharpe Ratio (AceEconomy)</td><td style={{ padding: '4px 8px', fontWeight: 'bold', textAlign: 'right' }}>{pp.sharpeAce.toFixed(2)}</td><td style={{ padding: '4px 8px', color: '#666', fontSize: 10 }}>(AceEconomy − {RISK_FREE_RATE}% RFR) ÷ σ · &gt;1 strong · 0.5–1 acceptable</td></tr>
+                  <tr style={{ borderBottom: '1px solid #eee', background: '#fafafa' }}><td style={{ padding: '4px 8px', fontWeight: 'bold' }}>Sharpe Ratio (Market-Driven)</td><td style={{ padding: '4px 8px', fontWeight: 'bold', textAlign: 'right' }}>{pp.sharpeAce.toFixed(2)}</td><td style={{ padding: '4px 8px', color: '#666', fontSize: 10 }}>(AceEconomy − {RISK_FREE_RATE}% RFR) ÷ σ · &gt;1 strong · 0.5–1 acceptable</td></tr>
                   <tr style={{ borderBottom: '1px solid #eee', background: '#fafafa' }}><td style={{ padding: '4px 8px', fontWeight: 'bold' }}>Sharpe Ratio (Manager est.)</td><td style={{ padding: '4px 8px', fontWeight: 'bold', textAlign: 'right' }}>{pp.sharpeManager.toFixed(2)}</td><td style={{ padding: '4px 8px', color: '#666', fontSize: 10 }}>(Manager est. − {RISK_FREE_RATE}% RFR) ÷ σ</td></tr>
                 </tbody>
               </table>
@@ -725,7 +825,7 @@ export default function PortfolioBuilderPage() {
               </>}
               <h2 style={{ fontSize: 14, marginBottom: 8 }}>Projection Basis</h2>
               <p style={{ fontSize: 11 }}><strong>Manager Projection:</strong> Weighted average of manager-inputted expected returns per position.</p>
-              <p style={{ fontSize: 11 }}><strong>AceEconomy Market-Driven:</strong> Where live YTD data is available (via AceEconomy VPS), returns are annualised and adjusted by regime multiplier ({intel?.regime ?? 'UNKNOWN'}, ×{regimeMult(intel?.regime ?? 'UNKNOWN').toFixed(1)}). Where live data is unavailable, long-run benchmark assumptions are used.</p>
+              <p style={{ fontSize: 11 }}><strong>Market-Driven (Live Data):</strong> Where live YTD data is available (via AceEconomy VPS), returns are annualised and adjusted by regime multiplier ({intel?.regime ?? 'UNKNOWN'}, ×{regimeMult(intel?.regime ?? 'UNKNOWN').toFixed(1)}). Where live data is unavailable, long-run benchmark assumptions are used.</p>
               <p style={{ fontSize: 11 }}><strong>Conservative Benchmark:</strong> Long-run asset class averages — Equity 7% (MSCI World 20yr), Fixed Income 3.5% (Bloomberg Agg 20yr), Commodities 4% (Bloomberg Commodity 20yr), Private Equity 10% (Cambridge Associates), FX 0%.</p>
               <p style={{ fontSize: 11, color: '#666', marginTop: 20, borderTop: '1px solid #ccc', paddingTop: 12 }}>
                 <strong>Disclaimer:</strong> This portfolio allocation is generated for illustrative and discussion purposes only. It does not constitute financial advice, an investment recommendation, or a solicitation to buy or sell any security. Past performance and historical benchmark returns are not indicative of future results. All projections involve significant uncertainty. Investors should conduct their own due diligence and consult a licensed financial adviser before making any investment decisions. Market conditions as of {new Date().toLocaleDateString('en-SG')}.
@@ -967,7 +1067,7 @@ export default function PortfolioBuilderPage() {
                           <div className="text-[9px] text-slate-600 mt-1">weighted-avg ann. est. (upper bound)</div>
                         </div>
                         <div className="rounded-xl border border-white/10 bg-white/3 p-3 text-center">
-                          <div className="text-[9px] font-mono text-slate-500 uppercase tracking-wider mb-1">Sharpe Ratio (AceEconomy)</div>
+                          <div className="text-[9px] font-mono text-slate-500 uppercase tracking-wider mb-1">Sharpe Ratio (Market-Driven)</div>
                           <div className={`text-xl font-bold font-mono ${proj.sharpeAce >= 1 ? 'text-green-400' : proj.sharpeAce >= 0.5 ? 'text-yellow-300' : proj.sharpeAce >= 0 ? 'text-amber-400' : 'text-red-400'}`}>
                             {proj.sharpeAce.toFixed(2)}
                           </div>
@@ -1035,7 +1135,7 @@ export default function PortfolioBuilderPage() {
                       {basisOpen && (
                         <div className="rounded-xl border border-white/8 bg-white/3 p-4 space-y-4 text-[10px]">
                           <div>
-                            <div className="text-slate-400 font-semibold mb-2">Per-position AceEconomy basis</div>
+                            <div className="text-slate-400 font-semibold mb-2">Per-position Live Performance Basis</div>
                             <table className="w-full">
                               <thead>
                                 <tr className="text-slate-600">
@@ -1288,7 +1388,7 @@ export default function PortfolioBuilderPage() {
                           <div className="text-[9px] text-slate-600 mt-1">weighted-avg ann. est. (upper bound)</div>
                         </div>
                         <div className="rounded-xl border border-white/10 bg-white/3 p-3 text-center">
-                          <div className="text-[9px] font-mono text-slate-500 uppercase tracking-wider mb-1">Sharpe Ratio (AceEconomy)</div>
+                          <div className="text-[9px] font-mono text-slate-500 uppercase tracking-wider mb-1">Sharpe Ratio (Market-Driven)</div>
                           <div className={`text-xl font-bold font-mono ${cProj.sharpeAce >= 1 ? 'text-green-400' : cProj.sharpeAce >= 0.5 ? 'text-yellow-300' : cProj.sharpeAce >= 0 ? 'text-amber-400' : 'text-red-400'}`}>
                             {cProj.sharpeAce.toFixed(2)}
                           </div>
@@ -1478,8 +1578,8 @@ export default function PortfolioBuilderPage() {
                                 { label: 'Manager estimate',       mVal: proj.managerBlended,       cVal: cProj.managerBlended,       note: 'Weighted avg of manager-inputted expected returns'      },
                                 { label: 'AceEconomy (live)',      mVal: proj.aceBlended,           cVal: cProj.aceBlended,           note: 'Live YTD annualised × regime multiplier per holding'    },
                                 { label: 'Conservative benchmark', mVal: proj.conservativeBlended,  cVal: cProj.conservativeBlended,  note: 'Long-run asset class averages (no live data)'           },
-                                { label: 'Bear case (−50% base)',  mVal: proj.aceBlended * 0.5,     cVal: cProj.aceBlended * 0.5,     note: 'AceEconomy base compressed by 50% — return drag scenario' },
-                                { label: 'Bull case (×1.6 base)',  mVal: proj.aceBlended * 1.6,     cVal: cProj.aceBlended * 1.6,     note: 'AceEconomy base ×1.6 — strong outperformance scenario'  },
+                                { label: 'Bear case (−50% base)',  mVal: proj.aceBlended * 0.5,     cVal: cProj.aceBlended * 0.5,     note: 'Live data base compressed by 50% — return drag scenario' },
+                                { label: 'Bull case (×1.6 base)',  mVal: proj.aceBlended * 1.6,     cVal: cProj.aceBlended * 1.6,     note: 'Live data base ×1.6 — strong outperformance scenario'  },
                               ]
                               return (
                                 <>
@@ -1742,16 +1842,18 @@ export default function PortfolioBuilderPage() {
                     </div>
                     {/* Portfolio snapshot — always visible, no layout jump */}
                     {(() => {
-                      const t2 = totalPct(holdings) || 1
+                      const activeH = (dnaSide === 'client' && clientHoldings.length > 0) ? clientHoldings : holdings
+                      const activeLabel = dnaSide === 'client' ? 'Balanced Profile' : 'PortfolioPlus'
+                      const t2 = totalPct(activeH) || 1
                       const tfLabel = { overnight: '1D', '5d': '1W', '3m': '3M', '6m': '6M', '1y': '1Y', ytd: 'YTD' }[dnaTimeframe]
-                      const hasSomePerf = holdings.some(h => dnaPerf[h.ticker] != null)
+                      const hasSomePerf = activeH.some(h => dnaPerf[h.ticker] != null)
                       const periodBlended = hasSomePerf
-                        ? holdings.reduce((sum, h) => { const ret = dnaPerf[h.ticker]; return ret != null ? sum + (h.pct / t2) * ret : sum }, 0)
+                        ? activeH.reduce((sum, h) => { const ret = dnaPerf[h.ticker]; return ret != null ? sum + (h.pct / t2) * ret : sum }, 0)
                         : null
 
                       // Sector composition: group by real sector name, compute weight + blended period perf
                       const secGroups: Record<string, { tickers: string[]; weight: number; perfSum: number; perfCount: number }> = {}
-                      holdings.forEach(h => {
+                      activeH.forEach(h => {
                         const sec = TICKER_SECTOR[h.ticker] ?? CATEGORY_LABELS[h.category] ?? h.category
                         if (!secGroups[sec]) secGroups[sec] = { tickers: [], weight: 0, perfSum: 0, perfCount: 0 }
                         secGroups[sec].tickers.push(h.ticker)
@@ -1772,8 +1874,9 @@ export default function PortfolioBuilderPage() {
                         <div className="rounded-xl border border-white/10 bg-white/3 p-4 space-y-3">
                           {/* Period return row */}
                           <div className="flex items-center justify-between">
-                            <div className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">
-                              Portfolio return · {tfLabel}
+                            <div>
+                              <div className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">{activeLabel} return · {tfLabel}</div>
+                              <div className="text-[8px] text-slate-700">Weighted actual price change</div>
                             </div>
                             {dnaLoading ? (
                               <div className="text-[10px] text-slate-600 animate-pulse">loading…</div>
@@ -1788,7 +1891,7 @@ export default function PortfolioBuilderPage() {
 
                           {/* Per-asset chips — always present */}
                           <div className="flex flex-wrap gap-1.5 min-h-[28px]">
-                            {holdings.map(h => {
+                            {activeH.map(h => {
                               const ret = dnaPerf[h.ticker]
                               return (
                                 <div key={h.ticker} className="flex items-center gap-1 rounded border border-white/10 bg-white/4 px-2 py-1 text-[10px]">
@@ -1840,6 +1943,8 @@ export default function PortfolioBuilderPage() {
                       clientSharpeAce={clientHoldings.length > 0 ? cProj.sharpeAce : undefined}
                       dnaPerf={dnaPerf}
                       dnaTimeframe={dnaTimeframe}
+                      dnaSide={dnaSide}
+                      onSideChange={setDnaSide}
                     />
 
                     {/* DNA Print CTA */}

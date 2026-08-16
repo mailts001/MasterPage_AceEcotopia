@@ -503,15 +503,13 @@ export default function WatchlistSignalsPage() {
   useEffect(() => {
     const val = localStorage.getItem('ace_fin_light') === '1'
     setBgLight(val)
-    document.body.style.backgroundColor = val ? '#f1f5f9' : ''
-    document.body.style.color           = val ? '#0f172a' : ''
+    document.documentElement.classList.toggle('ace-light', val)
   }, [])
 
   const applyTheme = (next: boolean) => {
     setBgLight(next)
     localStorage.setItem('ace_fin_light', next ? '1' : '0')
-    document.body.style.backgroundColor = next ? '#f1f5f9' : ''
-    document.body.style.color           = next ? '#0f172a' : ''
+    document.documentElement.classList.toggle('ace-light', next)
   }
 
   const load = useCallback(async () => {
