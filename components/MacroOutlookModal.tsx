@@ -174,8 +174,8 @@ export default function MacroOutlookModal({ onClose }: { onClose: () => void }) 
           ))}
         </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        {/* Body — min-h-0 prevents flex child from growing past max-h-[94vh] */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
           {tab === 'snapshot' && <SnapshotView snap={snap} loading={snapLoading} />}
           {tab === 'calendar' && <CalendarView events={filtered} weekGroups={weekGroups} categories={categories} filterCat={filterCat} setFilterCat={setFilterCat} loading={calLoading} />}
           {tab === 'pmi'      && <PmiView pmi={pmi} pmiType={pmiType} setPmiType={setPmiType} loading={pmiLoading} />}
