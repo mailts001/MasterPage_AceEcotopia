@@ -4,6 +4,9 @@ import { isPromoMode, isCitizenPreview } from '@/lib/promo'
 const VPS = process.env.ACEECONOMY_URL || 'http://204.168.221.101:8505'
 const KEY = process.env.NEXUS_API_KEY  || 'x68-nexus-internal-2024'
 
+// Cache entire route for 15 min — promo/preview flags are global, not per-user
+export const revalidate = 900
+
 export async function GET() {
   const [vpsRes, promo, preview] = await Promise.allSettled([
     fetch(`${VPS}/api/nexus/intel`, {
