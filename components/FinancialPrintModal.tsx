@@ -317,10 +317,10 @@ function buildComplementChart(
 }
 
 // ── HTML report builder ────────────────────────────────────────────────────────
-function buildReport(selected: Set<string>, data: {
+function buildReport(selected: Set<string>, recipientName: string, data: {
   snapshot?: any; news?: any[]; pmi?: any; calendar?: any[]
   watchlist?: WatchlistHolding[]; sectorReturns?: { ticker: string; ret: number }[]
-  lineHistory?: any  // price-history API response {series: {[ticker]: {dates,rebased}}}
+  lineHistory?: any
   holdings?: PortfolioHolding[]; clientHoldings?: PortfolioHolding[]
   proj?: PortfolioProjections; cProj?: PortfolioProjections; clientName?: string
 }) {
@@ -453,6 +453,10 @@ function buildReport(selected: Set<string>, data: {
   }
 
   // ── WATCHLIST SIGNALS ───────────────────────────────────────────────────────
+  if (selected.has('wl_signals') && !watchlist?.length) {
+    body += `<h2>⭐ Watchlist Signals</h2>
+    <p style="font-size:11px;color:#94a3b8;padding:8px 0">No watchlist tickers found. Add tickers in the Watchlist Signals page first.</p>`
+  }
   if (selected.has('wl_signals') && watchlist?.length) {
     const sigCls: Record<string,string> = { BUY:'bg', SQUEEZE:'pu', WATCH:'ba', NEUTRAL:'bgr', SELL:'br' }
     body += `<h2>⭐ Watchlist Signals</h2>
@@ -615,14 +619,16 @@ function buildReport(selected: Set<string>, data: {
   }
 
   const sections = ALL_SECTIONS.filter(s => selected.has(s.id)).map(s => s.label).join(', ')
+  const forLine  = recipientName.trim() ? `, for ${recipientName.trim()}` : ''
+  const titleStr = `Investment Planning Summary Report${forLine}`
 
   return `<!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Goal Based Investment Planning Summary Report · ${date}</title>
+<title>${titleStr}</title>
 <style>${css}</style>
 </head><body>
-<h1>Goal Based Investment Planning Summary Report</h1>
+<h1>${titleStr}</h1>
 <div class="subtitle">${date} · Sections: ${sections} · All figures are indicative estimates only, not investment advice.</div>
 ${body}
 <footer>Goal Based Investment Planning · X68 AceEcotopia · ${date} · Not investment advice.</footer>
@@ -643,8 +649,9 @@ export default function FinancialPrintModal({
     })
     return s
   }
-  const [selected, setSelected] = useState<Set<string>>(initSelected)
-  const [generating, setGenerating] = useState(false)
+  const [selected,      setSelected]      = useState<Set<string>>(initSelected)
+  const [recipientName, setRecipientName] = useState('')      // "for Xxxx" in title
+  const [generating,    setGenerating]    = useState(false)
   const [macroStatus,   setMacroStatus]   = useState<'idle'|'loading'|'done'|'error'>('idle')
   const [wlStatus,      setWlStatus]      = useState<'idle'|'loading'|'done'|'error'>('idle')
   const [sectorStatus,  setSectorStatus]  = useState<'idle'|'loading'|'done'|'error'>('idle')
@@ -657,8 +664,8 @@ export default function FinancialPrintModal({
   const [calendar,      setCalendar]      = useState<any[]>([])
   const [wlSignals,     setWlSignals]     = useState<WatchlistHolding[]>(watchlistData ?? [])
   const [sectorRets,    setSectorRets]    = useState<{ticker:string;ret:number}[]>(sectorReturnsProp ?? [])
-  const [lineHistory,   setLineHistory]   = useState<any>(null)  // price-history response
-  // Portfolio state — filled from props or localStorage
+  const [lineHistory,   setLineHistory]   = useState<any>(null)
+  // Portfolio — from props or localStorage; projections computed here
   const [ptHoldings,    setPtHoldings]    = useState<PortfolioHolding[]>(holdings ?? [])
   const [ptClientH,     setPtClientH]     = useState<PortfolioHolding[]>(clientHoldings ?? [])
   const [ptProj,        setPtProj]        = useState<PortfolioProjections|undefined>(proj)
@@ -666,27 +673,59 @@ export default function FinancialPrintModal({
   const [ptClientName,  setPtClientName]  = useState<string|undefined>(clientName)
 
   const needsMacro  = ['macro_snapshot','macro_news','macro_pmi','macro_calendar'].some(id => selected.has(id))
-  const needsWl     = ['wl_signals','wl_fundamentals','wl_perf_chart'].some(id => selected.has(id))
+  const needsWl     = ['wl_signals','wl_fundamentals','wl_perf_chart','wl_chart'].some(id => selected.has(id))
   const needsSector = selected.has('wl_chart') && !sectorReturnsProp?.length
-  const needsLine   = selected.has('wl_perf_chart')
   const needsPort   = ['pt_holdings','pt_projections','pt_compare','pt_complement'].some(id => selected.has(id))
 
-  // Load portfolio from localStorage if not passed as props
+  // Simplified projection computation (no live intel — uses neutral multiplier)
+  function computeSimpleProj(h: PortfolioHolding[]): PortfolioProjections | undefined {
+    if (!h.length) return undefined
+    const RISK_FREE = 4.0
+    const VOL: Record<string, number> = {
+      equity: 18, fixed_income: 8, fx: 12, commodities: 22,
+      private_equity: 25, thematic: 20, cash: 1, philanthropy: 5,
+    }
+    const total = h.reduce((s, x) => s + x.pct, 0) || 1
+    let managerBlended = 0, portfolioVol = 0
+    for (const x of h) {
+      const w = x.pct / total
+      managerBlended += w * x.managerReturn
+      portfolioVol   += w * (VOL[x.category] ?? 15)
+    }
+    const aceBlended          = managerBlended * 0.9
+    const conservativeBlended = managerBlended * 0.6
+    const sharpeAce     = portfolioVol > 0 ? (aceBlended - RISK_FREE) / portfolioVol : 0
+    const sharpeManager = portfolioVol > 0 ? (managerBlended - RISK_FREE) / portfolioVol : 0
+    return { managerBlended, aceBlended, conservativeBlended, portfolioVol, sharpeAce, sharpeManager }
+  }
+
+  // Load portfolio from localStorage and compute projections when not passed as props
   useEffect(() => {
-    if (holdings?.length || clientHoldings?.length || portStatus !== 'idle') return
+    if (portStatus !== 'idle') return
     if (!needsPort) return
     setPortStatus('loading')
     try {
-      const raw = localStorage.getItem('portbuilder_draft_v1')
-      if (raw) {
-        const d = JSON.parse(raw)
-        if (d.holdings?.length)       setPtHoldings(d.holdings)
-        if (d.clientHoldings?.length) setPtClientH(d.clientHoldings)
-        if (d.clientProfile?.name)    setPtClientName(d.clientProfile.name)
+      // Use prop-passed holdings first, fall back to localStorage
+      let h = holdings ?? [], ch = clientHoldings ?? []
+      let cn = clientName
+      if (!h.length && !ch.length) {
+        const raw = localStorage.getItem('portbuilder_draft_v1')
+        if (raw) {
+          const d = JSON.parse(raw)
+          if (d.holdings?.length)       h  = d.holdings
+          if (d.clientHoldings?.length) ch = d.clientHoldings
+          if (d.clientProfile?.name)    cn = d.clientProfile.name
+        }
       }
+      setPtHoldings(h)
+      setPtClientH(ch)
+      if (cn) { setPtClientName(cn); setRecipientName(prev => prev || cn) }
+      // Compute projections if not passed
+      if (!proj && h.length)  setPtProj(computeSimpleProj(h))
+      if (!cProj && ch.length) setPtCProj(computeSimpleProj(ch))
       setPortStatus('done')
     } catch { setPortStatus('done') }
-  }, [needsPort, holdings, clientHoldings])
+  }, [needsPort])
 
   useEffect(() => {
     if (!needsMacro || macroStatus !== 'idle') return
@@ -705,25 +744,32 @@ export default function FinancialPrintModal({
     }).catch(()=>setMacroStatus('error'))
   }, [needsMacro])
 
+  // Fetch watchlist (signals + price history) — run once when signals are loaded
   useEffect(() => {
-    if (!needsWl || wlStatus !== 'idle' || watchlistData?.length) return
-    setWlStatus('loading')
-    fetch('/api/citizen/watchlist/performance').then(r=>r.json())
-      .then(d => { setWlSignals(d.tickers ?? []); setWlStatus('done') })
-      .catch(()=>setWlStatus('error'))
-  }, [needsWl])
+    if (!needsWl) return
+    // Step 1: fetch performance/signals if not pre-supplied
+    if (watchlistData?.length) {
+      setWlSignals(watchlistData)
+      setWlStatus('done')
+    } else if (wlStatus === 'idle') {
+      setWlStatus('loading')
+      fetch('/api/citizen/watchlist/performance').then(r=>r.json())
+        .then(d => { setWlSignals(d.tickers ?? []); setWlStatus('done') })
+        .catch(()=>setWlStatus('error'))
+    }
+  }, [needsWl, watchlistData])
 
-  // Fetch 1M price history for line chart
+  // Step 2: fetch price history after signals are known (so we have ticker list)
   useEffect(() => {
-    if (!needsLine || lineStatus !== 'idle') return
-    const syms = (watchlistData ?? wlSignals).map(h => h.ticker).filter(Boolean)
-    if (!syms.length) return
+    if (!selected.has('wl_perf_chart') || lineStatus !== 'idle') return
+    const syms = wlSignals.map(h => h.ticker).filter(Boolean)
+    if (!syms.length) return   // wait until wlSignals is populated
     setLineStatus('loading')
     fetch(`/api/nexus/watchlist/price-history?symbols=${syms.join(',')}&period=1M`)
       .then(r => r.json())
       .then(d => { setLineHistory(d); setLineStatus('done') })
       .catch(() => setLineStatus('error'))
-  }, [needsLine, wlSignals])
+  }, [wlSignals, selected])
 
   // Fetch sector returns if not pre-supplied by parent
   const SECTOR_ETFS = ['XLK','XLF','XLV','XLY','XLP','XLE','XLI','XLU','XLRE','XLC','XLB']
@@ -761,7 +807,7 @@ export default function FinancialPrintModal({
     if (!selected.size) return
     setGenerating(true)
     try {
-      const html = buildReport(selected, {
+      const html = buildReport(selected, recipientName, {
         snapshot, news, pmi, calendar,
         watchlist: wlSignals, sectorReturns: sectorRets, lineHistory,
         holdings: ptHoldings, clientHoldings: ptClientH,
@@ -827,7 +873,24 @@ export default function FinancialPrintModal({
           ))}
         </div>
 
-        <div className="px-5 py-4 border-t border-white/8 flex items-center gap-3">
+        {/* Recipient name + actions */}
+        <div className="px-5 pt-3 pb-1 border-t border-white/8">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[10px] text-slate-500 whitespace-nowrap">Prepared for:</span>
+            <input
+              value={recipientName}
+              onChange={e => setRecipientName(e.target.value)}
+              placeholder="Client / recipient name (optional)"
+              className="flex-1 bg-white/5 border border-white/12 rounded-lg px-3 py-1.5 text-[11px] text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/40"
+            />
+          </div>
+          {recipientName.trim() && (
+            <div className="text-[10px] text-cyan-400/80 mb-2">
+              Report title: <span className="font-medium">Investment Planning Summary Report, for {recipientName.trim()}</span>
+            </div>
+          )}
+        </div>
+        <div className="px-5 pb-4 flex items-center gap-3">
           <div className="flex-1 text-[10px] text-slate-600">
             {selected.size} section{selected.size!==1?'s':''} selected
             {isLoading && <span className="ml-2 animate-pulse">· fetching…</span>}
