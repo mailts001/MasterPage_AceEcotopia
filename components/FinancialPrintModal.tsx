@@ -18,6 +18,7 @@ const ALL_SECTIONS: SectionDef[] = [
   { id: 'macro_calendar',  seg: 'macro',     label: 'Economic Calendar',     desc: 'Upcoming high-impact events'                   },
   { id: 'wl_signals',      seg: 'watchlist', label: 'Watchlist Signals',     desc: 'Signal table with perf metrics'                },
   { id: 'wl_fundamentals', seg: 'watchlist', label: 'Fundamentals Summary',  desc: 'EPS, dividend, ROE per holding'                },
+  { id: 'wl_perf_chart',   seg: 'watchlist', label: 'Watchlist % Change Chart', desc: 'Bar chart comparing ticker returns across periods' },
   { id: 'wl_chart',        seg: 'watchlist', label: 'Sector Performance',    desc: 'Dot chart of SPDR sector ETF 3M returns'      },
   { id: 'pt_holdings',     seg: 'portfolio', label: 'Holdings Allocation',   desc: 'Position weights with pie chart'               },
   { id: 'pt_projections',  seg: 'portfolio', label: 'Return Projections',    desc: 'Est Return, YTD Return, Bear / Bull scenarios' },
@@ -71,6 +72,77 @@ const CAT_COLORS: Record<string, string> = {
   equity: '#3b82f6', fixed_income: '#22c55e', fx: '#eab308',
   commodities: '#f97316', private_equity: '#a855f7',
   thematic: '#06b6d4', cash: '#94a3b8', philanthropy: '#ec4899',
+}
+
+// ── SVG Watchlist performance grouped bar chart ───────────────────────────────
+function buildWatchlistPerfChart(tickers: WatchlistHolding[]): string {
+  if (!tickers.length) return ''
+  const PERIODS = [
+    { key: 'overnight' as const, label: '1D' },
+    { key: '5d'        as const, label: '5D' },
+    { key: '3m'        as const, label: '3M' },
+    { key: '1y'        as const, label: '1Y' },
+  ]
+  // Find global min/max for scaling
+  let gMin = 0, gMax = 0
+  tickers.forEach(h => PERIODS.forEach(p => {
+    const v = h[p.key] ?? 0
+    if (v < gMin) gMin = v
+    if (v > gMax) gMax = v
+  }))
+  const range = (gMax - gMin) || 1
+  const zeroY = gMax / range  // 0–1 fraction from top
+
+  const W = 560, padL = 55, padR = 20, padT = 20, padB = 35
+  const chartW = W - padL - padR
+  const chartH = 120
+  const H = padT + chartH + padB
+
+  const barGroup = chartW / tickers.length
+  const barW = Math.min(barGroup * 0.8, 40)
+  const subW = barW / PERIODS.length
+
+  const COLORS = ['#3b82f6','#06b6d4','#22c55e','#f59e0b']
+  const zeroLineY = padT + zeroY * chartH
+
+  let bars = ''
+  tickers.forEach((h, i) => {
+    const gx = padL + i * barGroup + (barGroup - barW) / 2
+    PERIODS.forEach((p, j) => {
+      const v = h[p.key] ?? 0
+      const barH = Math.abs(v / range) * chartH
+      const barY = v >= 0 ? zeroLineY - barH : zeroLineY
+      bars += `<rect x="${(gx + j * subW).toFixed(1)}" y="${barY.toFixed(1)}" width="${(subW - 1).toFixed(1)}" height="${barH.toFixed(1)}" fill="${COLORS[j]}" opacity="0.8" rx="1"/>`
+    })
+    // x-axis label
+    const cx = gx + barW / 2
+    bars += `<text x="${cx.toFixed(1)}" y="${(H - padB + 13).toFixed(1)}" text-anchor="middle" font-size="8" fill="#475569" font-family="monospace">${h.ticker}</text>`
+  })
+
+  // Legend
+  let legend = PERIODS.map((p, j) =>
+    `<rect x="${padL + j * 70}" y="${H - 10}" width="8" height="8" fill="${COLORS[j]}" rx="1"/>
+     <text x="${padL + j * 70 + 11}" y="${H - 2}" font-size="8" fill="#64748b">${p.label}</text>`
+  ).join('')
+
+  // Y axis ticks
+  const yTicks = [-20, -10, 0, 10, 20].filter(v => v >= gMin - 5 && v <= gMax + 5)
+  let yAxis = ''
+  yTicks.forEach(v => {
+    const y = padT + ((gMax - v) / range) * chartH
+    if (y >= padT && y <= padT + chartH) {
+      yAxis += `<line x1="${padL - 3}" y1="${y.toFixed(1)}" x2="${padL + chartW}" y2="${y.toFixed(1)}" stroke="#e2e8f0" stroke-width="0.5"/>`
+      yAxis += `<text x="${padL - 5}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="7" fill="#94a3b8">${v}%</text>`
+    }
+  })
+
+  return `<svg viewBox="0 0 ${W} ${H + 20}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;height:auto;display:block;margin:8px 0">
+    <text x="${W/2}" y="12" text-anchor="middle" font-size="11" font-weight="600" fill="#1e293b">Watchlist % Return by Period</text>
+    ${yAxis}
+    <line x1="${padL}" y1="${zeroLineY.toFixed(1)}" x2="${padL + chartW}" y2="${zeroLineY.toFixed(1)}" stroke="#94a3b8" stroke-width="1"/>
+    ${bars}
+    ${legend}
+  </svg>`
 }
 
 // ── SVG Pie Chart (inline, no dependencies) ───────────────────────────────────
@@ -225,14 +297,14 @@ function buildReport(selected: Set<string>, data: {
 
     if (snapshot.top_gainers?.length || snapshot.top_losers?.length) {
       body += `<div><h3>Top Gainers</h3>
-        <table><thead><tr><th>Ticker</th><th class="rt">1D</th><th class="rt">YTD</th></tr></thead><tbody>
+        <table><thead><tr><th>Name</th><th>Ticker</th><th class="rt">1D</th><th class="rt">YTD</th></tr></thead><tbody>
         ${(snapshot.top_gainers ?? []).slice(0,5).map((a: any) =>
-          `<tr><td class="mono">${a.ticker}</td><td class="rt mono g">${pctStr(a.chg_1d)}</td><td class="rt mono ${(a.chg_ytd??0)>=0?'g':'r'}">${pctStr(a.chg_ytd)}</td></tr>`
+          `<tr><td>${a.name??''}</td><td class="mono">${a.symbol??a.ticker??''}</td><td class="rt mono g">${pctStr(a.chg_1d)}</td><td class="rt mono ${(a.chg_ytd??0)>=0?'g':'r'}">${pctStr(a.chg_ytd)}</td></tr>`
         ).join('')}</tbody></table></div>
       <div><h3>Top Losers</h3>
-        <table><thead><tr><th>Ticker</th><th class="rt">1D</th><th class="rt">YTD</th></tr></thead><tbody>
+        <table><thead><tr><th>Name</th><th>Ticker</th><th class="rt">1D</th><th class="rt">YTD</th></tr></thead><tbody>
         ${(snapshot.top_losers ?? []).slice(0,5).map((a: any) =>
-          `<tr><td class="mono">${a.ticker}</td><td class="rt mono r">${pctStr(a.chg_1d)}</td><td class="rt mono ${(a.chg_ytd??0)>=0?'g':'r'}">${pctStr(a.chg_ytd)}</td></tr>`
+          `<tr><td>${a.name??''}</td><td class="mono">${a.symbol??a.ticker??''}</td><td class="rt mono r">${pctStr(a.chg_1d)}</td><td class="rt mono ${(a.chg_ytd??0)>=0?'g':'r'}">${pctStr(a.chg_ytd)}</td></tr>`
         ).join('')}</tbody></table></div>`
     }
     body += `</div>`
@@ -247,11 +319,12 @@ function buildReport(selected: Set<string>, data: {
 
     if (snapshot.us_sectors?.all?.length) {
       body += `<h3>US Sector Performance</h3>
-      <table><thead><tr><th>Sector</th><th class="rt">1D</th><th class="rt">1W</th></tr></thead><tbody>
-      ${snapshot.us_sectors.all.slice(0,8).map((s: any) =>
-        `<tr><td>${s.name??s.ticker}</td>
+      <table><thead><tr><th>Sector</th><th class="rt">1D</th><th class="rt">1W</th><th class="rt">YTD</th></tr></thead><tbody>
+      ${snapshot.us_sectors.all.map((s: any) =>
+        `<tr><td>${s.emoji??''} ${s.name??s.symbol??''}</td>
         <td class="rt mono ${(s.chg_1d??0)>=0?'g':'r'}">${pctStr(s.chg_1d)}</td>
-        <td class="rt mono ${(s.chg_5d??0)>=0?'g':'r'}">${pctStr(s.chg_5d)}</td></tr>`
+        <td class="rt mono ${(s.chg_1w??0)>=0?'g':'r'}">${pctStr(s.chg_1w)}</td>
+        <td class="rt mono ${(s.chg_ytd??0)>=0?'g':'r'}">${pctStr(s.chg_ytd)}</td></tr>`
       ).join('')}</tbody></table>`
     }
   }
@@ -334,6 +407,12 @@ function buildReport(selected: Set<string>, data: {
     </tbody></table>`
   }
 
+  // ── WATCHLIST PERF CHART ────────────────────────────────────────────────────
+  if (selected.has('wl_perf_chart') && watchlist?.length) {
+    body += `<h2>⭐ Watchlist % Change Chart</h2>`
+    body += buildWatchlistPerfChart(watchlist)
+  }
+
   // ── WATCHLIST FUNDAMENTALS ──────────────────────────────────────────────────
   if (selected.has('wl_fundamentals') && watchlist?.length) {
     const hasFunds = watchlist.some(h => h.eps_ttm != null || h.roe != null)
@@ -364,6 +443,12 @@ function buildReport(selected: Set<string>, data: {
   }
 
   // ── HOLDINGS ────────────────────────────────────────────────────────────────
+  if (selected.has('pt_holdings')) {
+    if (!holdings?.length && !clientHoldings?.length) {
+      body += `<h2>📐 Holdings Allocation</h2>
+      <p style="font-size:11px;color:#94a3b8;padding:8px 0">No portfolio holdings have been built yet. Visit GoalBasedPortfolio to add assets.</p>`
+    }
+  }
   if (selected.has('pt_holdings') && (holdings?.length || clientHoldings?.length)) {
     const renderHoldings = (h: PortfolioHolding[], label: string) => {
       if (!h.length) return ''
@@ -397,6 +482,10 @@ function buildReport(selected: Set<string>, data: {
   }
 
   // ── PROJECTIONS ─────────────────────────────────────────────────────────────
+  if (selected.has('pt_projections') && !proj && !cProj) {
+    body += `<h2>📐 Return Projections</h2>
+    <p style="font-size:11px;color:#94a3b8;padding:8px 0">No portfolio data available — add holdings in GoalBasedPortfolio first.</p>`
+  }
   if (selected.has('pt_projections') && (proj||cProj)) {
     body += `<h2>📐 Return Projections</h2>
     <table><thead><tr><th>Scenario</th><th class="rt">GoalBasedPortfolio</th>${cProj?'<th class="rt">Balanced Portfolio</th>':''}</tr></thead><tbody>`
@@ -419,6 +508,10 @@ function buildReport(selected: Set<string>, data: {
   }
 
   // ── PORTFOLIO COMPARE ───────────────────────────────────────────────────────
+  if (selected.has('pt_compare') && !(holdings?.length && clientHoldings?.length)) {
+    body += `<h2>⚖️ Portfolio Comparison</h2>
+    <p style="font-size:11px;color:#94a3b8;padding:8px 0">Comparison requires both GoalBasedPortfolio and Balanced Portfolio to have holdings.</p>`
+  }
   if (selected.has('pt_compare') && holdings?.length && clientHoldings?.length) {
     const cats = [...new Set([...holdings, ...clientHoldings].map(h => h.category))]
     const mTot = holdings.reduce((s,h)=>s+h.pct,0)||1
@@ -439,6 +532,10 @@ function buildReport(selected: Set<string>, data: {
   }
 
   // ── COMPLEMENT CHART ────────────────────────────────────────────────────────
+  if (selected.has('pt_complement') && !(holdings?.length && clientHoldings?.length)) {
+    body += `<h2>🔗 How the Two Portfolios Complement Each Other</h2>
+    <p style="font-size:11px;color:#94a3b8;padding:8px 0">Requires both portfolios to have holdings.</p>`
+  }
   if (selected.has('pt_complement') && holdings?.length && clientHoldings?.length) {
     body += `<h2>🔗 How the Two Portfolios Complement Each Other</h2>
     <p style="font-size:11px;color:#64748b;margin-bottom:8px">Each bar shows asset class weight for GoalBasedPortfolio (left, indigo) vs Balanced Portfolio (right, green). Where one covers the other&apos;s gaps, together they provide broader diversification.</p>`
