@@ -58,6 +58,98 @@ function CustomTooltip({ active, payload, label, mode }: any) {
   )
 }
 
+// ── Dot plot (scatter) for sector view ────────────────────────────────────────
+function DotPlot({ series, selected, colorMap, dark }: {
+  series: Record<string, Series>
+  selected: Set<string>
+  colorMap: Record<string, string>
+  dark: boolean
+}) {
+  const points = useMemo(() => {
+    return [...selected]
+      .map(sym => {
+        const s = series[sym]
+        if (!s || !s.rebased.length) return null
+        const ret = s.rebased[s.rebased.length - 1]
+        return { sym, ret }
+      })
+      .filter(Boolean)
+      .sort((a, b) => (b!.ret) - (a!.ret)) as { sym: string; ret: number }[]
+  }, [series, selected])
+
+  if (!points.length) return null
+
+  const maxAbs = Math.max(...points.map(p => Math.abs(p.ret)), 1)
+  const rowH = 28
+  const labelW = 52
+  const barMaxW = 160
+  const height = points.length * rowH + 8
+
+  return (
+    <svg width="100%" height={height} style={{ overflow: 'visible' }}>
+      {/* Zero line */}
+      <line
+        x1={labelW} x2={labelW}
+        y1={0} y2={height}
+        stroke={dark ? '#334155' : '#cbd5e1'}
+        strokeDasharray="3 3"
+        strokeWidth={1}
+      />
+      {points.map((p, i) => {
+        const pct = p.ret / maxAbs          // -1..1
+        const barW = Math.abs(pct) * barMaxW
+        const positive = p.ret >= 0
+        const cy = i * rowH + rowH / 2
+        const color = colorMap[p.sym] ?? (positive ? '#4ade80' : '#f87171')
+        const barX = positive ? labelW : labelW - barW
+
+        return (
+          <g key={p.sym}>
+            {/* Bar track */}
+            <rect
+              x={barX} y={cy - 5}
+              width={barW} height={10}
+              rx={3}
+              fill={color}
+              opacity={0.18}
+            />
+            {/* Dot */}
+            <circle
+              cx={labelW + pct * barMaxW}
+              cy={cy}
+              r={6}
+              fill={color}
+              opacity={0.9}
+            />
+            {/* Sector label */}
+            <text
+              x={labelW - 6} y={cy + 4}
+              textAnchor="end"
+              fontSize={10}
+              fontFamily="ui-monospace, monospace"
+              fill={dark ? '#94a3b8' : '#64748b'}
+            >
+              {p.sym}
+            </text>
+            {/* Value label */}
+            <text
+              x={labelW + pct * barMaxW + (positive ? 10 : -10)}
+              y={cy + 4}
+              textAnchor={positive ? 'start' : 'end'}
+              fontSize={10}
+              fontFamily="ui-monospace, monospace"
+              fontWeight="600"
+              fill={positive ? '#4ade80' : '#f87171'}
+            >
+              {p.ret >= 0 ? '+' : ''}{p.ret.toFixed(1)}%
+            </text>
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 interface WatchlistChartProps {
   tickers: string[]
@@ -65,9 +157,10 @@ interface WatchlistChartProps {
   title?: string
   defaultPeriod?: Period
   hideTickers?: boolean   // hide watchlist ticker selector (e.g. sector chart)
+  chartType?: 'line' | 'dot'  // 'dot' = scatter/dot plot, one point per ticker
 }
 
-export default function WatchlistChart({ tickers, bgLight, title, defaultPeriod, hideTickers }: WatchlistChartProps) {
+export default function WatchlistChart({ tickers, bgLight, title, defaultPeriod, hideTickers, chartType = 'line' }: WatchlistChartProps) {
   const [period,       setPeriod]       = useState<Period>(defaultPeriod ?? '3M')
   const [mode,         setMode]         = useState<Mode>('rebase')
   const [selected,     setSelected]     = useState<Set<string>>(
@@ -199,15 +292,17 @@ export default function WatchlistChart({ tickers, bgLight, title, defaultPeriod,
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
-          {/* Mode toggle */}
-          <div className={`flex rounded-lg border overflow-hidden text-[10px] font-mono ${dark ? 'border-white/10' : 'border-slate-300'}`}>
-            {MODES.map(m => (
-              <button key={m.id} onClick={() => setMode(m.id)} title={m.desc}
-                className={`px-2.5 py-1 transition ${mode === m.id ? (dark ? 'bg-cyan-500/20 text-cyan-300' : 'bg-cyan-50 text-cyan-700') : (dark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-800')}`}>
-                {m.label}
-              </button>
-            ))}
-          </div>
+          {/* Mode toggle (line chart only) */}
+          {chartType === 'line' && (
+            <div className={`flex rounded-lg border overflow-hidden text-[10px] font-mono ${dark ? 'border-white/10' : 'border-slate-300'}`}>
+              {MODES.map(m => (
+                <button key={m.id} onClick={() => setMode(m.id)} title={m.desc}
+                  className={`px-2.5 py-1 transition ${mode === m.id ? (dark ? 'bg-cyan-500/20 text-cyan-300' : 'bg-cyan-50 text-cyan-700') : (dark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-800')}`}>
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          )}
           {/* Period pills */}
           {PERIODS.map(p => (
             <button key={p} onClick={() => setPeriod(p)}
@@ -291,16 +386,30 @@ export default function WatchlistChart({ tickers, bgLight, title, defaultPeriod,
       )}
 
       {/* ── Chart ── */}
-      <div className="relative" style={{ height: 320 }}>
-        {loading && (
-          <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-sm gap-2 z-10">
-            <span className="animate-spin">⟳</span> Loading…
-          </div>
-        )}
-        {error && !loading && (
-          <div className="absolute inset-0 flex items-center justify-center text-red-400 text-sm">{error}</div>
-        )}
-        {!loading && !error && chartData.length > 0 && (
+      {loading && (
+        <div className="flex items-center justify-center py-10 text-slate-500 text-sm gap-2">
+          <span className="animate-spin">⟳</span> Loading…
+        </div>
+      )}
+      {error && !loading && (
+        <div className="text-center py-8 text-red-400 text-sm">{error}</div>
+      )}
+
+      {/* Dot plot (sector scatter) */}
+      {chartType === 'dot' && !loading && !error && history?.series && (
+        <div className="px-2 py-1">
+          <DotPlot
+            series={history.series}
+            selected={selected}
+            colorMap={colorMap}
+            dark={dark}
+          />
+        </div>
+      )}
+
+      {/* Line chart */}
+      {chartType === 'line' && !loading && !error && chartData.length > 0 && (
+        <div style={{ height: 320 }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={dark ? '#1e293b' : '#e2e8f0'} />
@@ -342,18 +451,20 @@ export default function WatchlistChart({ tickers, bgLight, title, defaultPeriod,
               ))}
             </LineChart>
           </ResponsiveContainer>
-        )}
-        {!loading && !error && chartData.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center text-slate-600 text-sm">
-            Select at least one ticker to display chart.
-          </div>
-        )}
-      </div>
+        </div>
+      )}
+      {chartType === 'line' && !loading && !error && chartData.length === 0 && (
+        <div className="text-center py-10 text-slate-600 text-sm">
+          Select at least one ticker to display chart.
+        </div>
+      )}
 
       <p className={`text-[9px] ${dark ? 'text-slate-700' : 'text-slate-400'}`}>
-        {mode === 'rebase'
-          ? `Cumulative % return from ${period} start, rebased to 0 — compare alpha across assets · benchmarks dashed`
-          : `Daily % change per session — compare volatility and beta magnitude · benchmarks dashed`
+        {chartType === 'dot'
+          ? `Total ${period} return per sector · sorted best→worst · Data via yfinance · 15-min cache`
+          : mode === 'rebase'
+            ? `Cumulative % return from ${period} start, rebased to 0 — compare alpha across assets · benchmarks dashed`
+            : `Daily % change per session — compare volatility and beta magnitude · benchmarks dashed`
         } · Data via yfinance · 15-min cache
       </p>
     </div>

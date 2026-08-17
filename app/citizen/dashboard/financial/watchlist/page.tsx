@@ -875,13 +875,14 @@ export default function WatchlistSignalsPage() {
       {/* Ticker cards */}
       {!loading && viewMode === 'cards' && filtered.length > 0 && (
         <div className="space-y-4">
-          {/* Sector performance chart */}
+          {/* Sector performance dot chart */}
           <WatchlistChart
             tickers={SECTOR_ETFS}
             bgLight={bgLight}
             title="📊 Sector Performance"
             defaultPeriod="1M"
             hideTickers
+            chartType="dot"
           />
           {filtered.map(t => (
             <TickerCard
