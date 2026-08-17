@@ -291,7 +291,7 @@ export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vi
                 ? 'border-cyan-500/50 bg-cyan-500/20 text-cyan-300'
                 : 'border-white/10 text-slate-500 hover:text-white'
             }`}>
-            {s === 'manager' ? '📐 PortfolioPlus' : '⚖️ Balanced Profile'}
+            {s === 'manager' ? '📐 GoalBasedPortfolio' : '⚖️ Balanced Profile'}
           </button>
         ))}
         <div className="ml-auto flex items-center gap-1.5">
@@ -444,7 +444,7 @@ export default function PortfolioDNAWheel({ holdings, clientHoldings, regime, vi
                 <div className="col-span-2 rounded border border-cyan-500/20 bg-cyan-500/5 px-2.5 py-2 flex items-center justify-between">
                   <div>
                     <div className="text-[8px] text-slate-500 uppercase tracking-wider">
-                      {source === 'client' ? 'Balanced Profile' : 'PortfolioPlus'} · {({ overnight: '1D', '5d': '1W', '3m': '3M', '6m': '6M', '1y': '1Y', ytd: 'YTD' } as Record<string,string>)[dnaTimeframe] ?? dnaTimeframe} return
+                      {source === 'client' ? 'Balanced Profile' : 'GoalBasedPortfolio'} · {({ overnight: '1D', '5d': '1W', '3m': '3M', '6m': '6M', '1y': '1Y', ytd: 'YTD' } as Record<string,string>)[dnaTimeframe] ?? dnaTimeframe} return
                     </div>
                     <div className="text-[9px] text-slate-600 mt-0.5">Actual price change for selected period</div>
                   </div>

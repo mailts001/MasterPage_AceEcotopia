@@ -514,7 +514,7 @@ export default function PortfolioBuilderPage() {
   function handlePrintDNA() {
     const activeH = (dnaSide === 'client' && clientHoldings.length > 0) ? clientHoldings : holdings
     const activeP = dnaSide === 'client' ? cProj : proj
-    const activeLabel = dnaSide === 'client' ? 'Balanced Profile' : 'PortfolioPlus'
+    const activeLabel = dnaSide === 'client' ? 'Balanced Profile' : 'GoalBasedPortfolio'
     const tfLabel = ({ overnight: '1D', '5d': '1W', '3m': '3M', '6m': '6M', '1y': '1Y', ytd: 'YTD' } as Record<string,string>)[dnaTimeframe] ?? dnaTimeframe
     const t2 = activeH.reduce((s, h) => s + h.pct, 0) || 100
     const blended = activeH.reduce((sum, h) => { const r = dnaPerf[h.ticker]; return r != null ? sum + (h.pct / t2) * r : sum }, 0)
@@ -890,7 +890,7 @@ export default function PortfolioBuilderPage() {
         <nav className={`border-b px-4 py-3 flex items-center gap-3 sticky top-0 backdrop-blur z-10 transition-colors ${bgLight ? 'border-slate-300 bg-slate-100/95 text-slate-700' : 'border-white/10 bg-[#0A0E1A]/95 text-white'}`}>
           <Link href="/citizen/dashboard/financial" className={`text-sm ${bgLight ? 'text-slate-500 hover:text-slate-800' : 'text-slate-500 hover:text-white'}`}>← Financial District</Link>
           <span className={bgLight ? 'text-slate-300' : 'text-white/20'}>/</span>
-          <span className={`text-sm font-semibold ${bgLight ? 'text-slate-900' : 'text-white'}`}>Build PortfolioPlus</span>
+          <span className={`text-sm font-semibold ${bgLight ? 'text-slate-900' : 'text-white'}`}>GoalBasedPortfolio</span>
           <span className="text-[10px] text-slate-500 ml-1">Go to:</span>
           <Link href="/citizen/dashboard/financial" className="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-medium transition border-emerald-500/30 bg-emerald-500/8 text-emerald-400 hover:bg-emerald-500/20">🌐 Macro</Link>
           <Link href="/citizen/dashboard/financial/watchlist" className="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-medium transition border-cyan-500/30 bg-cyan-500/8 text-cyan-400 hover:bg-cyan-500/20">⭐ Watchlist</Link>
@@ -904,7 +904,7 @@ export default function PortfolioBuilderPage() {
 
         <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
           <div>
-            <h1 className={`text-xl font-bold ${bgLight ? 'text-slate-900' : 'text-white'}`}>Build PortfolioPlus</h1>
+            <h1 className={`text-xl font-bold ${bgLight ? 'text-slate-900' : 'text-white'}`}>GoalBasedPortfolio</h1>
             <p className={`text-[11px] mt-1 ${bgLight ? 'text-slate-500' : 'text-slate-500'}`}>Build, compare and share asset allocations with projected returns grounded in live AceEconomy market data.</p>
           </div>
 
@@ -946,7 +946,7 @@ export default function PortfolioBuilderPage() {
 
           {/* Tabs */}
           <div className="flex gap-1 bg-white/5 rounded-lg p-1">
-            {([['build', '📐 Build PortfolioPlus'], ['client', '⚖️ Balanced Profile'], ['dna', '🧬 PortDNA'], ['compare', '⚖️ Compare & Share']] as const).map(([t, label]) => (
+            {([['build', '📐 GoalBasedPortfolio'], ['client', '⚖️ Balanced Profile'], ['dna', '🧬 PortDNA'], ['compare', '⚖️ Compare & Share']] as const).map(([t, label]) => (
               <button key={t} onClick={() => setTab(t)}
                 className={`flex-1 text-xs py-2 rounded-md font-medium transition ${tab === t ? 'bg-white/15 text-white' : 'text-slate-500 hover:text-white'}`}>
                 {label}
@@ -1339,9 +1339,9 @@ export default function PortfolioBuilderPage() {
                 <div className="px-4 pb-4 pt-1 space-y-3 text-[10px] text-slate-400 leading-relaxed">
                   <p><strong className="text-slate-300">Step 1 — Risk-to-allocation framework.</strong> Your risk score (1–5) maps to a starting allocation across 8 asset classes. Conservative (1–2): mostly cash + bonds + low-equity. Moderate (3): balanced equity/bonds. Aggressive (4–5): equity + thematic heavy, minimal cash.</p>
                   <p><strong className="text-slate-300">Step 2 — Target-return nudge.</strong> The algorithm compares the starting framework&apos;s conservative benchmark return against your target return. If the gap is &gt;0.5%, equity and fixed-income weights are nudged — more equity for higher targets, more bonds for lower. Capped at ±15% adjustment per category to avoid extreme concentration.</p>
-                  <p><strong className="text-slate-300">Step 3 — Asset proxy mapping.</strong> Each resulting category weight is mapped to a representative ETF from the catalog (e.g. Equity → SPY, Bonds → TLT, Gold → GLD). This is a starting point — you can replace any proxy with any specific asset from the catalog or add unlisted assets in the Build PortfolioPlus tab.</p>
+                  <p><strong className="text-slate-300">Step 3 — Asset proxy mapping.</strong> Each resulting category weight is mapped to a representative ETF from the catalog (e.g. Equity → SPY, Bonds → TLT, Gold → GLD). This is a starting point — you can replace any proxy with any specific asset from the catalog or add unlisted assets in the GoalBasedPortfolio tab.</p>
                   <p><strong className="text-slate-300">Dynamic adjustments.</strong> The allocation is recalculated each time you change the risk score or target return. If you manually adjust sliders after generating, those overrides persist until you click &ldquo;Generate&rdquo; again. There is no automatic rebalancing — all changes are intentional and yours to control.</p>
-                  <p><strong className="text-slate-300">What it does NOT do.</strong> It does not use live market prices or AI signals to select assets — it uses a deterministic framework based on your inputs. For signal-driven selection, use the Watchlist Signals page to identify candidates, then add them manually in Build PortfolioPlus.</p>
+                  <p><strong className="text-slate-300">What it does NOT do.</strong> It does not use live market prices or AI signals to select assets — it uses a deterministic framework based on your inputs. For signal-driven selection, use the Watchlist Signals page to identify candidates, then add them manually in GoalBasedPortfolio.</p>
                   <p className="text-slate-600 border-t border-white/5 pt-2">Balanced Profile is a starting framework for structured client conversations — not a financial plan. Always validate with the client&apos;s full circumstances and consult a licensed adviser before implementing.</p>
                 </div>
               </details>
@@ -1543,15 +1543,15 @@ export default function PortfolioBuilderPage() {
                     <div className="rounded-xl border border-white/10 bg-white/3 p-4 space-y-2">
                       <div className="text-xs font-semibold text-white">How the Two Portfolios Complement Each Other</div>
                       <p className="text-[10px] text-slate-500 leading-relaxed">
-                        PortfolioPlus (manager-constructed, active strategy) is shown on the left. Balanced Portfolio (risk-profile driven, systematic) on the right. Where they diverge by asset class, one covers the other&apos;s gaps — together they create broader diversification than either alone.
+                        GoalBasedPortfolio (manager-constructed, active strategy) is shown on the left. Balanced Portfolio (risk-profile driven, systematic) on the right. Where they diverge by asset class, one covers the other&apos;s gaps — together they create broader diversification than either alone.
                       </p>
                       <div className="flex items-center gap-4 text-[9px] text-slate-500">
-                        <span className="flex items-center gap-1"><span className="inline-block w-6 h-2 rounded" style={{ background: '#818cf8' }} /> PortfolioPlus</span>
+                        <span className="flex items-center gap-1"><span className="inline-block w-6 h-2 rounded" style={{ background: '#818cf8' }} /> GoalBasedPortfolio</span>
                         <span className="flex items-center gap-1"><span className="inline-block w-6 h-2 rounded" style={{ background: '#22d3ee' }} /> Balanced Portfolio ({clientProfile.name || 'Risk-Adjusted'})</span>
                       </div>
                       <svg width={SVG_W} height={SVG_H} viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full overflow-visible">
                         {/* Header labels */}
-                        <text x={LABEL_W} y={14} fill="#818cf8" fontSize={8} fontFamily="monospace">PortfolioPlus</text>
+                        <text x={LABEL_W} y={14} fill="#818cf8" fontSize={8} fontFamily="monospace">GoalBasedPortfolio</text>
                         <text x={LABEL_W + BAR_AREA / 2} y={14} textAnchor="middle" fill="#475569" fontSize={8} fontFamily="monospace">0%</text>
                         <text x={LABEL_W + BAR_AREA} y={14} textAnchor="end" fill="#22d3ee" fontSize={8} fontFamily="monospace">Balanced Portfolio</text>
                         {catData.map(({ cat, mPct, cPct }, i) => {
@@ -1567,7 +1567,7 @@ export default function PortfolioBuilderPage() {
                               <text x={LABEL_W - 6} y={y + 10} textAnchor="end" fill="#94a3b8" fontSize={9} fontFamily="monospace">
                                 {CAT_SHORT[cat] ?? cat}
                               </text>
-                              {/* PortfolioPlus bar — grows left from centre */}
+                              {/* GoalBasedPortfolio bar — grows left from centre */}
                               <rect x={mid - mW} y={y} width={mW} height={12} rx={2} fill="#818cf8" fillOpacity={0.7} />
                               {/* Balanced Portfolio bar — grows right from centre */}
                               <rect x={mid} y={y} width={cW} height={12} rx={2} fill={cc} fillOpacity={0.55} />
@@ -1614,7 +1614,7 @@ export default function PortfolioBuilderPage() {
                           <thead>
                             <tr className="border-b border-white/8">
                               <th className="text-left text-slate-500 font-normal py-1.5 pr-3">Scenario</th>
-                              <th className="text-right text-indigo-300 font-semibold py-1.5 px-3">PortfolioPlus</th>
+                              <th className="text-right text-indigo-300 font-semibold py-1.5 px-3">GoalBasedPortfolio</th>
                               <th className="text-right text-cyan-300 font-semibold py-1.5 px-3">Balanced Portfolio</th>
                             </tr>
                           </thead>
@@ -1718,7 +1718,7 @@ export default function PortfolioBuilderPage() {
                     {/* Side-by-side detail cards */}
                     <div className="grid grid-cols-2 gap-3">
                       {([
-                        { label: 'PortfolioPlus', holdings: holdings, proj, side: 'manager' as const },
+                        { label: 'GoalBasedPortfolio', holdings: holdings, proj, side: 'manager' as const },
                         { label: `Balanced Portfolio${clientProfile.name ? ` — ${clientProfile.name}` : ''}`, holdings: clientHoldings, proj: cProj, side: 'client' as const },
                       ]).map(({ label, holdings: h, proj: p, side }) => (
                         <div key={side} className={`rounded-xl border p-4 space-y-3 ${confirmed === side ? 'border-cyan-500/50 bg-cyan-500/5' : 'border-white/10 bg-white/3'}`}>
@@ -1744,7 +1744,7 @@ export default function PortfolioBuilderPage() {
                             </div>
                             <div className="flex justify-between border-t border-white/5 pt-1"><span className="text-slate-500">Volatility (σ)</span><span className="text-amber-300 font-mono">{p.portfolioVol.toFixed(1)}%</span></div>
                             <div className="flex justify-between">
-                              <span className="text-slate-500">Sharpe (AceEconomy)</span>
+                              <span className="text-slate-500">Sharpe</span>
                               <span className={`font-mono font-bold ${p.sharpeAce >= 1 ? 'text-green-400' : p.sharpeAce >= 0.5 ? 'text-yellow-300' : p.sharpeAce >= 0 ? 'text-amber-400' : 'text-red-400'}`}>
                                 {p.sharpeAce.toFixed(2)}
                               </span>
@@ -1892,7 +1892,7 @@ export default function PortfolioBuilderPage() {
                     {/* Portfolio snapshot — always visible, no layout jump */}
                     {(() => {
                       const activeH = (dnaSide === 'client' && clientHoldings.length > 0) ? clientHoldings : holdings
-                      const activeLabel = dnaSide === 'client' ? 'Balanced Profile' : 'PortfolioPlus'
+                      const activeLabel = dnaSide === 'client' ? 'Balanced Profile' : 'GoalBasedPortfolio'
                       const t2 = totalPct(activeH) || 1
                       const tfLabel = { overnight: '1D', '5d': '1W', '3m': '3M', '6m': '6M', '1y': '1Y', ytd: 'YTD' }[dnaTimeframe]
                       const hasSomePerf = activeH.some(h => dnaPerf[h.ticker] != null)
@@ -1943,13 +1943,22 @@ export default function PortfolioBuilderPage() {
                             {activeH.map(h => {
                               const ret = dnaPerf[h.ticker]
                               return (
-                                <div key={h.ticker} className="flex items-center gap-1 rounded border border-white/10 bg-white/4 px-2 py-1 text-[10px]">
-                                  <span className="font-mono font-bold text-white">{h.ticker}</span>
-                                  <span className="text-slate-600 text-[9px]">{h.pct}%</span>
-                                  {dnaLoading ? <span className="text-slate-700 text-[9px]">…</span>
-                                    : ret != null
-                                      ? <span className={`font-mono ${ret >= 0 ? 'text-green-400' : 'text-red-400'}`}>{ret >= 0 ? '+' : ''}{ret.toFixed(1)}%</span>
-                                      : <span className="text-slate-700 text-[9px]">—</span>}
+                                <div key={h.ticker} className="rounded border border-white/10 bg-white/4 px-2 py-1 text-[10px] space-y-0.5">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-mono font-bold text-white">{h.ticker}</span>
+                                    {h.name && h.name !== h.ticker && (
+                                      <span className="text-slate-500 text-[9px] truncate max-w-[120px]">{h.name}</span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[8px] text-slate-700">Alloc <span className="text-slate-500 font-mono">{h.pct}%</span></span>
+                                    <span className="text-[8px] text-slate-700">{tfLabel}
+                                      {dnaLoading ? <span className="text-slate-700"> …</span>
+                                        : ret != null
+                                          ? <span className={`font-mono ml-1 ${ret >= 0 ? 'text-green-400' : 'text-red-400'}`}>{ret >= 0 ? '+' : ''}{ret.toFixed(1)}%</span>
+                                          : <span className="text-slate-700 ml-1">—</span>}
+                                    </span>
+                                  </div>
                                 </div>
                               )
                             })}
