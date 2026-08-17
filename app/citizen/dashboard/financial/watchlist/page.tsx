@@ -41,6 +41,27 @@ interface WatchlistResponse {
   error?: string
 }
 
+interface TickerFundamentals {
+  ticker: string
+  name?: string
+  sector?: string
+  industry?: string
+  description?: string        // ≤200 chars
+  // EPS
+  eps_ttm?: number
+  eps_forward?: number
+  eps_growth_yoy?: number     // %
+  // Dividend
+  dividend_yield?: number     // %
+  dividend_rate?: number
+  // Return metrics
+  roe?: number                // %
+  roa?: number                // %
+  // News
+  news: { headline: string; source: string; url: string; age: string }[]
+  error?: string
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const RISK_FREE = 4.3
@@ -162,6 +183,19 @@ function PeerBars({ ticker, peers, spy, period = '1y' }: {
 
 function TickerCard({ d, onRemove, removing }: { d: TickerData; onRemove: () => void; removing: boolean }) {
   const [expanded, setExpanded] = useState(false)
+  const [funds, setFunds] = useState<TickerFundamentals | null>(null)
+  const [fundsLoading, setFundsLoading] = useState(false)
+
+  // Fetch fundamentals once on first render
+  useEffect(() => {
+    setFundsLoading(true)
+    fetch(`/api/nexus/watchlist/fundamentals?symbol=${d.ticker}`)
+      .then(r => r.json())
+      .then(setFunds)
+      .catch(() => {})
+      .finally(() => setFundsLoading(false))
+  }, [d.ticker])
+
   const sh = d.sharpe_1y
   const { label: shLabel, color: shColor } = sharpeLabel(sh)
   const hasSqueeze = d.signal === 'SQUEEZE'
@@ -209,6 +243,77 @@ function TickerCard({ d, onRemove, removing }: { d: TickerData; onRemove: () => 
           {removing ? '…' : '✕'}
         </button>
       </div>
+
+      {/* ── Fundamentals strip ── */}
+      {fundsLoading ? (
+        <div className="text-[9px] text-slate-700 animate-pulse">Loading fundamentals…</div>
+      ) : funds && !funds.error ? (
+        <div className="space-y-2">
+          {/* Sector + description */}
+          {(funds.sector || funds.description) && (
+            <div className="space-y-0.5">
+              {funds.sector && (
+                <div className="text-[9px] text-slate-600 font-mono uppercase tracking-wider">
+                  {funds.sector}{funds.industry ? ` · ${funds.industry}` : ''}
+                </div>
+              )}
+              {funds.description && (
+                <p className="text-[10px] text-slate-400 leading-relaxed">{funds.description}</p>
+              )}
+            </div>
+          )}
+
+          {/* EPS / Dividend / ROE metrics */}
+          <div className="grid grid-cols-4 gap-1.5">
+            <div className="rounded-lg border border-white/8 bg-white/3 py-2 px-1 text-center">
+              <div className="text-[8px] text-slate-600 mb-0.5">EPS (TTM)</div>
+              <div className={`text-[12px] font-bold font-mono ${funds.eps_ttm != null ? (funds.eps_ttm >= 0 ? 'text-green-300' : 'text-red-400') : 'text-slate-600'}`}>
+                {funds.eps_ttm != null ? `$${funds.eps_ttm.toFixed(2)}` : '—'}
+              </div>
+              {funds.eps_growth_yoy != null && (
+                <div className={`text-[8px] font-mono ${funds.eps_growth_yoy >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {funds.eps_growth_yoy >= 0 ? '▲' : '▼'} {Math.abs(funds.eps_growth_yoy).toFixed(0)}% YoY
+                </div>
+              )}
+            </div>
+            <div className="rounded-lg border border-white/8 bg-white/3 py-2 px-1 text-center">
+              <div className="text-[8px] text-slate-600 mb-0.5">Fwd EPS</div>
+              <div className={`text-[12px] font-bold font-mono ${funds.eps_forward != null ? (funds.eps_forward >= 0 ? 'text-cyan-300' : 'text-red-400') : 'text-slate-600'}`}>
+                {funds.eps_forward != null ? `$${funds.eps_forward.toFixed(2)}` : '—'}
+              </div>
+            </div>
+            <div className="rounded-lg border border-white/8 bg-white/3 py-2 px-1 text-center">
+              <div className="text-[8px] text-slate-600 mb-0.5">Div Yield</div>
+              <div className={`text-[12px] font-bold font-mono ${funds.dividend_yield ? 'text-yellow-300' : 'text-slate-600'}`}>
+                {funds.dividend_yield ? `${funds.dividend_yield.toFixed(1)}%` : '—'}
+              </div>
+            </div>
+            <div className="rounded-lg border border-white/8 bg-white/3 py-2 px-1 text-center">
+              <div className="text-[8px] text-slate-600 mb-0.5">ROE</div>
+              <div className={`text-[12px] font-bold font-mono ${funds.roe != null ? (funds.roe >= 15 ? 'text-green-400' : funds.roe >= 0 ? 'text-yellow-300' : 'text-red-400') : 'text-slate-600'}`}>
+                {funds.roe != null ? `${funds.roe.toFixed(1)}%` : '—'}
+              </div>
+            </div>
+          </div>
+
+          {/* Recent news */}
+          {funds.news.length > 0 && (
+            <div className="space-y-1">
+              <div className="text-[9px] font-mono text-slate-600 uppercase tracking-wider">Recent News</div>
+              {funds.news.slice(0, 3).map((n, i) => (
+                <a key={i} href={n.url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-start gap-1.5 group">
+                  <span className="text-[9px] text-slate-700 shrink-0 mt-0.5">{n.age}</span>
+                  <div>
+                    <div className="text-[10px] text-slate-400 group-hover:text-cyan-300 transition leading-snug line-clamp-2">{n.headline}</div>
+                    <div className="text-[8px] text-slate-700">{n.source}</div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : null}
 
       {/* Bull reasons */}
       {d.bull_reasons && d.bull_reasons.length > 0 && (
@@ -733,8 +838,8 @@ export default function WatchlistSignalsPage() {
         </div>
       )}
 
-      {/* ── Price comparison chart (shown when tickers exist, both view modes) ── */}
-      {!loading && tickers.length > 0 && (
+      {/* ── Price comparison chart (Overview / table mode only) ── */}
+      {!loading && viewMode === 'table' && tickers.length > 0 && (
         <WatchlistChart
           tickers={tickers.map(t => t.ticker)}
           bgLight={bgLight}
