@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 
-// v3 — snapshot+calendar+pmi tabs
+// v4 — us-stocks top3/bottom3, sectors, narrative, sticky-tabs
 const MacroOutlookModal = dynamic(() => import('@/components/MacroOutlookModal'), { ssr: false })
 
 interface BullishTicker {

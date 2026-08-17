@@ -17,6 +17,7 @@ export async function GET() {
   } catch (e) {
     return NextResponse.json({
       error: String(e), classes: [], top_gainers: [], top_losers: [],
+      us_top3: [], us_bottom3: [], us_sectors: null, narrative: '',
       generated_at: null, summary: 'Market data temporarily unavailable.', regime: 'UNKNOWN',
     })
   }

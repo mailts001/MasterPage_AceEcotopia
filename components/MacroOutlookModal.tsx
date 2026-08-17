@@ -1,5 +1,6 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+// v4 — us-stocks, sectors, narrative, sticky-tabs
+import { useEffect, useState } from 'react'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface CalEvent {
@@ -12,12 +13,19 @@ interface PmiData  { manufacturing: PmiRow[]; services: PmiRow[]; months: string
 interface AssetRow {
   symbol: string; name: string; region: string; cls: string; cls_name: string
   price: number; chg_1d: number | null; chg_1w: number | null; chg_ytd: number | null
-  sparkline: number[]; unit?: string
+  sparkline: number[]; unit?: string; emoji?: string
+}
+interface SectorLeaderboard {
+  top_1d: AssetRow[]; bottom_1d: AssetRow[]
+  top_1w: AssetRow[]; bottom_1w: AssetRow[]
+  all: AssetRow[]
 }
 interface AssetClass { key: string; name: string; assets: AssetRow[] }
 interface Snapshot {
-  generated_at: string | null; regime: string; summary: string
+  generated_at: string | null; regime: string; summary: string; narrative?: string
   classes: AssetClass[]; top_gainers: AssetRow[]; top_losers: AssetRow[]
+  us_top3?: AssetRow[]; us_bottom3?: AssetRow[]
+  us_sectors?: SectorLeaderboard
   error?: string
 }
 
@@ -96,24 +104,20 @@ function Sparkline({ data, positive }: { data: number[]; positive: boolean }) {
   )
 }
 
-// ── Horizontal bar for performance ranking ──────────────────────────────────────
+// ── Horizontal bar for performance ranking ─────────────────────────────────────
 function PerfBar({ value, max }: { value: number | null; max: number }) {
   if (value == null) return <div className="h-4 w-32" />
-  const pct = Math.min(Math.abs(value) / max * 100, 100)
+  const p = Math.min(Math.abs(value) / max * 100, 100)
   const pos = value >= 0
   return (
     <div className="flex items-center gap-1.5 w-full">
-      {!pos && <div className="h-3.5 rounded-l" style={{ width: `${pct}%`, background:'#f87171', opacity:0.8 }} />}
+      {!pos && <div className="h-3.5 rounded-l" style={{ width: `${p}%`, background:'#f87171', opacity:0.8 }} />}
       <span className={`text-[10px] font-mono font-semibold min-w-[44px] ${pos ? 'text-emerald-400' : 'text-red-400'}`}>
-        {pct_(value)}
+        {pct(value)}
       </span>
-      {pos && <div className="h-3.5 rounded-r" style={{ width: `${pct}%`, background:'#34d399', opacity:0.8 }} />}
+      {pos && <div className="h-3.5 rounded-r" style={{ width: `${p}%`, background:'#34d399', opacity:0.8 }} />}
     </div>
   )
-}
-function pct_(v: number | null) {
-  if (v == null) return '—'
-  return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`
 }
 
 // ── Main Modal ─────────────────────────────────────────────────────────────────
@@ -130,7 +134,6 @@ export default function MacroOutlookModal({ onClose }: { onClose: () => void }) 
   const [pmiLoading,  setPmiLoading]  = useState(true)
   const [snapLoading, setSnapLoading] = useState(true)
 
-  // Lazy-load each tab on first visit
   useEffect(() => {
     fetch('/api/nexus/macro/calendar').then(r => r.json()).then(d => { setEvents(d.events ?? []); setCalLoading(false) }).catch(() => setCalLoading(false))
     fetch('/api/nexus/macro/pmi').then(r => r.json()).then(d => { setPmi(d); setPmiLoading(false) }).catch(() => setPmiLoading(false))
@@ -154,8 +157,8 @@ export default function MacroOutlookModal({ onClose }: { onClose: () => void }) 
         className="relative w-full max-w-6xl max-h-[94vh] overflow-hidden rounded-2xl border border-slate-700/60 bg-[#0F1629] shadow-2xl flex flex-col"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-700/40">
+        {/* Header — fixed, never scrolls */}
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-700/40 shrink-0">
           <div>
             <h2 className="text-base font-semibold text-white">🌐 Macro Outlook</h2>
             <p className="text-[11px] text-slate-400">Live market data · Economic calendar · PMI heatmap</p>
@@ -163,8 +166,8 @@ export default function MacroOutlookModal({ onClose }: { onClose: () => void }) 
           <button onClick={onClose} className="text-slate-500 hover:text-white transition text-xl leading-none">✕</button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-0.5 px-5 pt-3 border-b border-slate-700/40 overflow-x-auto">
+        {/* Tabs — shrink-0 so they are never pushed off-screen by tall content */}
+        <div className="flex gap-0.5 px-5 pt-3 border-b border-slate-700/40 overflow-x-auto shrink-0 bg-[#0F1629] z-10">
           {TABS.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`px-4 py-2 text-xs font-medium rounded-t-lg border-b-2 whitespace-nowrap transition ${
@@ -174,7 +177,7 @@ export default function MacroOutlookModal({ onClose }: { onClose: () => void }) 
           ))}
         </div>
 
-        {/* Body — min-h-0 prevents flex child from growing past max-h-[94vh] */}
+        {/* Body — this is the ONLY thing that scrolls; min-h-0 is critical */}
         <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
           {tab === 'snapshot' && <SnapshotView snap={snap} loading={snapLoading} />}
           {tab === 'calendar' && <CalendarView events={filtered} weekGroups={weekGroups} categories={categories} filterCat={filterCat} setFilterCat={setFilterCat} loading={calLoading} />}
@@ -182,7 +185,7 @@ export default function MacroOutlookModal({ onClose }: { onClose: () => void }) 
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-2.5 border-t border-slate-700/40 flex items-center justify-between">
+        <div className="px-5 py-2.5 border-t border-slate-700/40 flex items-center justify-between shrink-0">
           <p className="text-[10px] text-slate-600">Sources: Yahoo Finance · ISM · S&P Global PMI · BLS · BEA · Fed/ECB/BOE/BOJ official schedules</p>
           <p className="text-[10px] text-slate-600">For information only — not investment advice</p>
         </div>
@@ -198,20 +201,19 @@ function SnapshotView({ snap, loading }: { snap: Snapshot | null; loading: boole
   if (loading) return <Spinner />
   if (!snap || snap.error) return <ErrorMsg msg={snap?.summary ?? 'Data unavailable'} />
 
-  const { regime, summary, classes, top_gainers, top_losers, generated_at } = snap
+  const { regime, summary, narrative, classes, top_gainers, top_losers, generated_at,
+          us_top3, us_bottom3, us_sectors } = snap
   const regimeCls = REGIME_STYLE[regime] ?? REGIME_STYLE['Neutral']
 
-  // Determine max abs change across all assets for bar scaling
   const allChanges = classes.flatMap(c => c.assets.map(a => Math.abs(a.chg_1d ?? 0)))
-  const maxChange = Math.max(...allChanges, 1)
-
-  const shown = activeClass ? classes.filter(c => c.key === activeClass) : classes
+  const maxChange  = Math.max(...allChanges, 1)
+  const shown      = activeClass ? classes.filter(c => c.key === activeClass) : classes
 
   return (
-    <div className="space-y-4">
-      {/* Regime + Summary */}
+    <div className="space-y-5">
+      {/* ── Regime + Summary headline ── */}
       <div className="flex flex-col sm:flex-row gap-3">
-        <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border self-start ${regimeCls}`}>
+        <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border self-start shrink-0 ${regimeCls}`}>
           <span className="text-lg">{regime === 'Risk-On' ? '🟢' : regime === 'Risk-Off' ? '🔴' : '🟡'}</span>
           <div>
             <div className="text-xs font-bold">{regime}</div>
@@ -228,15 +230,45 @@ function SnapshotView({ snap, loading }: { snap: Snapshot | null; loading: boole
         </div>
       </div>
 
-      {/* Top Gainers / Losers */}
+      {/* ── US Stocks: Top 3 / Bottom 3 ── */}
+      {(us_top3?.length || us_bottom3?.length) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <USStockLeader title="🚀 US Leaders (1D)" rows={us_top3 ?? []} />
+          <USStockLeader title="🔻 US Laggards (1D)" rows={us_bottom3 ?? []} dim />
+        </div>
+      )}
+
+      {/* ── AI Narrative ── */}
+      {narrative && (
+        <div className="bg-slate-800/30 border border-slate-700/30 rounded-xl px-4 py-3.5">
+          <div className="flex items-center gap-2 mb-2.5">
+            <span className="text-sm">🤖</span>
+            <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wide">Market Intelligence</span>
+            <span className="ml-auto text-[9px] text-slate-600 font-mono">AI-generated synthesis</span>
+          </div>
+          <div className="space-y-2.5">
+            {narrative.split('\n\n').map((para, i) => (
+              <p key={i} className="text-[11px] text-slate-300 leading-relaxed">{para}</p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Global Top Gainers / Losers ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <LeaderBoard title="🏆 Top Gainers (1D)" rows={top_gainers} maxChange={maxChange} />
-        <LeaderBoard title="📉 Top Losers (1D)"  rows={top_losers}  maxChange={maxChange} invert />
+        <LeaderBoard title="🏆 Global Gainers (1D)" rows={top_gainers} maxChange={maxChange} />
+        <LeaderBoard title="📉 Global Losers (1D)"  rows={top_losers}  maxChange={maxChange} />
       </div>
 
-      {/* Asset class filter pills */}
+      {/* ── US Equity Sectors ── */}
+      {us_sectors && <SectorLeaderboardView sectors={us_sectors} />}
+
+      {/* ── Asset class filter pills ── */}
       <div className="flex flex-wrap gap-1.5">
-        <button onClick={() => setActiveClass(null)} className={`px-2.5 py-1 rounded-full text-[10px] border transition ${!activeClass ? 'bg-cyan-500/20 border-cyan-400/60 text-cyan-300' : 'bg-slate-800/60 border-slate-700/40 text-slate-400 hover:border-slate-500'}`}>All classes</button>
+        <button onClick={() => setActiveClass(null)}
+          className={`px-2.5 py-1 rounded-full text-[10px] border transition ${!activeClass ? 'bg-cyan-500/20 border-cyan-400/60 text-cyan-300' : 'bg-slate-800/60 border-slate-700/40 text-slate-400 hover:border-slate-500'}`}>
+          All classes
+        </button>
         {classes.map(c => (
           <button key={c.key} onClick={() => setActiveClass(activeClass === c.key ? null : c.key)}
             className={`px-2.5 py-1 rounded-full text-[10px] border transition ${activeClass === c.key ? `${CLS_BG[c.key] ?? ''} ${CLS_COLOR[c.key] ?? ''}` : 'bg-slate-800/60 border-slate-700/40 text-slate-400 hover:border-slate-500'}`}
@@ -244,7 +276,7 @@ function SnapshotView({ snap, loading }: { snap: Snapshot | null; loading: boole
         ))}
       </div>
 
-      {/* Per-class tables */}
+      {/* ── Per-class tables ── */}
       {shown.map(cls => (
         <AssetClassTable key={cls.key} cls={cls} maxChange={maxChange} />
       ))}
@@ -252,7 +284,107 @@ function SnapshotView({ snap, loading }: { snap: Snapshot | null; loading: boole
   )
 }
 
-function LeaderBoard({ title, rows, maxChange, invert }: { title: string; rows: AssetRow[]; maxChange: number; invert?: boolean }) {
+// ── US Stock Leaderboard (top/bottom 3) ────────────────────────────────────────
+function USStockLeader({ title, rows, dim }: { title: string; rows: AssetRow[]; dim?: boolean }) {
+  return (
+    <div className="bg-slate-800/30 border border-slate-700/30 rounded-xl p-3">
+      <div className="text-xs font-semibold text-slate-300 mb-2">{title}</div>
+      <div className="space-y-1.5">
+        {rows.map((r, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <span className="text-[10px] text-slate-400 w-5 text-center shrink-0 font-mono">
+              {dim ? ['①','②','③'][i] ?? i+1 : ['①','②','③'][i] ?? i+1}
+            </span>
+            <span className="text-[11px] text-slate-200 font-medium w-[90px] truncate shrink-0">{r.name}</span>
+            <span className="text-[10px] text-slate-600 font-mono shrink-0">{r.symbol}</span>
+            <span className={`ml-auto text-[11px] font-mono font-bold shrink-0 ${pctColor(r.chg_1d)}`}>{pct(r.chg_1d)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── US Equity Sectors leaderboard ──────────────────────────────────────────────
+function SectorLeaderboardView({ sectors }: { sectors: SectorLeaderboard }) {
+  const [period, setPeriod] = useState<'1d' | '1w'>('1d')
+  const tops    = period === '1d' ? sectors.top_1d    : sectors.top_1w
+  const bottoms = period === '1d' ? sectors.bottom_1d : sectors.bottom_1w
+  const maxAbs  = Math.max(...sectors.all.map(r => Math.abs(period === '1d' ? (r.chg_1d ?? 0) : (r.chg_1w ?? 0))), 1)
+
+  return (
+    <div className="bg-slate-800/20 border border-slate-700/30 rounded-xl p-3.5">
+      <div className="flex items-center gap-3 mb-3">
+        <span className="text-xs font-semibold text-slate-300">🗂️ US Equity Sectors</span>
+        <div className="flex rounded-lg border border-slate-700/50 overflow-hidden ml-auto">
+          {(['1d','1w'] as const).map(p => (
+            <button key={p} onClick={() => setPeriod(p)}
+              className={`px-3 py-1 text-[10px] font-mono font-medium transition ${period === p ? 'bg-cyan-500/20 text-cyan-300' : 'text-slate-400 hover:text-slate-200'}`}
+            >{p.toUpperCase()}</button>
+          ))}
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* All sectors ranked */}
+        <div>
+          <div className="text-[10px] text-slate-500 mb-1.5 uppercase tracking-wider">All Sectors ({period === '1d' ? '1-Day' : '1-Week'})</div>
+          <div className="space-y-1">
+            {[...sectors.all]
+              .sort((a, b) => (period === '1d' ? (b.chg_1d ?? 0) - (a.chg_1d ?? 0) : (b.chg_1w ?? 0) - (a.chg_1w ?? 0)))
+              .map((r, i) => {
+                const val = period === '1d' ? r.chg_1d : r.chg_1w
+                return (
+                  <div key={r.symbol} className="flex items-center gap-2">
+                    <span className="text-base shrink-0 leading-none">{r.emoji ?? '📈'}</span>
+                    <span className="text-[10px] text-slate-300 w-[100px] truncate shrink-0">{r.name}</span>
+                    <div className="flex-1">
+                      <PerfBar value={val} max={maxAbs} />
+                    </div>
+                  </div>
+                )
+              })}
+          </div>
+        </div>
+        {/* Top 3 / Bottom 3 */}
+        <div className="space-y-3">
+          <div>
+            <div className="text-[10px] text-slate-500 mb-1.5 uppercase tracking-wider">Top 3</div>
+            <div className="space-y-1.5">
+              {tops.map((r, i) => {
+                const val = period === '1d' ? r.chg_1d : r.chg_1w
+                return (
+                  <div key={r.symbol} className="flex items-center gap-2 bg-emerald-500/8 border border-emerald-500/20 rounded-lg px-2.5 py-1.5">
+                    <span className="text-base shrink-0">{r.emoji ?? '📈'}</span>
+                    <span className="text-[11px] text-slate-200 font-medium flex-1 truncate">{r.name}</span>
+                    <span className={`text-[11px] font-mono font-bold ${pctColor(val)}`}>{pct(val)}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] text-slate-500 mb-1.5 uppercase tracking-wider">Bottom 3</div>
+            <div className="space-y-1.5">
+              {bottoms.map((r, i) => {
+                const val = period === '1d' ? r.chg_1d : r.chg_1w
+                return (
+                  <div key={r.symbol} className="flex items-center gap-2 bg-red-500/8 border border-red-500/20 rounded-lg px-2.5 py-1.5">
+                    <span className="text-base shrink-0">{r.emoji ?? '📉'}</span>
+                    <span className="text-[11px] text-slate-200 font-medium flex-1 truncate">{r.name}</span>
+                    <span className={`text-[11px] font-mono font-bold ${pctColor(val)}`}>{pct(val)}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Global Leaderboard ────────────────────────────────────────────────────────
+function LeaderBoard({ title, rows, maxChange }: { title: string; rows: AssetRow[]; maxChange: number; invert?: boolean }) {
   return (
     <div className="bg-slate-800/30 border border-slate-700/30 rounded-xl p-3">
       <div className="text-xs font-semibold text-slate-300 mb-2">{title}</div>
@@ -271,10 +403,10 @@ function LeaderBoard({ title, rows, maxChange, invert }: { title: string; rows: 
   )
 }
 
+// ── Per-class asset table ──────────────────────────────────────────────────────
 function AssetClassTable({ cls, maxChange }: { cls: AssetClass; maxChange: number }) {
-  const clsCol  = CLS_COLOR[cls.key] ?? 'text-slate-300'
-  const clsBg   = CLS_BG[cls.key] ?? 'bg-slate-800/30 border-slate-700/30'
-
+  const clsCol = CLS_COLOR[cls.key] ?? 'text-slate-300'
+  const clsBg  = CLS_BG[cls.key] ?? 'bg-slate-800/30 border-slate-700/30'
   return (
     <div className={`rounded-xl border ${clsBg} overflow-hidden`}>
       <div className={`px-4 py-2 border-b border-slate-700/30 text-xs font-semibold ${clsCol}`}>{cls.name}</div>
@@ -311,12 +443,10 @@ function AssetClassTable({ cls, maxChange }: { cls: AssetClass; maxChange: numbe
                   <td className={`px-3 py-2 text-right font-mono ${pctColor(a.chg_ytd)}`}>{pct(a.chg_ytd)}</td>
                   <td className="px-2 py-2">
                     {a.chg_1d != null && (
-                      <div className="flex items-center gap-1">
-                        <div className="h-3 rounded" style={{
-                          width: `${Math.min(Math.abs(a.chg_1d) / maxChange * 56, 56)}px`,
-                          background: pos1d ? '#34d399' : '#f87171', opacity: 0.75
-                        }} />
-                      </div>
+                      <div className="h-3 rounded" style={{
+                        width: `${Math.min(Math.abs(a.chg_1d) / maxChange * 56, 56)}px`,
+                        background: pos1d ? '#34d399' : '#f87171', opacity: 0.75
+                      }} />
                     )}
                   </td>
                   <td className="px-2 py-1">
