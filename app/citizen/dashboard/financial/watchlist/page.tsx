@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
+
+const WatchlistChart = dynamic(() => import('@/components/WatchlistChart'), { ssr: false })
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -728,6 +731,14 @@ export default function WatchlistSignalsPage() {
           ⚠ {data.error}
           <span className="text-slate-600 ml-2">— the VPS performance endpoint may still be starting up. Try refreshing in 30 seconds.</span>
         </div>
+      )}
+
+      {/* ── Price comparison chart (shown when tickers exist, both view modes) ── */}
+      {!loading && tickers.length > 0 && (
+        <WatchlistChart
+          tickers={tickers.map(t => t.ticker)}
+          bgLight={bgLight}
+        />
       )}
 
       {/* Overview table */}
