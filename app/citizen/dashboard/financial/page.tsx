@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 
-// v5 — finnhub news tab
+// v6 — gemini ai narration with section labels
 const MacroOutlookModal = dynamic(() => import('@/components/MacroOutlookModal'), { ssr: false })
 
 interface BullishTicker {

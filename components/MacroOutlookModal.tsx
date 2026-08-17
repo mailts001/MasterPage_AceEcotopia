@@ -249,16 +249,27 @@ function SnapshotView({ snap, loading }: { snap: Snapshot | null; loading: boole
 
       {/* ── AI Narrative ── */}
       {narrative && (
-        <div className="bg-slate-800/30 border border-slate-700/30 rounded-xl px-4 py-3.5">
-          <div className="flex items-center gap-2 mb-2.5">
+        <div className="bg-slate-800/30 border border-slate-600/40 rounded-xl px-4 py-3.5">
+          <div className="flex items-center gap-2 mb-3">
             <span className="text-sm">🤖</span>
-            <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wide">Market Intelligence</span>
-            <span className="ml-auto text-[9px] text-slate-600 font-mono">AI-generated synthesis</span>
+            <span className="text-[11px] font-semibold text-slate-200 uppercase tracking-wide">AI Market Intelligence</span>
+            <span className="ml-auto flex items-center gap-1 text-[9px] text-slate-600 font-mono">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Gemini · updated with snapshot
+            </span>
           </div>
-          <div className="space-y-2.5">
-            {narrative.split('\n\n').map((para, i) => (
-              <p key={i} className="text-[11px] text-slate-300 leading-relaxed">{para}</p>
-            ))}
+          <div className="space-y-3">
+            {narrative.split('\n\n').filter(Boolean).map((para, i) => {
+              const LABELS = ['📊 Equity Performance','💱 Currency & Rates','🌍 Economy Outlook','📅 Catalysts & Risks']
+              return (
+                <div key={i}>
+                  {LABELS[i] && (
+                    <div className="text-[9px] font-mono uppercase tracking-widest text-slate-500 mb-1">{LABELS[i]}</div>
+                  )}
+                  <p className="text-[11px] text-slate-300 leading-relaxed">{para}</p>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
