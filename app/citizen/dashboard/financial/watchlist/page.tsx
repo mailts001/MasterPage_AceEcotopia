@@ -6,6 +6,9 @@ import Link from 'next/link'
 
 const WatchlistChart = dynamic(() => import('@/components/WatchlistChart'), { ssr: false })
 
+// SPDR sector ETFs for sector chart in cards view
+const SECTOR_ETFS = ['XLK','XLF','XLV','XLY','XLP','XLE','XLI','XLU','XLRE','XLC','XLB']
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface PeerPerf {
@@ -223,6 +226,11 @@ function TickerCard({ d, onRemove, removing }: { d: TickerData; onRemove: () => 
         <span className="text-sm font-bold font-mono text-white">{d.ticker}</span>
         {d.price != null && (
           <span className="text-[11px] text-slate-500 font-mono">${d.price.toFixed(2)}</span>
+        )}
+        {funds?.sector && (
+          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-indigo-300">
+            {funds.sector}
+          </span>
         )}
         <span className="flex-1" />
         {vsSpyEl}
@@ -867,6 +875,14 @@ export default function WatchlistSignalsPage() {
       {/* Ticker cards */}
       {!loading && viewMode === 'cards' && filtered.length > 0 && (
         <div className="space-y-4">
+          {/* Sector performance chart */}
+          <WatchlistChart
+            tickers={SECTOR_ETFS}
+            bgLight={bgLight}
+            title="📊 Sector Performance"
+            defaultPeriod="1M"
+            hideTickers
+          />
           {filtered.map(t => (
             <TickerCard
               key={t.ticker}

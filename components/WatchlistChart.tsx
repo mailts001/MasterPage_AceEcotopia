@@ -50,9 +50,7 @@ function CustomTooltip({ active, payload, label, mode }: any) {
           <span className="w-2 h-2 rounded-full shrink-0" style={{ background: p.color }} />
           <span className="text-slate-300 font-medium w-16 truncate">{p.dataKey}</span>
           <span className="font-mono font-semibold ml-auto" style={{ color: p.color }}>
-            {mode === 'absolute'
-              ? Number(p.value).toLocaleString('en-US', { maximumFractionDigits: 2 })
-              : `${p.value >= 0 ? '+' : ''}${Number(p.value).toFixed(2)}%`}
+            {`${Number(p.value) >= 0 ? '+' : ''}${Number(p.value).toFixed(2)}%`}
           </span>
         </div>
       ))}
@@ -64,13 +62,18 @@ function CustomTooltip({ active, payload, label, mode }: any) {
 interface WatchlistChartProps {
   tickers: string[]
   bgLight?: boolean
+  title?: string
+  defaultPeriod?: Period
+  hideTickers?: boolean   // hide watchlist ticker selector (e.g. sector chart)
 }
 
-export default function WatchlistChart({ tickers, bgLight }: WatchlistChartProps) {
-  const [period,       setPeriod]       = useState<Period>('3M')
+export default function WatchlistChart({ tickers, bgLight, title, defaultPeriod, hideTickers }: WatchlistChartProps) {
+  const [period,       setPeriod]       = useState<Period>(defaultPeriod ?? '3M')
   const [mode,         setMode]         = useState<Mode>('rebase')
-  const [selected,     setSelected]     = useState<Set<string>>(new Set(tickers.slice(0, 5)))
-  const [benchmarks,   setBenchmarks]   = useState<Set<string>>(new Set(['SPY']))
+  const [selected,     setSelected]     = useState<Set<string>>(
+    new Set(hideTickers ? tickers : tickers.slice(0, 5))
+  )
+  const [benchmarks,   setBenchmarks]   = useState<Set<string>>(hideTickers ? new Set() : new Set(['SPY']))
   const [customTickers, setCustomTickers] = useState<Set<string>>(new Set())
   const [customInput,  setCustomInput]  = useState('')
   const [history,      setHistory]      = useState<PriceHistory | null>(null)
@@ -108,12 +111,22 @@ export default function WatchlistChart({ tickers, bgLight }: WatchlistChartProps
     const dateSet = new Set<string>()
     allSeries.forEach(([, s]) => s.dates.forEach(d => dateSet.add(d)))
     const dates = [...dateSet].sort()
-    return dates.map(date => {
+    return dates.map((date, di) => {
       const row: Record<string, string | number> = { date }
       allSeries.forEach(([sym, s]) => {
         const idx = s.dates.indexOf(date)
         if (idx !== -1) {
-          row[sym] = mode === 'absolute' ? s.prices[idx] : s.rebased[idx]
+          if (mode === 'absolute') {
+            // Daily % change — shows volatility / beta magnitude
+            if (idx === 0) {
+              row[sym] = 0
+            } else {
+              const prev = s.prices[idx - 1]
+              row[sym] = prev ? +((s.prices[idx] / prev - 1) * 100).toFixed(3) : 0
+            }
+          } else {
+            row[sym] = s.rebased[idx]
+          }
         }
       })
       return row
@@ -167,8 +180,8 @@ export default function WatchlistChart({ tickers, bgLight }: WatchlistChartProps
   const pillActive = dark ? 'border-cyan-400/60 bg-cyan-500/15 text-cyan-300' : 'border-cyan-500 bg-cyan-50 text-cyan-700'
 
   const MODES: { id: Mode; label: string; desc: string }[] = [
-    { id: 'rebase',   label: '% Change (Rebase)',   desc: 'All assets rebased to 0% at period start — compare alpha, relative performance' },
-    { id: 'absolute', label: '% Change (Absolute)', desc: 'Raw price scale — reveals volatility magnitude and beta differences' },
+    { id: 'rebase',   label: '% Change (Rebase)',   desc: 'Cumulative % return rebased to 0% at period start — compare alpha, relative performance' },
+    { id: 'absolute', label: '% Change (Absolute)', desc: 'Daily % change per bar — compare volatility (beta) magnitude across assets' },
   ]
 
   return (
@@ -177,7 +190,7 @@ export default function WatchlistChart({ tickers, bgLight }: WatchlistChartProps
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <span className={`text-[11px] font-semibold uppercase tracking-wide ${dark ? 'text-slate-200' : 'text-slate-700'}`}>
-            📈 Price Comparison Chart
+            {title ?? '📈 Price Comparison Chart'}
           </span>
           <span className={`ml-2 text-[10px] ${dark ? 'text-slate-600' : 'text-slate-400'}`}>
             {selected.size} ticker{selected.size !== 1 ? 's' : ''}
@@ -206,72 +219,76 @@ export default function WatchlistChart({ tickers, bgLight }: WatchlistChartProps
       </div>
 
       {/* ── Watchlist ticker selector ── */}
-      <div className="flex flex-wrap gap-1.5 items-center">
-        <span className={`text-[10px] self-center mr-1 shrink-0 ${dark ? 'text-slate-600' : 'text-slate-400'}`}>Tickers:</span>
-        {tickers.map((t, i) => {
-          const on = selected.has(t)
-          const col = colorMap[t] ?? LINE_COLORS[i % LINE_COLORS.length]
-          return (
-            <button key={t} onClick={() => toggleTicker(t)}
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-mono font-medium transition ${on ? 'text-white' : (dark ? 'border-white/10 text-slate-600' : 'border-slate-300 text-slate-400')}`}
-              style={on ? { borderColor: col + '80', background: col + '20', color: col } : {}}>
-              <span className="w-2 h-2 rounded-full" style={{ background: on ? col : (dark ? '#334155' : '#cbd5e1') }} />
-              {t}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* ── Custom ticker row ── */}
-      <div className="flex flex-wrap gap-1.5 items-center">
-        <span className={`text-[10px] self-center mr-1 shrink-0 ${dark ? 'text-slate-600' : 'text-slate-400'}`}>Add:</span>
-        {[...customTickers].map(sym => {
-          const on = selected.has(sym)
-          const col = colorMap[sym] ?? '#f472b6'
-          return (
-            <span key={sym}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-mono font-medium"
-              style={{ borderColor: col + '80', background: col + '15', color: col }}>
-              <button onClick={() => toggleTicker(sym)} className="opacity-80 hover:opacity-100">
-                <span className="w-2 h-2 rounded-full inline-block mr-0.5" style={{ background: col }} />
-                {sym}
+      {!hideTickers && (
+        <div className="flex flex-wrap gap-1.5 items-center">
+          <span className={`text-[10px] self-center mr-1 shrink-0 ${dark ? 'text-slate-600' : 'text-slate-400'}`}>Tickers:</span>
+          {tickers.map((t, i) => {
+            const on = selected.has(t)
+            const col = colorMap[t] ?? LINE_COLORS[i % LINE_COLORS.length]
+            return (
+              <button key={t} onClick={() => toggleTicker(t)}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-mono font-medium transition ${on ? 'text-white' : (dark ? 'border-white/10 text-slate-600' : 'border-slate-300 text-slate-400')}`}
+                style={on ? { borderColor: col + '80', background: col + '20', color: col } : {}}>
+                <span className="w-2 h-2 rounded-full" style={{ background: on ? col : (dark ? '#334155' : '#cbd5e1') }} />
+                {t}
               </button>
-              <button onClick={() => removeCustom(sym)} className="text-[9px] opacity-40 hover:opacity-100 ml-0.5">✕</button>
-            </span>
-          )
-        })}
-        <div className={`flex items-center gap-1 rounded-md border text-[10px] font-mono overflow-hidden ${dark ? 'border-white/10' : 'border-slate-300'}`}>
-          <input
-            ref={inputRef}
-            value={customInput}
-            onChange={e => setCustomInput(e.target.value.toUpperCase())}
-            onKeyDown={e => { if (e.key === 'Enter') addCustomTicker() }}
-            placeholder="TSLA, BTC-USD…"
-            maxLength={12}
-            className={`px-2 py-0.5 w-28 bg-transparent outline-none placeholder:text-slate-700 ${dark ? 'text-slate-300' : 'text-slate-700'}`}
-          />
-          <button onClick={addCustomTicker}
-            className={`px-2 py-0.5 text-[9px] transition ${dark ? 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:text-slate-800'}`}>
-            + Add
-          </button>
+            )
+          })}
         </div>
-      </div>
+      )}
 
-      {/* ── Benchmark selector ── */}
-      <div className="flex flex-wrap gap-1.5 items-center">
-        <span className={`text-[10px] self-center mr-1 shrink-0 ${dark ? 'text-slate-600' : 'text-slate-400'}`}>Benchmarks:</span>
-        {BENCHMARKS.map(bm => {
-          const on = benchmarks.has(bm.sym)
-          return (
-            <button key={bm.sym} onClick={() => toggleBenchmark(bm.sym)} title={bm.label}
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-mono font-medium transition ${on ? 'text-white' : (dark ? 'border-white/10 text-slate-600' : 'border-slate-300 text-slate-400')}`}
-              style={on ? { borderColor: bm.color + '80', background: bm.color + '20', color: bm.color } : {}}>
-              <span className="w-2 h-2 rounded-full" style={{ background: on ? bm.color : (dark ? '#334155' : '#cbd5e1') }} />
-              {bm.sym === 'DX-Y.NYB' ? 'DXY' : bm.sym}
-            </button>
-          )
-        })}
-      </div>
+      {/* ── Custom ticker + benchmark selectors (hidden in fixed-dataset mode) ── */}
+      {!hideTickers && (
+        <>
+          <div className="flex flex-wrap gap-1.5 items-center">
+            <span className={`text-[10px] self-center mr-1 shrink-0 ${dark ? 'text-slate-600' : 'text-slate-400'}`}>Add:</span>
+            {[...customTickers].map(sym => {
+              const col = colorMap[sym] ?? '#f472b6'
+              return (
+                <span key={sym}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-mono font-medium"
+                  style={{ borderColor: col + '80', background: col + '15', color: col }}>
+                  <button onClick={() => toggleTicker(sym)} className="opacity-80 hover:opacity-100">
+                    <span className="w-2 h-2 rounded-full inline-block mr-0.5" style={{ background: col }} />
+                    {sym}
+                  </button>
+                  <button onClick={() => removeCustom(sym)} className="text-[9px] opacity-40 hover:opacity-100 ml-0.5">✕</button>
+                </span>
+              )
+            })}
+            <div className={`flex items-center gap-1 rounded-md border text-[10px] font-mono overflow-hidden ${dark ? 'border-white/10' : 'border-slate-300'}`}>
+              <input
+                ref={inputRef}
+                value={customInput}
+                onChange={e => setCustomInput(e.target.value.toUpperCase())}
+                onKeyDown={e => { if (e.key === 'Enter') addCustomTicker() }}
+                placeholder="TSLA, BTC-USD…"
+                maxLength={12}
+                className={`px-2 py-0.5 w-28 bg-transparent outline-none placeholder:text-slate-700 ${dark ? 'text-slate-300' : 'text-slate-700'}`}
+              />
+              <button onClick={addCustomTicker}
+                className={`px-2 py-0.5 text-[9px] transition ${dark ? 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:text-slate-800'}`}>
+                + Add
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5 items-center">
+            <span className={`text-[10px] self-center mr-1 shrink-0 ${dark ? 'text-slate-600' : 'text-slate-400'}`}>Benchmarks:</span>
+            {BENCHMARKS.map(bm => {
+              const on = benchmarks.has(bm.sym)
+              return (
+                <button key={bm.sym} onClick={() => toggleBenchmark(bm.sym)} title={bm.label}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-mono font-medium transition ${on ? 'text-white' : (dark ? 'border-white/10 text-slate-600' : 'border-slate-300 text-slate-400')}`}
+                  style={on ? { borderColor: bm.color + '80', background: bm.color + '20', color: bm.color } : {}}>
+                  <span className="w-2 h-2 rounded-full" style={{ background: on ? bm.color : (dark ? '#334155' : '#cbd5e1') }} />
+                  {bm.sym === 'DX-Y.NYB' ? 'DXY' : bm.sym}
+                </button>
+              )
+            })}
+          </div>
+        </>
+      )}
 
       {/* ── Chart ── */}
       <div className="relative" style={{ height: 320 }}>
@@ -297,7 +314,7 @@ export default function WatchlistChart({ tickers, bgLight }: WatchlistChartProps
               />
               <YAxis
                 tick={{ fontSize: 9, fill: dark ? '#64748b' : '#94a3b8' }}
-                tickFormatter={v => mode === 'rebase' ? `${v >= 0 ? '+' : ''}${v.toFixed(1)}%` : v.toLocaleString()}
+                tickFormatter={v => `${v >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`}
                 axisLine={false}
                 tickLine={false}
                 width={60}
@@ -335,8 +352,8 @@ export default function WatchlistChart({ tickers, bgLight }: WatchlistChartProps
 
       <p className={`text-[9px] ${dark ? 'text-slate-700' : 'text-slate-400'}`}>
         {mode === 'rebase'
-          ? `% return rebased to 0 at ${period} period start — compare alpha across assets · benchmarks dashed`
-          : 'Absolute price — compare volatility magnitude and beta · different scales across assets'
+          ? `Cumulative % return from ${period} start, rebased to 0 — compare alpha across assets · benchmarks dashed`
+          : `Daily % change per session — compare volatility and beta magnitude · benchmarks dashed`
         } · Data via yfinance · 15-min cache
       </p>
     </div>
