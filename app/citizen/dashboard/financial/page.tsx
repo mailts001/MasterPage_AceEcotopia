@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 
-// v6 — gemini ai narration with section labels
+// v7 — dark/light toggle, shortened nav, cross-section workflow links
 const MacroOutlookModal = dynamic(() => import('@/components/MacroOutlookModal'), { ssr: false })
 
 interface BullishTicker {
@@ -404,6 +404,30 @@ function ScoreBar({ score, max = 10 }: { score: number; max?: number }) {
   )
 }
 
+// ── Nav helpers ────────────────────────────────────────────────────────────────
+const COLOR_MAP: Record<string, string> = {
+  amber:   'border-amber-500/30 bg-amber-500/8 text-amber-300 hover:bg-amber-500/20',
+  cyan:    'border-cyan-500/30 bg-cyan-500/8 text-cyan-300 hover:bg-cyan-500/20',
+  emerald: 'border-emerald-500/30 bg-emerald-500/8 text-emerald-300 hover:bg-emerald-500/20',
+}
+function NavBtn({ icon, label, tip, color, href, onClick }: {
+  icon: string; label: string; tip: string; color: string; href?: string; onClick?: () => void
+}) {
+  const cls = `group relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-medium transition cursor-pointer ${COLOR_MAP[color]}`
+  const inner = <><span>{icon}</span><span>{label}</span>
+    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-[200px] px-2 py-1 rounded bg-slate-900 border border-slate-700 text-[10px] text-slate-300 opacity-0 group-hover:opacity-100 pointer-events-none transition z-50 text-center leading-snug shadow-lg">
+      {tip}
+    </span>
+  </>
+  if (href) return <Link href={href} className={cls}>{inner}</Link>
+  return <button type="button" onClick={onClick} className={cls}>{inner}</button>
+}
+function WorkflowLink({ label, href, onClick }: { label: string; href?: string; onClick?: () => void }) {
+  const cls = "hover:text-slate-300 transition underline underline-offset-2 cursor-pointer"
+  if (href) return <Link href={href} className={cls}>{label}</Link>
+  return <button type="button" onClick={onClick} className={cls}>{label}</button>
+}
+
 function TickerCard({ t, watchlisted }: { t: BullishTicker; watchlisted: boolean }) {
   const [open, setOpen] = useState(false)
   const bullPct = Math.min(100, (t.bull_score / 10) * 100)
@@ -502,6 +526,17 @@ function EmptyState({ label }: { label: string }) {
 
 export default function FinancialDashboard() {
   const [showMacro, setShowMacro]   = useState(false)
+  const [darkMode, setDarkMode]     = useState(true)
+
+  useEffect(() => {
+    const saved = localStorage.getItem('fd-theme')
+    if (saved === 'light') setDarkMode(false)
+  }, [])
+  function toggleTheme() {
+    const next = !darkMode
+    setDarkMode(next)
+    localStorage.setItem('fd-theme', next ? 'dark' : 'light')
+  }
   const [picks, setPicks]           = useState<Picks | null>(null)
   const [usPicks, setUsPicks]       = useState<Picks | null>(null)
   const [intel, setIntel]           = useState<Intel | null>(null)
@@ -604,12 +639,30 @@ export default function FinancialDashboard() {
     ? new Date(picks.timestamp).toLocaleString('en-SG', { dateStyle: 'medium', timeStyle: 'short' })
     : null
 
+  // theme classes derived from darkMode flag
+  const th = {
+    bg:      darkMode ? 'bg-[#0A0E1A]'          : 'bg-slate-50',
+    navBg:   darkMode ? 'bg-[#0A0E1A]/95'       : 'bg-white/95',
+    border:  darkMode ? 'border-white/10'        : 'border-slate-200',
+    text:    darkMode ? 'text-white'             : 'text-slate-900',
+    muted:   darkMode ? 'text-gray-500'          : 'text-slate-500',
+    card:    darkMode ? 'bg-slate-800/40'        : 'bg-white',
+    cardBorder: darkMode ? 'border-slate-700/40' : 'border-slate-200',
+  }
+
   return (
     <>
-    <div className="min-h-screen bg-[#0A0E1A] text-white">
-      <nav className="border-b border-white/10 px-6 py-4 flex items-center justify-between sticky top-0 bg-[#0A0E1A]/95 backdrop-blur z-10">
+    <div className={`min-h-screen ${th.bg} ${th.text}`}>
+      <nav className={`border-b ${th.border} px-6 py-4 flex items-center justify-between sticky top-0 ${th.navBg} backdrop-blur z-10`}>
         <Link href="/" className="text-lg font-bold gradient-text">X68</Link>
-        <Link href="/citizen/dashboard" className="text-sm text-gray-400 hover:text-white transition">← Dashboard</Link>
+        <div className="flex items-center gap-3">
+          <Link href="/citizen/dashboard" className={`text-sm ${th.muted} hover:text-white transition`}>← Dashboard</Link>
+          {/* Dark/Light toggle */}
+          <button onClick={toggleTheme} title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            className={`w-8 h-8 rounded-lg border flex items-center justify-center text-base transition ${darkMode ? 'border-slate-700 bg-slate-800 hover:bg-slate-700' : 'border-slate-300 bg-slate-100 hover:bg-slate-200'}`}>
+            {darkMode ? '☀️' : '🌙'}
+          </button>
+        </div>
       </nav>
 
       <div className="max-w-4xl mx-auto px-6 py-10 space-y-8">
@@ -621,28 +674,36 @@ export default function FinancialDashboard() {
             <h1 className="text-2xl font-bold">Financial District</h1>
             <span className="text-xs px-2 py-0.5 rounded-full border border-green-500/40 bg-green-500/10 text-green-400">● LIVE</span>
           </div>
-          <p className="text-gray-500 text-sm">
+          <p className={`${th.muted} text-sm`}>
             AI-powered signals — US & HK markets. Intelligence only. Execution is yours.
           </p>
           {lastScan && (market === 'US' || market === 'HK' || market === 'JP' || market === 'SG') && (
             <p className="text-[11px] text-slate-600 mt-1">Last scan: {lastScan}</p>
           )}
-          <div className="flex gap-2 flex-wrap mt-3">
-            <Link href="/citizen/dashboard/financial/portfolio-builder"
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/8 text-amber-300 text-[11px] font-medium hover:bg-amber-500/15 transition">
-              📐 Portfolio Builder — allocation, projections & client sharing
-            </Link>
-            <Link href="/citizen/dashboard/financial/watchlist"
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/8 text-cyan-300 text-[11px] font-medium hover:bg-cyan-500/15 transition">
-              ⭐ Watchlist Signals — per-ticker performance, peers & alerts
-            </Link>
-            <button
-              type="button"
-              onClick={() => setShowMacro(true)}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/8 text-emerald-300 text-[11px] font-medium hover:bg-emerald-500/15 transition"
-            >
-              🌐 Macro Outlook — economic calendar & PMI heatmap
-            </button>
+
+          {/* ── Shortened nav buttons with hover tooltips ── */}
+          <div className="flex gap-2 flex-wrap mt-3 items-center">
+            <NavBtn href="/citizen/dashboard/financial/portfolio-builder"
+              icon="📐" label="Portfolio" color="amber"
+              tip="Allocation, projections & client sharing" />
+            <NavBtn href="/citizen/dashboard/financial/watchlist"
+              icon="⭐" label="Watchlist" color="cyan"
+              tip="Per-ticker performance, peers & alerts" />
+            <NavBtn onClick={() => setShowMacro(true)}
+              icon="🌐" label="Macro" color="emerald"
+              tip="Economic calendar, PMI heatmap & market snapshot" />
+          </div>
+
+          {/* ── Workflow navigation strip ── */}
+          <div className="mt-3 flex items-center gap-1.5 text-[10px] text-slate-600 flex-wrap">
+            <span className="font-mono uppercase tracking-wider">Workflow:</span>
+            <WorkflowLink onClick={() => setShowMacro(true)} label="Macro Outlook" />
+            <span className="text-slate-700">→</span>
+            <WorkflowLink href="/citizen/dashboard/financial/watchlist" label="Watchlist Signals" />
+            <span className="text-slate-700">→</span>
+            <WorkflowLink href="/citizen/dashboard/financial/portfolio-builder" label="Portfolio Builder" />
+            <span className="mx-1 text-slate-800">·</span>
+            <WorkflowLink href="/citizen/dashboard/financial/watchlist" label="Back to Watchlist" />
           </div>
         </div>
 
