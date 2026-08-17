@@ -381,13 +381,28 @@ export default function PortfolioBuilderPage() {
   const [customOpen, setCustomOpen]     = useState(false)
   const printRef = useRef<HTMLDivElement>(null)
 
-  // localStorage session persistence
+  // localStorage session persistence + draft auto-restore
   useEffect(() => {
     try {
       const raw = localStorage.getItem('portbuilder_sessions_v1')
       if (raw) setSavedSessions(JSON.parse(raw))
+      // restore unsaved draft so custom assets survive page refresh
+      const draft = localStorage.getItem('portbuilder_draft_v1')
+      if (draft) {
+        const d = JSON.parse(draft)
+        if (d.holdings?.length)       setHoldings(d.holdings)
+        if (d.clientHoldings?.length) setClientHoldings(d.clientHoldings)
+        if (d.clientProfile?.name)    setClientProfile(d.clientProfile)
+      }
     } catch { /* ignore */ }
   }, [])
+
+  // Auto-save draft on every change — keeps custom assets across page refresh
+  useEffect(() => {
+    try {
+      localStorage.setItem('portbuilder_draft_v1', JSON.stringify({ holdings, clientHoldings, clientProfile }))
+    } catch { /* ignore */ }
+  }, [holdings, clientHoldings, clientProfile])
 
   function saveSession() {
     if (!clientProfile.name.trim()) { setSaveMsg('Set a client name first.'); return }
@@ -432,11 +447,12 @@ export default function PortfolioBuilderPage() {
   }
 
   function addCustom() {
-    if (!customTicker.trim() || !customName.trim()) return
+    if (!customTicker.trim()) return
     const t = customTicker.trim().toUpperCase()
     if (holdings.find(h => h.ticker === t)) return
+    const displayName = customName.trim() || t   // name defaults to ticker if left blank
     setHoldings(prev => [...prev, {
-      id: uid(), ticker: t, name: customName.trim(), category: customCat, pct: 10,
+      id: uid(), ticker: t, name: displayName, category: customCat, pct: 10,
       managerReturn: BENCHMARK[customCat]?.ret ?? 5, isCustom: true
     }])
     setCustomTicker(''); setCustomName(''); setCustomOpen(false)
@@ -992,19 +1008,19 @@ export default function PortfolioBuilderPage() {
                       <div className="grid grid-cols-2 gap-2">
                         <input value={customTicker} onChange={e => setCustomTicker(e.target.value.toUpperCase())} placeholder="Ticker / code"
                           className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500/50 font-mono uppercase" />
-                        <input value={customName} onChange={e => setCustomName(e.target.value)} placeholder="Asset name"
+                        <input value={customName} onChange={e => setCustomName(e.target.value)} placeholder="Display name (optional — defaults to ticker)"
                           className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-500/50" />
                         <select value={customCat} onChange={e => setCustomCat(e.target.value)}
                           className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none">
                           {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                         </select>
                         <button onClick={addCustom}
-                          disabled={!customTicker.trim() || !customName.trim()}
+                          disabled={!customTicker.trim()}
                           className="bg-cyan-500/15 hover:bg-cyan-500/30 border border-cyan-500/30 rounded-lg px-3 py-1.5 text-xs text-cyan-300 transition disabled:opacity-40">
-                          + Add &amp; Save to List
+                          + Add to Portfolio
                         </button>
                       </div>
-                      <p className="text-[9px] text-slate-700">Custom assets use benchmark return assumptions — no live data available. Added immediately to portfolio.</p>
+                      <p className="text-[9px] text-slate-700">Ticker is required. Name is optional (defaults to ticker code). Custom assets use benchmark return assumptions — no live data. Your portfolio auto-saves in this browser.</p>
                     </div>
                   )}
                 </div>
@@ -1576,11 +1592,10 @@ export default function PortfolioBuilderPage() {
                         <details className="relative group">
                           <summary className="text-[9px] text-slate-600 hover:text-slate-400 cursor-pointer list-none">▶ Glossary</summary>
                           <div className="absolute right-0 top-5 z-20 w-80 rounded-xl border border-white/10 bg-[#0d1220] p-3.5 shadow-xl text-[9px] text-slate-400 space-y-2 leading-relaxed">
-                            <p><strong className="text-purple-300">Manager estimate</strong> — the weighted average of expected-return % you set per position in the Build Portfolio tab. Pure manager judgement.</p>
-                            <p><strong className="text-green-400">AceEconomy (live)</strong> — live YTD price performance for each holding from the AceEconomy VPS, annualised over {new Date().getMonth() + 1} months, then multiplied by a regime factor (×{regimeMult(intel?.regime ?? '').toFixed(2)} for {intel?.regime ?? '?'}). Reflects current market momentum rather than historical averages.</p>
-                            <p><strong className="text-slate-300">Conservative benchmark</strong> — long-run historical averages by asset class (Equity 7%, Bonds 3.5%, PE 10%, Commodities 4%, Cash 4%, FX 0%). A realistic floor; ignores current momentum.</p>
-                            <p><strong className="text-red-400">Bear case (−50% base)</strong> — the AceEconomy base estimate compressed by 50%. Models a scenario where momentum stalls and markets underperform trend — e.g. a slowing economy, earnings disappointments, or tightening financial conditions. Not a crash scenario; just a return drag.</p>
-                            <p><strong className="text-cyan-300">Bull case (×1.6 base)</strong> — the AceEconomy base multiplied by 1.6. Models a strong outperformance scenario — broad economic expansion, earnings beats, falling rates, or a risk-on market environment.</p>
+                            <p><strong className="text-purple-300">Est Return</strong> — the weighted average of expected-return % you set per position in the Build Portfolio tab. Pure manager judgement.</p>
+                            <p><strong className="text-green-400">YTD Return</strong> — live YTD price performance for each holding from the AceEconomy VPS, annualised over {new Date().getMonth() + 1} months, then multiplied by a regime factor (×{regimeMult(intel?.regime ?? '').toFixed(2)} for {intel?.regime ?? '?'}). Reflects current market momentum rather than historical averages.</p>
+                            <p><strong className="text-red-400">Bear case (−50% base)</strong> — the YTD base estimate compressed by 50%. Models a scenario where momentum stalls and markets underperform trend — e.g. a slowing economy, earnings disappointments, or tightening financial conditions. Not a crash scenario; just a return drag.</p>
+                            <p><strong className="text-cyan-300">Bull case (×1.6 base)</strong> — the YTD base multiplied by 1.6. Models a strong outperformance scenario — broad economic expansion, earnings beats, falling rates, or a risk-on market environment.</p>
                             <p><strong className="text-amber-300">Volatility (σ)</strong> — weighted-average annualised std dev by asset class. Upper bound; actual portfolio vol is lower due to cross-asset diversification. A lower σ means smoother returns for the client.</p>
                             <p><strong className="text-yellow-300">Sharpe Ratio</strong> — (return − {RISK_FREE_RATE}% risk-free rate) ÷ σ. How much return you earn per unit of risk. Above 1 = strong. 0.5–1 = acceptable. Below 0.5 = the return does not adequately compensate for volatility. Negative = return below the risk-free rate.</p>
                             <p className="text-slate-600">All return figures are annualised estimates for discussion only. Not investment advice.</p>
@@ -1591,7 +1606,7 @@ export default function PortfolioBuilderPage() {
                       {/* AceEconomy explanation */}
                       <div className="rounded-lg border border-cyan-500/15 bg-cyan-500/5 px-3 py-2 text-[10px] text-slate-400 leading-relaxed">
                         <span className="text-cyan-400 font-semibold">Why do figures sometimes converge at the same %?</span>{' '}
-                        When holdings have no live AceEconomy price data (e.g. unlisted assets, FX proxies, private equity), all three estimates fall back to the same long-run benchmark (Equity 7%, Bonds 3.5%, etc.) — so Manager, AceEconomy, and Conservative temporarily align. Add more SPY/QQQ/GLD-type holdings with live data to see differentiation. Each portfolio&apos;s AceEconomy figure also reflects its own unique mix — different assets and weights naturally produce different results.
+                        When holdings have no live price data (e.g. unlisted assets, FX proxies, private equity), YTD Return and Est Return both fall back to the same long-run benchmark (Equity 7%, Bonds 3.5%, etc.) and may temporarily align. Add more SPY/QQQ/GLD-type holdings with live data to see differentiation. Each portfolio&apos;s YTD Return also reflects its own unique mix — different assets and weights naturally produce different results.
                       </div>
 
                       <div className="overflow-x-auto">
@@ -1612,11 +1627,10 @@ export default function PortfolioBuilderPage() {
                               const spySharpe = spyYtdAnn != null ? (spyYtdAnn - RISK_FREE_RATE) / spyVol : null
 
                               const rows: { label: string; mVal: number; cVal: number; note: string; highlight?: boolean }[] = [
-                                { label: 'Manager estimate',       mVal: proj.managerBlended,       cVal: cProj.managerBlended,       note: 'Weighted avg of manager-inputted expected returns'      },
-                                { label: 'AceEconomy (live)',      mVal: proj.aceBlended,           cVal: cProj.aceBlended,           note: 'Live YTD annualised × regime multiplier per holding'    },
-                                { label: 'Conservative benchmark', mVal: proj.conservativeBlended,  cVal: cProj.conservativeBlended,  note: 'Long-run asset class averages (no live data)'           },
-                                { label: 'Bear case (−50% base)',  mVal: proj.aceBlended * 0.5,     cVal: cProj.aceBlended * 0.5,     note: 'Live data base compressed by 50% — return drag scenario' },
-                                { label: 'Bull case (×1.6 base)',  mVal: proj.aceBlended * 1.6,     cVal: cProj.aceBlended * 1.6,     note: 'Live data base ×1.6 — strong outperformance scenario'  },
+                                { label: 'Est Return',            mVal: proj.managerBlended,   cVal: cProj.managerBlended,   note: 'Weighted avg of expected returns set per position'       },
+                                { label: 'YTD Return',            mVal: proj.aceBlended,       cVal: cProj.aceBlended,       note: 'Live YTD annualised × regime multiplier per holding'    },
+                                { label: 'Bear case (−50% base)', mVal: proj.aceBlended * 0.5, cVal: cProj.aceBlended * 0.5, note: 'YTD base compressed by 50% — return drag scenario'      },
+                                { label: 'Bull case (×1.6 base)', mVal: proj.aceBlended * 1.6, cVal: cProj.aceBlended * 1.6, note: 'YTD base ×1.6 — strong outperformance scenario'         },
                               ]
                               return (
                                 <>
@@ -1680,9 +1694,8 @@ export default function PortfolioBuilderPage() {
 
                             {/* Sharpe rows */}
                             {([
-                              { label: 'Sharpe — Live Perf.',    mVal: proj.sharpeAce,          cVal: cProj.sharpeAce,          note: `(Live return − ${RISK_FREE_RATE}% RFR) ÷ σ` },
-                              { label: 'Sharpe — Manager est.',  mVal: proj.sharpeManager,      cVal: cProj.sharpeManager,      note: `(Manager est. − ${RISK_FREE_RATE}% RFR) ÷ σ` },
-                              { label: 'Sharpe — Conservative',  mVal: proj.sharpeConservative, cVal: cProj.sharpeConservative, note: `(Conservative − ${RISK_FREE_RATE}% RFR) ÷ σ` },
+                              { label: 'Sharpe — YTD Return',  mVal: proj.sharpeAce,     cVal: cProj.sharpeAce,     note: `(YTD return − ${RISK_FREE_RATE}% RFR) ÷ σ` },
+                              { label: 'Sharpe — Est Return',  mVal: proj.sharpeManager, cVal: cProj.sharpeManager, note: `(Est return − ${RISK_FREE_RATE}% RFR) ÷ σ` },
                             ] as const).map(({ label, mVal, cVal, note }) => {
                               const sharpeColor = (v: number) => v >= 1 ? 'text-green-400' : v >= 0.5 ? 'text-yellow-300' : v >= 0 ? 'text-amber-400' : 'text-red-400'
                               return (
@@ -1724,12 +1737,11 @@ export default function PortfolioBuilderPage() {
                             ))}
                           </div>
                           <div className="border-t border-white/8 pt-2 space-y-1 text-[10px]">
-                            <div className="flex justify-between"><span className="text-slate-500">Manager est.</span><span className="text-purple-300 font-mono">{p.managerBlended >= 0 ? '+' : ''}{p.managerBlended.toFixed(1)}%</span></div>
+                            <div className="flex justify-between"><span className="text-slate-500">Est Return</span><span className="text-purple-300 font-mono">{p.managerBlended >= 0 ? '+' : ''}{p.managerBlended.toFixed(1)}%</span></div>
                             <div className="flex justify-between">
-                              <span className="text-slate-500">AceEconomy <span className="text-slate-700">(this portfolio)</span></span>
+                              <span className="text-slate-500">YTD Return</span>
                               <span className={`font-mono ${p.aceBlended >= 0 ? 'text-green-400' : 'text-red-400'}`}>{p.aceBlended >= 0 ? '+' : ''}{p.aceBlended.toFixed(1)}%</span>
                             </div>
-                            <div className="flex justify-between"><span className="text-slate-500">Conservative</span><span className="text-slate-300 font-mono">{p.conservativeBlended >= 0 ? '+' : ''}{p.conservativeBlended.toFixed(1)}%</span></div>
                             <div className="flex justify-between border-t border-white/5 pt-1"><span className="text-slate-500">Volatility (σ)</span><span className="text-amber-300 font-mono">{p.portfolioVol.toFixed(1)}%</span></div>
                             <div className="flex justify-between">
                               <span className="text-slate-500">Sharpe (AceEconomy)</span>
