@@ -603,9 +603,12 @@ export default function WatchlistSignalsPage() {
       <div className="space-y-3">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <Link href="/citizen/dashboard/financial" className="text-[10px] text-slate-600 hover:text-slate-400 transition">
-              ← Financial District
-            </Link>
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <Link href="/citizen/dashboard/financial" className="text-[10px] text-slate-600 hover:text-slate-400 transition">← Financial District</Link>
+              <span className="text-slate-700 text-[10px]">·</span>
+              <Link href="/citizen/dashboard/financial" className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-medium transition border-emerald-500/30 bg-emerald-500/8 text-emerald-400 hover:bg-emerald-500/20`}>🌐 Macro</Link>
+              <Link href="/citizen/dashboard/financial/portfolio-builder" className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-medium transition border-amber-500/30 bg-amber-500/8 text-amber-400 hover:bg-amber-500/20`}>📐 Portfolio</Link>
+            </div>
             <h1 className={`text-xl font-bold mt-1 ${bgLight ? 'text-slate-900' : 'text-white'}`}>Watchlist Signals</h1>
             <p className="text-[11px] text-slate-500 mt-0.5">
               {tickers.length} ticker{tickers.length !== 1 ? 's' : ''} · live performance + nightly scan signals

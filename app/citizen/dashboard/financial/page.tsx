@@ -681,29 +681,17 @@ export default function FinancialDashboard() {
             <p className="text-[11px] text-slate-600 mt-1">Last scan: {lastScan}</p>
           )}
 
-          {/* ── Shortened nav buttons with hover tooltips ── */}
+          {/* ── Section nav buttons: Macro → Watchlist → Portfolio ── */}
           <div className="flex gap-2 flex-wrap mt-3 items-center">
-            <NavBtn href="/citizen/dashboard/financial/portfolio-builder"
-              icon="📐" label="Portfolio" color="amber"
-              tip="Allocation, projections & client sharing" />
+            <NavBtn onClick={() => setShowMacro(true)}
+              icon="🌐" label="Macro" color="emerald"
+              tip="Market snapshot, economic calendar, PMI heatmap & AI narration" />
             <NavBtn href="/citizen/dashboard/financial/watchlist"
               icon="⭐" label="Watchlist" color="cyan"
               tip="Per-ticker performance, peers & alerts" />
-            <NavBtn onClick={() => setShowMacro(true)}
-              icon="🌐" label="Macro" color="emerald"
-              tip="Economic calendar, PMI heatmap & market snapshot" />
-          </div>
-
-          {/* ── Workflow navigation strip ── */}
-          <div className="mt-3 flex items-center gap-1.5 text-[10px] text-slate-600 flex-wrap">
-            <span className="font-mono uppercase tracking-wider">Workflow:</span>
-            <WorkflowLink onClick={() => setShowMacro(true)} label="Macro Outlook" />
-            <span className="text-slate-700">→</span>
-            <WorkflowLink href="/citizen/dashboard/financial/watchlist" label="Watchlist Signals" />
-            <span className="text-slate-700">→</span>
-            <WorkflowLink href="/citizen/dashboard/financial/portfolio-builder" label="Portfolio Builder" />
-            <span className="mx-1 text-slate-800">·</span>
-            <WorkflowLink href="/citizen/dashboard/financial/watchlist" label="Back to Watchlist" />
+            <NavBtn href="/citizen/dashboard/financial/portfolio-builder"
+              icon="📐" label="Portfolio" color="amber"
+              tip="Allocation, projections & client sharing" />
           </div>
         </div>
 

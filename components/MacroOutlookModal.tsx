@@ -124,6 +124,23 @@ function PerfBar({ value, max }: { value: number | null; max: number }) {
   )
 }
 
+// ── Cross-section nav bar (appears at bottom of modal body) ───────────────────
+function SectionNav({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="mt-6 pt-4 border-t border-slate-700/40 flex items-center gap-2 flex-wrap">
+      <span className="text-[10px] text-slate-600 font-mono uppercase tracking-wider shrink-0">Navigate to:</span>
+      <a href="/citizen/dashboard/financial/watchlist" onClick={onClose}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/8 text-cyan-300 text-[11px] font-medium hover:bg-cyan-500/20 transition">
+        ⭐ Watchlist
+      </a>
+      <a href="/citizen/dashboard/financial/portfolio-builder" onClick={onClose}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/8 text-amber-300 text-[11px] font-medium hover:bg-amber-500/20 transition">
+        📐 Portfolio
+      </a>
+    </div>
+  )
+}
+
 // ── Main Modal ─────────────────────────────────────────────────────────────────
 export default function MacroOutlookModal({ onClose }: { onClose: () => void }) {
   const [tab, setTab]           = useState<'snapshot' | 'calendar' | 'pmi' | 'news'>('snapshot')
@@ -187,10 +204,11 @@ export default function MacroOutlookModal({ onClose }: { onClose: () => void }) 
 
         {/* Body — this is the ONLY thing that scrolls; min-h-0 is critical */}
         <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
-          {tab === 'snapshot' && <SnapshotView snap={snap} loading={snapLoading} />}
+          {tab === 'snapshot' && <SnapshotView snap={snap} loading={snapLoading} onNarrativeRefresh={(n) => setSnap(s => s ? {...s, narrative: n} : s)} />}
           {tab === 'calendar' && <CalendarView events={filtered} weekGroups={weekGroups} categories={categories} filterCat={filterCat} setFilterCat={setFilterCat} loading={calLoading} />}
           {tab === 'pmi'      && <PmiView pmi={pmi} pmiType={pmiType} setPmiType={setPmiType} loading={pmiLoading} />}
           {tab === 'news'     && <NewsView articles={news} loading={newsLoading} />}
+          <SectionNav onClose={onClose} />
         </div>
 
         {/* Footer */}
@@ -204,8 +222,23 @@ export default function MacroOutlookModal({ onClose }: { onClose: () => void }) 
 }
 
 // ── Snapshot Tab ───────────────────────────────────────────────────────────────
-function SnapshotView({ snap, loading }: { snap: Snapshot | null; loading: boolean }) {
+function SnapshotView({ snap, loading, onNarrativeRefresh }: {
+  snap: Snapshot | null; loading: boolean
+  onNarrativeRefresh: (narrative: string) => void
+}) {
   const [activeClass, setActiveClass] = useState<string | null>(null)
+  const [narrativeRefreshing, setNarrativeRefreshing] = useState(false)
+
+  async function refreshNarrative() {
+    setNarrativeRefreshing(true)
+    try {
+      const res = await fetch('/api/nexus/macro/narrate', { method: 'POST' })
+      const d = await res.json()
+      if (d.ok && d.narrative) onNarrativeRefresh(d.narrative)
+    } finally {
+      setNarrativeRefreshing(false)
+    }
+  }
 
   if (loading) return <Spinner />
   if (!snap || snap.error) return <ErrorMsg msg={snap?.summary ?? 'Data unavailable'} />
@@ -253,10 +286,16 @@ function SnapshotView({ snap, loading }: { snap: Snapshot | null; loading: boole
           <div className="flex items-center gap-2 mb-3">
             <span className="text-sm">🤖</span>
             <span className="text-[11px] font-semibold text-slate-200 uppercase tracking-wide">AI Market Intelligence</span>
-            <span className="ml-auto flex items-center gap-1 text-[9px] text-slate-600 font-mono">
+            <span className="flex items-center gap-1 text-[9px] text-slate-600 font-mono">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Gemini · updated with snapshot
+              Gemini
             </span>
+            <button onClick={refreshNarrative} disabled={narrativeRefreshing}
+              title="Re-generate AI narration with latest Gemini call"
+              className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded border border-slate-700/50 text-[10px] text-slate-400 hover:text-slate-200 hover:border-slate-500 transition disabled:opacity-40">
+              <span className={narrativeRefreshing ? 'animate-spin' : ''}>↻</span>
+              {narrativeRefreshing ? 'Refreshing…' : 'Refresh'}
+            </button>
           </div>
           <div className="space-y-3">
             {narrative.split('\n\n').filter(Boolean).map((para, i) => {

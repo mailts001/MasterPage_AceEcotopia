@@ -875,6 +875,8 @@ export default function PortfolioBuilderPage() {
           <Link href="/citizen/dashboard/financial" className={`text-sm ${bgLight ? 'text-slate-500 hover:text-slate-800' : 'text-slate-500 hover:text-white'}`}>← Financial District</Link>
           <span className={bgLight ? 'text-slate-300' : 'text-white/20'}>/</span>
           <span className={`text-sm font-semibold ${bgLight ? 'text-slate-900' : 'text-white'}`}>Build PortfolioPlus</span>
+          <Link href="/citizen/dashboard/financial" className="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-medium transition border-emerald-500/30 bg-emerald-500/8 text-emerald-400 hover:bg-emerald-500/20">🌐 Macro</Link>
+          <Link href="/citizen/dashboard/financial/watchlist" className="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-medium transition border-cyan-500/30 bg-cyan-500/8 text-cyan-400 hover:bg-cyan-500/20">⭐ Watchlist</Link>
           <span className="ml-auto text-[10px] text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full">Trial — open to all Citizens</span>
           <button type="button" onClick={() => applyTheme(!bgLight)}
             title="Toggle light / dark background"
