@@ -4,6 +4,8 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import QRCode from 'qrcode'
 import PortfolioDNAWheel from '@/components/PortfolioDNAWheel'
+import dynamic from 'next/dynamic'
+const FinancialPrintModal = dynamic(() => import('@/components/FinancialPrintModal'), { ssr: false })
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -350,6 +352,7 @@ export default function PortfolioBuilderPage() {
   const [intel, setIntel]               = useState<Intel | null>(null)
   const [intelLoading, setIntelLoading] = useState(true)
   const [tab, setTab]                   = useState<'build' | 'client' | 'dna' | 'compare'>('build')
+  const [showPrint, setShowPrint]       = useState(false)
   const [savedSessions, setSavedSessions] = useState<Record<string, unknown>>({})
   const [saveMsg, setSaveMsg]           = useState('')
   const [catFilter, setCatFilter]       = useState<string>('all')
@@ -895,9 +898,13 @@ export default function PortfolioBuilderPage() {
           <Link href="/citizen/dashboard/financial" className="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-medium transition border-emerald-500/30 bg-emerald-500/8 text-emerald-400 hover:bg-emerald-500/20">🌐 Macro</Link>
           <Link href="/citizen/dashboard/financial/watchlist" className="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-medium transition border-cyan-500/30 bg-cyan-500/8 text-cyan-400 hover:bg-cyan-500/20">⭐ Watchlist</Link>
           <span className="ml-auto text-[10px] text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full">Trial — open to all Citizens</span>
+          <button onClick={() => setShowPrint(true)}
+            className={`text-[11px] border rounded-lg px-2.5 py-1 transition flex items-center gap-1 ${bgLight ? 'border-slate-300 text-slate-600 hover:text-slate-900' : 'border-white/20 text-slate-400 hover:text-white'}`}>
+            🖨 Print
+          </button>
           <button type="button" onClick={() => applyTheme(!bgLight)}
             title="Toggle light / dark background"
-            className={`text-[11px] border rounded-lg px-2.5 py-1 transition ml-2 ${bgLight ? 'border-slate-300 text-slate-600 hover:text-slate-900' : 'border-white/20 text-slate-400 hover:text-white'}`}>
+            className={`text-[11px] border rounded-lg px-2.5 py-1 transition ml-1 ${bgLight ? 'border-slate-300 text-slate-600 hover:text-slate-900' : 'border-white/20 text-slate-400 hover:text-white'}`}>
             {bgLight ? '🌙 Dark' : '☀ Light'}
           </button>
         </nav>
@@ -2021,6 +2028,18 @@ export default function PortfolioBuilderPage() {
           )}
         </div>
       </div>
+
+      {showPrint && (
+        <FinancialPrintModal
+          onClose={() => setShowPrint(false)}
+          defaultSegments={['portfolio']}
+          holdings={holdings}
+          clientHoldings={clientHoldings}
+          proj={{ managerBlended: proj.managerBlended, aceBlended: proj.aceBlended, conservativeBlended: proj.conservativeBlended, portfolioVol: proj.portfolioVol, sharpeAce: proj.sharpeAce, sharpeManager: proj.sharpeManager }}
+          cProj={{ managerBlended: cProj.managerBlended, aceBlended: cProj.aceBlended, conservativeBlended: cProj.conservativeBlended, portfolioVol: cProj.portfolioVol, sharpeAce: cProj.sharpeAce, sharpeManager: cProj.sharpeManager }}
+          clientName={clientProfile.name || undefined}
+        />
+      )}
     </>
   )
 }

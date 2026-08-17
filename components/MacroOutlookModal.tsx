@@ -1,6 +1,8 @@
 'use client'
 // v5 — finnhub news feed
 import { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
+const FinancialPrintModal = dynamic(() => import('@/components/FinancialPrintModal'), { ssr: false })
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface CalEvent {
@@ -142,6 +144,7 @@ function SectionNav({ onClose }: { onClose: () => void }) {
 
 // ── Main Modal ─────────────────────────────────────────────────────────────────
 export default function MacroOutlookModal({ onClose }: { onClose: () => void }) {
+  const [showPrint, setShowPrint] = useState(false)
   const [tab, setTab]           = useState<'snapshot' | 'calendar' | 'pmi' | 'news'>('snapshot')
   const [pmiType, setPmiType]   = useState<'manufacturing' | 'services'>('manufacturing')
   const [filterCat, setFilterCat] = useState('ALL')
@@ -175,6 +178,7 @@ export default function MacroOutlookModal({ onClose }: { onClose: () => void }) 
   ] as const
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
       <div
@@ -192,7 +196,13 @@ export default function MacroOutlookModal({ onClose }: { onClose: () => void }) 
               <SectionNav onClose={onClose} />
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-white transition text-xl leading-none ml-4">✕</button>
+          <div className="flex items-center gap-2 ml-4">
+            <button onClick={() => setShowPrint(true)}
+              className="px-3 py-1.5 rounded-lg text-[11px] font-medium bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-300 hover:text-white transition flex items-center gap-1.5">
+              🖨 Print
+            </button>
+            <button onClick={onClose} className="text-slate-500 hover:text-white transition text-xl leading-none">✕</button>
+          </div>
         </div>
 
         {/* Tabs — shrink-0 so they are never pushed off-screen by tall content */}
@@ -221,6 +231,10 @@ export default function MacroOutlookModal({ onClose }: { onClose: () => void }) 
         </div>
       </div>
     </div>
+    {showPrint && (
+      <FinancialPrintModal onClose={() => setShowPrint(false)} defaultSegments={['macro']} />
+    )}
+    </>
   )
 }
 

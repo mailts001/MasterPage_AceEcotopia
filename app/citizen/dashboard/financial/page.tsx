@@ -6,6 +6,7 @@ import Link from 'next/link'
 
 // v7 — dark/light toggle, shortened nav, cross-section workflow links
 const MacroOutlookModal = dynamic(() => import('@/components/MacroOutlookModal'), { ssr: false })
+const FinancialPrintModal = dynamic(() => import('@/components/FinancialPrintModal'), { ssr: false })
 
 interface BullishTicker {
   symbol: string
@@ -526,6 +527,7 @@ function EmptyState({ label }: { label: string }) {
 
 export default function FinancialDashboard() {
   const [showMacro, setShowMacro]   = useState(false)
+  const [showPrint, setShowPrint]   = useState(false)
   const [darkMode, setDarkMode]     = useState(true)
 
   useEffect(() => {
@@ -692,6 +694,10 @@ export default function FinancialDashboard() {
             <NavBtn href="/citizen/dashboard/financial/portfolio-builder"
               icon="📐" label="Portfolio" color="amber"
               tip="Allocation, projections & client sharing" />
+            <button onClick={() => setShowPrint(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-medium transition border-slate-600/50 bg-slate-800/40 text-slate-400 hover:bg-slate-700/60 hover:text-white">
+              🖨 Full Report
+            </button>
           </div>
         </div>
 
@@ -2078,6 +2084,7 @@ export default function FinancialDashboard() {
     </div>
 
     {showMacro && <MacroOutlookModal onClose={() => setShowMacro(false)} />}
+    {showPrint && <FinancialPrintModal onClose={() => setShowPrint(false)} defaultSegments={['macro','watchlist','portfolio']} />}
     </>
   )
 }

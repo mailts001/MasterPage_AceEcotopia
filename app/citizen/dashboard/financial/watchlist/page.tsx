@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 
 const WatchlistChart = dynamic(() => import('@/components/WatchlistChart'), { ssr: false })
+const FinancialPrintModal = dynamic(() => import('@/components/FinancialPrintModal'), { ssr: false })
 
 // SPDR sector ETFs for sector chart in cards view
 const SECTOR_ETFS = ['XLK','XLF','XLV','XLY','XLP','XLE','XLI','XLU','XLRE','XLC','XLB']
@@ -612,6 +613,7 @@ export default function WatchlistSignalsPage() {
   const [addErr, setAddErr]     = useState<string | null>(null)
   const [removing, setRemoving] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('cards')
+  const [showPrint, setShowPrint] = useState(false)
   const [funds, setFunds]       = useState<FundData[]>([])
   const [fundsLoading, setFundsLoading] = useState(false)
   const [bgLight, setBgLight]   = useState(false)
@@ -736,6 +738,10 @@ export default function WatchlistSignalsPage() {
             <button type="button" onClick={() => applyTheme(!bgLight)}
               className={`text-[11px] border rounded-lg px-2.5 py-1 transition ${bgLight ? 'border-slate-300 text-slate-600 hover:text-slate-900' : 'border-white/20 text-slate-400 hover:text-white'}`}>
               {bgLight ? '🌙 Dark' : '☀ Light'}
+            </button>
+            <button onClick={() => setShowPrint(true)}
+              className="text-[11px] border border-white/15 rounded-lg px-2.5 py-1 text-slate-400 hover:text-white hover:border-white/30 transition flex items-center gap-1">
+              🖨 Print
             </button>
             <button
               onClick={load}
@@ -929,6 +935,14 @@ export default function WatchlistSignalsPage() {
       <p className="text-[9px] text-slate-700 text-center pb-4">
         Performance data via yfinance · signals from AceEconomy nightly scan · risk-free rate {RISK_FREE}% · not investment advice
       </p>
+
+      {showPrint && (
+        <FinancialPrintModal
+          onClose={() => setShowPrint(false)}
+          defaultSegments={['watchlist']}
+          watchlistData={tickers}
+        />
+      )}
     </div>
   )
 }
