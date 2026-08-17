@@ -124,17 +124,16 @@ function PerfBar({ value, max }: { value: number | null; max: number }) {
   )
 }
 
-// ── Cross-section nav bar (appears at bottom of modal body) ───────────────────
+// ── Cross-section nav (top-left of header, consistent with watchlist/portfolio) ──
 function SectionNav({ onClose }: { onClose: () => void }) {
   return (
-    <div className="mt-6 pt-4 border-t border-slate-700/40 flex items-center gap-2 flex-wrap">
-      <span className="text-[10px] text-slate-600 font-mono uppercase tracking-wider shrink-0">Navigate to:</span>
+    <div className="flex items-center gap-1.5">
       <a href="/citizen/dashboard/financial/watchlist" onClick={onClose}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/8 text-cyan-300 text-[11px] font-medium hover:bg-cyan-500/20 transition">
+        className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-cyan-500/30 bg-cyan-500/8 text-cyan-400 text-[10px] font-medium hover:bg-cyan-500/20 transition">
         ⭐ Watchlist
       </a>
       <a href="/citizen/dashboard/financial/portfolio-builder" onClick={onClose}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/8 text-amber-300 text-[11px] font-medium hover:bg-amber-500/20 transition">
+        className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-amber-500/30 bg-amber-500/8 text-amber-400 text-[10px] font-medium hover:bg-amber-500/20 transition">
         📐 Portfolio
       </a>
     </div>
@@ -183,12 +182,17 @@ export default function MacroOutlookModal({ onClose }: { onClose: () => void }) 
         onClick={e => e.stopPropagation()}
       >
         {/* Header — fixed, never scrolls */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-700/40 shrink-0">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-700/40 shrink-0">
           <div>
-            <h2 className="text-base font-semibold text-white">🌐 Macro Outlook</h2>
-            <p className="text-[11px] text-slate-400">Live market data · Economic calendar · PMI heatmap</p>
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="text-base font-semibold text-white">🌐 Macro Outlook</h2>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-[11px] text-slate-500 mr-1">Go to:</p>
+              <SectionNav onClose={onClose} />
+            </div>
           </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-white transition text-xl leading-none">✕</button>
+          <button onClick={onClose} className="text-slate-500 hover:text-white transition text-xl leading-none ml-4">✕</button>
         </div>
 
         {/* Tabs — shrink-0 so they are never pushed off-screen by tall content */}
@@ -208,7 +212,6 @@ export default function MacroOutlookModal({ onClose }: { onClose: () => void }) 
           {tab === 'calendar' && <CalendarView events={filtered} weekGroups={weekGroups} categories={categories} filterCat={filterCat} setFilterCat={setFilterCat} loading={calLoading} />}
           {tab === 'pmi'      && <PmiView pmi={pmi} pmiType={pmiType} setPmiType={setPmiType} loading={pmiLoading} />}
           {tab === 'news'     && <NewsView articles={news} loading={newsLoading} />}
-          <SectionNav onClose={onClose} />
         </div>
 
         {/* Footer */}
