@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
+import FinancialNav from '@/components/FinancialNav'
 
 const WatchlistChart = dynamic(() => import('@/components/WatchlistChart'), { ssr: false })
 const FinancialPrintModal = dynamic(() => import('@/components/FinancialPrintModal'), { ssr: false })
@@ -715,42 +716,27 @@ export default function WatchlistSignalsPage() {
   const buyCount     = tickers.filter(t => t.signal === 'BUY').length
 
   return (
-    <div className={`min-h-screen px-4 py-6 max-w-3xl mx-auto space-y-6 transition-colors ${bgLight ? 'bg-slate-100 text-slate-900' : 'bg-[#0A0E1A] text-white'}`}>
+    <div className={`min-h-screen transition-colors ${bgLight ? 'bg-slate-100 text-slate-900' : 'bg-[#0A0E1A] text-white'}`}>
 
-      {/* Header */}
+      <FinancialNav
+        active="watchlist"
+        bgLight={bgLight}
+        onThemeToggle={() => applyTheme(!bgLight)}
+        onPrint={() => setShowPrint(true)}
+        onRefresh={load}
+        refreshing={loading}
+      />
+
+      <div className="px-4 py-6 max-w-3xl mx-auto space-y-6">
+
+      {/* Page title + subtitle */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <Link href="/citizen/dashboard/financial" className="text-[10px] text-slate-600 hover:text-slate-400 transition">← Financial District</Link>
-              <span className="text-slate-700 text-[10px]">·</span>
-              <span className="text-[10px] text-slate-500">Go to:</span>
-              <Link href="/citizen/dashboard/financial" className="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-medium transition border-emerald-500/30 bg-emerald-500/8 text-emerald-400 hover:bg-emerald-500/20">🌐 Macro</Link>
-              <Link href="/citizen/dashboard/financial/portfolio-builder" className="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-medium transition border-amber-500/30 bg-amber-500/8 text-amber-400 hover:bg-amber-500/20">📐 Portfolio</Link>
-            </div>
-            <h1 className={`text-xl font-bold mt-1 ${bgLight ? 'text-slate-900' : 'text-white'}`}>Watchlist Signals</h1>
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              {tickers.length} ticker{tickers.length !== 1 ? 's' : ''} · live performance + nightly scan signals
-              {lastAt && ` · updated ${new Date(lastAt).toLocaleTimeString('en-SG', { hour: '2-digit', minute: '2-digit' })} SGT`}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button type="button" onClick={() => applyTheme(!bgLight)}
-              className={`text-[11px] border rounded-lg px-2.5 py-1 transition ${bgLight ? 'border-slate-300 text-slate-600 hover:text-slate-900' : 'border-white/20 text-slate-400 hover:text-white'}`}>
-              {bgLight ? '🌙 Dark' : '☀ Light'}
-            </button>
-            <button onClick={() => setShowPrint(true)}
-              className="text-[11px] border border-white/15 rounded-lg px-2.5 py-1 text-slate-400 hover:text-white hover:border-white/30 transition flex items-center gap-1">
-              🖨 Print
-            </button>
-            <button
-              onClick={load}
-              disabled={loading}
-              className="text-[11px] border border-white/15 rounded-lg px-3 py-1.5 text-slate-400 hover:text-white hover:border-white/30 transition disabled:opacity-40"
-            >
-              {loading ? '…' : '↻ Refresh'}
-            </button>
-          </div>
+        <div>
+          <h1 className={`text-xl font-bold ${bgLight ? 'text-slate-900' : 'text-white'}`}>Watchlist Signals</h1>
+          <p className="text-[11px] text-slate-500 mt-0.5">
+            {tickers.length} ticker{tickers.length !== 1 ? 's' : ''} · live performance + nightly scan signals
+            {lastAt && ` · updated ${new Date(lastAt).toLocaleTimeString('en-SG', { hour: '2-digit', minute: '2-digit' })} SGT`}
+          </p>
         </div>
 
         {/* Add ticker */}
@@ -943,6 +929,7 @@ export default function WatchlistSignalsPage() {
           watchlistData={tickers}
         />
       )}
+      </div> {/* end px-4 py-6 inner */}
     </div>
   )
 }

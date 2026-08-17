@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import QRCode from 'qrcode'
 import PortfolioDNAWheel from '@/components/PortfolioDNAWheel'
+import FinancialNav from '@/components/FinancialNav'
 import dynamic from 'next/dynamic'
 const FinancialPrintModal = dynamic(() => import('@/components/FinancialPrintModal'), { ssr: false })
 
@@ -890,24 +891,14 @@ export default function PortfolioBuilderPage() {
 
       {/* Screen UI */}
       <div className={`min-h-screen transition-colors duration-300 ${bgLight ? 'bg-slate-100 text-slate-900' : 'bg-[#0A0E1A] text-white'}`}>
-        <nav className={`border-b px-4 py-3 flex items-center gap-3 sticky top-0 backdrop-blur z-10 transition-colors ${bgLight ? 'border-slate-300 bg-slate-100/95 text-slate-700' : 'border-white/10 bg-[#0A0E1A]/95 text-white'}`}>
-          <Link href="/citizen/dashboard/financial" className={`text-sm ${bgLight ? 'text-slate-500 hover:text-slate-800' : 'text-slate-500 hover:text-white'}`}>← Financial District</Link>
-          <span className={bgLight ? 'text-slate-300' : 'text-white/20'}>/</span>
-          <span className={`text-sm font-semibold ${bgLight ? 'text-slate-900' : 'text-white'}`}>GoalBasedPortfolio</span>
-          <span className="text-[10px] text-slate-500 ml-1">Go to:</span>
-          <Link href="/citizen/dashboard/financial" className="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-medium transition border-emerald-500/30 bg-emerald-500/8 text-emerald-400 hover:bg-emerald-500/20">🌐 Macro</Link>
-          <Link href="/citizen/dashboard/financial/watchlist" className="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-medium transition border-cyan-500/30 bg-cyan-500/8 text-cyan-400 hover:bg-cyan-500/20">⭐ Watchlist</Link>
-          <span className="ml-auto text-[10px] text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full">Trial — open to all Citizens</span>
-          <button onClick={() => setShowPrint(true)}
-            className={`text-[11px] border rounded-lg px-2.5 py-1 transition flex items-center gap-1 ${bgLight ? 'border-slate-300 text-slate-600 hover:text-slate-900' : 'border-white/20 text-slate-400 hover:text-white'}`}>
-            🖨 Print
-          </button>
-          <button type="button" onClick={() => applyTheme(!bgLight)}
-            title="Toggle light / dark background"
-            className={`text-[11px] border rounded-lg px-2.5 py-1 transition ml-1 ${bgLight ? 'border-slate-300 text-slate-600 hover:text-slate-900' : 'border-white/20 text-slate-400 hover:text-white'}`}>
-            {bgLight ? '🌙 Dark' : '☀ Light'}
-          </button>
-        </nav>
+        <FinancialNav
+          active="portfolio"
+          bgLight={bgLight}
+          onThemeToggle={() => applyTheme(!bgLight)}
+          onPrint={() => setShowPrint(true)}
+        >
+          <span className="text-[10px] text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full">Trial — open to all Citizens</span>
+        </FinancialNav>
 
         <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
           <div>

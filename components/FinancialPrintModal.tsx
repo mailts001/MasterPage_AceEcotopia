@@ -1,7 +1,8 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 
-// ── Section registry ───────────────────────────────────────────────────────────
+// ── Section registry ────────────────────────────────────────────────────────────
 type SegmentKey = 'macro' | 'watchlist' | 'portfolio'
 const SEG_LABEL: Record<SegmentKey, string> = {
   macro:     '🌐 Macro Outlook',
@@ -11,24 +12,27 @@ const SEG_LABEL: Record<SegmentKey, string> = {
 
 interface SectionDef { id: string; seg: SegmentKey; label: string; desc: string }
 const ALL_SECTIONS: SectionDef[] = [
-  { id: 'macro_snapshot', seg: 'macro',     label: 'Market Snapshot',      desc: 'Regime, top movers, AI narrative'              },
-  { id: 'macro_news',     seg: 'macro',     label: 'Market News',           desc: 'Latest financial headlines'                    },
-  { id: 'macro_pmi',      seg: 'macro',     label: 'PMI Heatmap',           desc: 'Global PMI by country'                         },
-  { id: 'macro_calendar', seg: 'macro',     label: 'Economic Calendar',     desc: 'Upcoming high-impact events'                   },
-  { id: 'wl_signals',     seg: 'watchlist', label: 'Watchlist Signals',     desc: 'Signal table with perf metrics'                },
-  { id: 'wl_fundamentals',seg: 'watchlist', label: 'Fundamentals Summary',  desc: 'EPS, dividend, ROE per holding'                },
-  { id: 'pt_holdings',    seg: 'portfolio', label: 'Holdings Allocation',   desc: 'Position weights and asset categories'         },
-  { id: 'pt_projections', seg: 'portfolio', label: 'Return Projections',    desc: 'Est Return, YTD Return, Bear / Bull scenarios' },
-  { id: 'pt_compare',     seg: 'portfolio', label: 'Portfolio Comparison',  desc: 'GoalBased vs Balanced side-by-side'            },
+  { id: 'macro_snapshot',  seg: 'macro',     label: 'Market Snapshot',      desc: 'Regime, top movers, AI narrative'              },
+  { id: 'macro_news',      seg: 'macro',     label: 'Market News',           desc: 'Latest financial headlines'                    },
+  { id: 'macro_pmi',       seg: 'macro',     label: 'PMI Heatmap',           desc: 'Global PMI by country'                         },
+  { id: 'macro_calendar',  seg: 'macro',     label: 'Economic Calendar',     desc: 'Upcoming high-impact events'                   },
+  { id: 'wl_signals',      seg: 'watchlist', label: 'Watchlist Signals',     desc: 'Signal table with perf metrics'                },
+  { id: 'wl_fundamentals', seg: 'watchlist', label: 'Fundamentals Summary',  desc: 'EPS, dividend, ROE per holding'                },
+  { id: 'wl_chart',        seg: 'watchlist', label: 'Sector Performance',    desc: 'Dot chart of SPDR sector ETF 3M returns'      },
+  { id: 'pt_holdings',     seg: 'portfolio', label: 'Holdings Allocation',   desc: 'Position weights with pie chart'               },
+  { id: 'pt_projections',  seg: 'portfolio', label: 'Return Projections',    desc: 'Est Return, YTD Return, Bear / Bull scenarios' },
+  { id: 'pt_compare',      seg: 'portfolio', label: 'Portfolio Comparison',  desc: 'Side-by-side GoalBased vs Balanced'            },
+  { id: 'pt_complement',   seg: 'portfolio', label: 'Complement Chart',      desc: '"How the Two Portfolios Complement Each Other"' },
 ]
 
-// ── Externally provided data interfaces ───────────────────────────────────────
+// ── External data interfaces ────────────────────────────────────────────────────
 export interface WatchlistHolding {
   ticker: string; name?: string; price?: number; signal: string
   '1y'?: number; '6m'?: number; '3m'?: number; '5d'?: number; overnight?: number
   eps_ttm?: number; eps_forward?: number; eps_growth_yoy?: number
   dividend_yield?: number; roe?: number; vol_ann?: number; sharpe_1y?: number
 }
+export interface SectorReturn { ticker: string; ret: number }
 export interface PortfolioHolding {
   id: string; ticker: string; name: string; category: string
   pct: number; managerReturn: number; isCustom?: boolean
@@ -40,9 +44,9 @@ export interface PortfolioProjections {
 
 interface Props {
   onClose: () => void
-  defaultSegments?: SegmentKey[]          // pre-checked segments
-  // Passthrough data (avoids re-fetch when already loaded)
+  defaultSegments?: SegmentKey[]
   watchlistData?:   WatchlistHolding[]
+  sectorReturns?:   SectorReturn[]      // pre-loaded from watchlist page cards view
   holdings?:        PortfolioHolding[]
   clientHoldings?:  PortfolioHolding[]
   proj?:            PortfolioProjections
@@ -55,310 +59,414 @@ function pctStr(v?: number | null, d = 1) {
   if (v == null) return '—'
   return `${v >= 0 ? '+' : ''}${v.toFixed(d)}%`
 }
-function fmtAge(ts: number) {
+function fmtTs(ts?: number) {
+  if (!ts) return ''
   const diff = Date.now() / 1000 - ts
   if (diff < 3600) return `${Math.round(diff / 60)}m ago`
   if (diff < 86400) return `${Math.round(diff / 3600)}h ago`
   return `${Math.round(diff / 86400)}d ago`
 }
 
-const CAT_COLOR: Record<string, string> = {
+const CAT_COLORS: Record<string, string> = {
   equity: '#3b82f6', fixed_income: '#22c55e', fx: '#eab308',
   commodities: '#f97316', private_equity: '#a855f7',
   thematic: '#06b6d4', cash: '#94a3b8', philanthropy: '#ec4899',
 }
 
-// ── Report HTML builder ────────────────────────────────────────────────────────
+// ── SVG Pie Chart (inline, no dependencies) ───────────────────────────────────
+function buildPieChart(slices: { label: string; pct: number; color: string }[], title: string): string {
+  const total = slices.reduce((s, x) => s + x.pct, 0) || 1
+  const norm  = slices.map(s => ({ ...s, frac: s.pct / total }))
+  const cx = 90, cy = 90, r = 80, W = 380, H = 200
+
+  let paths = ''
+  let angle = -Math.PI / 2
+  norm.forEach(s => {
+    const sweep = s.frac * 2 * Math.PI
+    const x1 = cx + r * Math.cos(angle)
+    const y1 = cy + r * Math.sin(angle)
+    const x2 = cx + r * Math.cos(angle + sweep)
+    const y2 = cy + r * Math.sin(angle + sweep)
+    const large = sweep > Math.PI ? 1 : 0
+    paths += `<path d="M${cx},${cy} L${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 ${large},1 ${x2.toFixed(1)},${y2.toFixed(1)} Z" fill="${s.color}" stroke="#fff" stroke-width="1.5"/>`
+    angle += sweep
+  })
+
+  // Legend
+  let legend = ''
+  norm.forEach((s, i) => {
+    const y = 12 + i * 18
+    legend += `<rect x="195" y="${y - 9}" width="12" height="12" rx="2" fill="${s.color}"/>
+      <text x="212" y="${y}" font-size="10" fill="#334155">${s.label.replace(/_/g, ' ')} <tspan font-weight="bold">${(s.frac * 100).toFixed(1)}%</tspan></text>`
+  })
+
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;height:auto;display:block;margin:8px 0">
+    <text x="${cx}" y="-8" text-anchor="middle" font-size="11" font-weight="600" fill="#1e293b">${title}</text>
+    ${paths}
+    <text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="10" fill="#64748b">Alloc %</text>
+    ${legend}
+  </svg>`
+}
+
+// ── SVG Dot Chart for sector ETF returns ─────────────────────────────────────
+function buildSectorDotChart(sectors: { ticker: string; ret: number }[]): string {
+  const sorted = [...sectors].sort((a, b) => b.ret - a.ret)
+  const W = 500, rowH = 22, padL = 50, padR = 20, padT = 24, barW = W - padL - padR - 60
+  const H = padT + sorted.length * rowH + 20
+  const vals = sorted.map(s => s.ret)
+  const min = Math.min(...vals, 0), max = Math.max(...vals, 0)
+  const range = max - min || 1
+  const zeroX = padL + ((-min) / range) * barW
+
+  let rows = ''
+  sorted.forEach((s, i) => {
+    const y = padT + i * rowH
+    const x = padL + ((s.ret - min) / range) * barW
+    const color = s.ret >= 0 ? '#16a34a' : '#dc2626'
+    const cx_ = Math.min(x, zeroX), barLen = Math.abs(x - zeroX)
+    rows += `
+      <text x="${padL - 4}" y="${y + 7}" text-anchor="end" font-size="9" fill="#64748b" font-family="monospace">${s.ticker}</text>
+      <rect x="${cx_}" y="${y - 2}" width="${barLen}" height="12" rx="2" fill="${color}" opacity="0.25"/>
+      <circle cx="${x}" cy="${y + 4}" r="5" fill="${color}"/>
+      <text x="${x + (s.ret >= 0 ? 8 : -8)}" y="${y + 8}" font-size="9" fill="${color}" text-anchor="${s.ret >= 0 ? 'start' : 'end'}" font-family="monospace" font-weight="700">${pctStr(s.ret)}</text>`
+  })
+
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;height:auto;display:block;margin:8px 0">
+    <text x="${W/2}" y="14" text-anchor="middle" font-size="11" font-weight="600" fill="#1e293b">Sector ETF Period Return</text>
+    <line x1="${zeroX}" y1="${padT - 4}" x2="${zeroX}" y2="${H - 8}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3,3"/>
+    ${rows}
+  </svg>`
+}
+
+// ── SVG complement butterfly chart ───────────────────────────────────────────
+function buildComplementChart(
+  mgr: PortfolioHolding[], cli: PortfolioHolding[]
+): string {
+  const cats = [...new Set([...mgr, ...cli].map(h => h.category))]
+  const mTotal = mgr.reduce((s, h) => s + h.pct, 0) || 1
+  const cTotal = cli.reduce((s, h) => s + h.pct, 0) || 1
+  const rows = cats.map(cat => ({
+    cat,
+    mPct: mgr.filter(h => h.category === cat).reduce((s, h) => s + h.pct / mTotal * 100, 0),
+    cPct: cli.filter(h => h.category === cat).reduce((s, h) => s + h.pct / cTotal * 100, 0),
+    color: CAT_COLORS[cat] ?? '#94a3b8',
+  }))
+
+  const W = 500, rowH = 24, padT = 30, padB = 10
+  const H = padT + rows.length * rowH + padB
+  const midX = 250, halfBar = 100
+
+  let svgRows = ''
+  rows.forEach((r, i) => {
+    const y = padT + i * rowH
+    const mW = (r.mPct / 100) * halfBar
+    const cW = (r.cPct / 100) * halfBar
+    svgRows += `
+      <text x="${midX - 4}" y="${y + 10}" text-anchor="end" font-size="9" fill="#334155">${r.cat.replace(/_/g,' ')}</text>
+      <rect x="${midX - mW}" y="${y}" width="${mW}" height="14" rx="2" fill="#818cf8" opacity="0.7"/>
+      <rect x="${midX}" y="${y}" width="${cW}" height="14" rx="2" fill="#34d399" opacity="0.7"/>
+      <text x="${midX - mW - 3}" y="${y + 10}" text-anchor="end" font-size="8" fill="#818cf8" font-family="monospace">${r.mPct.toFixed(0)}%</text>
+      <text x="${midX + cW + 3}" y="${y + 10}" text-anchor="start" font-size="8" fill="#16a34a" font-family="monospace">${r.cPct.toFixed(0)}%</text>`
+  })
+
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;height:auto;display:block;margin:8px 0">
+    <text x="10" y="16" font-size="9" fill="#818cf8" font-weight="600">◀ GoalBasedPortfolio</text>
+    <text x="${W - 10}" y="16" text-anchor="end" font-size="9" fill="#16a34a" font-weight="600">Balanced Portfolio ▶</text>
+    <line x1="${midX}" y1="22" x2="${midX}" y2="${H - padB}" stroke="#cbd5e1" stroke-width="1"/>
+    ${svgRows}
+  </svg>`
+}
+
+// ── HTML report builder ────────────────────────────────────────────────────────
 function buildReport(selected: Set<string>, data: {
-  snapshot?: any; news?: any[]; pmi?: any[]; calendar?: any[]
-  watchlist?: WatchlistHolding[]
+  snapshot?: any; news?: any[]; pmi?: any; calendar?: any[]
+  watchlist?: WatchlistHolding[]; sectorReturns?: { ticker: string; ret: number }[]
   holdings?: PortfolioHolding[]; clientHoldings?: PortfolioHolding[]
   proj?: PortfolioProjections; cProj?: PortfolioProjections; clientName?: string
 }) {
-  const { snapshot, news, pmi, calendar, watchlist, holdings, clientHoldings, proj, cProj, clientName } = data
+  const { snapshot, news, pmi, calendar, watchlist, sectorReturns,
+          holdings, clientHoldings, proj, cProj, clientName } = data
   const date = new Date().toLocaleDateString('en-SG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 
   const css = `
-    * { box-sizing: border-box; margin: 0; padding: 0 }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1e293b; background: #fff; padding: 32px; max-width: 900px; margin: auto }
-    h1 { font-size: 22px; font-weight: 700; color: #0f172a; margin-bottom: 4px }
-    .subtitle { font-size: 11px; color: #64748b; margin-bottom: 28px }
-    h2 { font-size: 14px; font-weight: 700; color: #1e293b; margin: 24px 0 10px; padding-bottom: 6px; border-bottom: 2px solid #e2e8f0 }
-    h3 { font-size: 12px; font-weight: 600; color: #334155; margin: 14px 0 6px }
-    .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; margin-bottom: 6px }
-    .badge-green { background: #dcfce7; color: #166534 }
-    .badge-red   { background: #fee2e2; color: #991b1b }
-    .badge-amber { background: #fef3c7; color: #92400e }
-    .badge-blue  { background: #dbeafe; color: #1e40af }
-    .badge-gray  { background: #f1f5f9; color: #475569 }
-    table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 8px }
-    th { background: #f8fafc; padding: 7px 10px; text-align: left; font-weight: 600; color: #64748b; border-bottom: 1px solid #e2e8f0 }
-    td { padding: 7px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: top }
-    tr:last-child td { border-bottom: none }
-    .right { text-align: right }
-    .mono { font-family: 'Courier New', monospace; font-weight: 700 }
-    .green { color: #16a34a } .red { color: #dc2626 } .blue { color: #2563eb }
-    .amber { color: #d97706 } .purple { color: #7c3aed } .gray { color: #64748b }
-    .narrative { font-size: 11px; line-height: 1.7; color: #334155; background: #f8fafc; border-left: 3px solid #3b82f6; padding: 10px 14px; margin: 8px 0; border-radius: 0 6px 6px 0 }
-    .narrative p { margin-bottom: 8px } .narrative p:last-child { margin-bottom: 0 }
-    .narrative strong { color: #1e40af }
-    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px }
-    .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 8px }
-    .card-title { font-size: 11px; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px }
-    .big-num { font-size: 20px; font-weight: 800; font-family: 'Courier New', monospace }
-    .news-item { display: flex; gap: 10px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #f1f5f9 }
-    .news-meta { font-size: 10px; color: #94a3b8; margin-top: 2px }
-    .news-headline { font-size: 12px; color: #1e293b; font-weight: 500; line-height: 1.4 }
-    .alloc-bar { display: inline-block; height: 10px; border-radius: 3px; vertical-align: middle; margin-right: 6px }
-    footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 10px; color: #94a3b8 }
-    @media print { body { padding: 16px } }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1e293b;background:#fff;padding:32px;max-width:900px;margin:auto}
+    h1{font-size:22px;font-weight:700;color:#0f172a;margin-bottom:4px}
+    .subtitle{font-size:11px;color:#64748b;margin-bottom:28px}
+    h2{font-size:14px;font-weight:700;color:#1e293b;margin:28px 0 10px;padding-bottom:6px;border-bottom:2px solid #e2e8f0}
+    h3{font-size:12px;font-weight:600;color:#334155;margin:14px 0 6px}
+    .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:10px;font-weight:700}
+    .bg{background:#22c55e;color:#fff}.br{background:#ef4444;color:#fff}.ba{background:#f59e0b;color:#fff}.bb{background:#3b82f6;color:#fff}.bgr{background:#f1f5f9;color:#475569}
+    table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px}
+    th{background:#f8fafc;padding:7px 10px;text-align:left;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0}
+    td{padding:7px 10px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+    tr:last-child td{border-bottom:none}
+    .rt{text-align:right}.mono{font-family:'Courier New',monospace;font-weight:700}
+    .g{color:#16a34a}.r{color:#dc2626}.b{color:#2563eb}.a{color:#d97706}.pu{color:#7c3aed}.gr{color:#64748b}
+    .narrative{font-size:11px;line-height:1.7;color:#334155;background:#f8fafc;border-left:3px solid #3b82f6;padding:10px 14px;margin:8px 0;border-radius:0 6px 6px 0}
+    .narrative p{margin-bottom:8px}.narrative p:last-child{margin-bottom:0}
+    .narrative strong{color:#1e40af}
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .news-item{margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #f1f5f9}
+    .news-meta{font-size:10px;color:#94a3b8;margin-top:2px}
+    .news-headline{font-size:12px;color:#1e293b;font-weight:500;line-height:1.4}
+    footer{margin-top:32px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8}
+    @media print{body{padding:16px}}
   `
 
   let body = ''
 
-  // ── MACRO SNAPSHOT ───────────────────────────────────────────────────────────
+  // ── MARKET SNAPSHOT ─────────────────────────────────────────────────────────
   if (selected.has('macro_snapshot') && snapshot) {
-    const regimeColor = (r: string) =>
-      r.includes('BULL') ? 'badge-green' : r.includes('BEAR') ? 'badge-red' : 'badge-amber'
+    const regCls = (r: string) => r.includes('BULL') ? 'bg' : r.includes('BEAR') ? 'br' : 'ba'
     body += `<h2>🌐 Market Snapshot</h2>
-    <span class="badge ${regimeColor(snapshot.regime ?? '')}">${snapshot.regime ?? '—'}</span>
+    <span class="badge ${regCls(snapshot.regime ?? '')}">${snapshot.regime ?? '—'}</span>
     <div class="two-col" style="margin-top:10px">`
 
-    // Top gainers / losers
     if (snapshot.top_gainers?.length || snapshot.top_losers?.length) {
-      body += `<div>
-        <h3>Top Gainers (1D)</h3>
-        <table><thead><tr><th>Ticker</th><th class="right">1D</th><th class="right">YTD</th></tr></thead><tbody>
-        ${(snapshot.top_gainers ?? []).slice(0, 5).map((a: any) =>
-          `<tr><td class="mono">${a.ticker}</td><td class="right mono green">${pctStr(a.chg_1d)}</td><td class="right mono ${(a.chg_ytd ?? 0) >= 0 ? 'green' : 'red'}">${pctStr(a.chg_ytd)}</td></tr>`
-        ).join('')}
-        </tbody></table>
-      </div>
-      <div>
-        <h3>Top Losers (1D)</h3>
-        <table><thead><tr><th>Ticker</th><th class="right">1D</th><th class="right">YTD</th></tr></thead><tbody>
-        ${(snapshot.top_losers ?? []).slice(0, 5).map((a: any) =>
-          `<tr><td class="mono">${a.ticker}</td><td class="right mono red">${pctStr(a.chg_1d)}</td><td class="right mono ${(a.chg_ytd ?? 0) >= 0 ? 'green' : 'red'}">${pctStr(a.chg_ytd)}</td></tr>`
-        ).join('')}
-        </tbody></table>
-      </div>`
+      body += `<div><h3>Top Gainers</h3>
+        <table><thead><tr><th>Ticker</th><th class="rt">1D</th><th class="rt">YTD</th></tr></thead><tbody>
+        ${(snapshot.top_gainers ?? []).slice(0,5).map((a: any) =>
+          `<tr><td class="mono">${a.ticker}</td><td class="rt mono g">${pctStr(a.chg_1d)}</td><td class="rt mono ${(a.chg_ytd??0)>=0?'g':'r'}">${pctStr(a.chg_ytd)}</td></tr>`
+        ).join('')}</tbody></table></div>
+      <div><h3>Top Losers</h3>
+        <table><thead><tr><th>Ticker</th><th class="rt">1D</th><th class="rt">YTD</th></tr></thead><tbody>
+        ${(snapshot.top_losers ?? []).slice(0,5).map((a: any) =>
+          `<tr><td class="mono">${a.ticker}</td><td class="rt mono r">${pctStr(a.chg_1d)}</td><td class="rt mono ${(a.chg_ytd??0)>=0?'g':'r'}">${pctStr(a.chg_ytd)}</td></tr>`
+        ).join('')}</tbody></table></div>`
     }
     body += `</div>`
 
-    // AI narrative
     if (snapshot.narrative) {
       body += `<h3>AI Market Narrative</h3>
       <div class="narrative">${snapshot.narrative
         .split('\n\n').filter(Boolean)
-        .map((p: string) => `<p>${p.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/📊|💱|🌍|📅/g, '')}</p>`)
-        .join('')}
+        .map((p: string) => `<p>${p.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</p>`).join('')}
       </div>`
     }
 
-    // US sectors
     if (snapshot.us_sectors?.all?.length) {
-      body += `<h3>US Sector Performance (1D)</h3>
-      <table><thead><tr><th>Sector</th><th class="right">1D</th><th class="right">1W</th></tr></thead><tbody>
-      ${snapshot.us_sectors.all.slice(0, 8).map((s: any) =>
-        `<tr><td>${s.name ?? s.ticker}</td><td class="right mono ${(s.chg_1d ?? 0) >= 0 ? 'green' : 'red'}">${pctStr(s.chg_1d)}</td><td class="right mono ${(s.chg_5d ?? 0) >= 0 ? 'green' : 'red'}">${pctStr(s.chg_5d)}</td></tr>`
-      ).join('')}
-      </tbody></table>`
+      body += `<h3>US Sector Performance</h3>
+      <table><thead><tr><th>Sector</th><th class="rt">1D</th><th class="rt">1W</th></tr></thead><tbody>
+      ${snapshot.us_sectors.all.slice(0,8).map((s: any) =>
+        `<tr><td>${s.name??s.ticker}</td>
+        <td class="rt mono ${(s.chg_1d??0)>=0?'g':'r'}">${pctStr(s.chg_1d)}</td>
+        <td class="rt mono ${(s.chg_5d??0)>=0?'g':'r'}">${pctStr(s.chg_5d)}</td></tr>`
+      ).join('')}</tbody></table>`
     }
   }
 
-  // ── MACRO NEWS ───────────────────────────────────────────────────────────────
+  // ── NEWS ────────────────────────────────────────────────────────────────────
   if (selected.has('macro_news') && news?.length) {
     body += `<h2>📰 Market News</h2>`
-    news.slice(0, 8).forEach((a: any) => {
+    news.slice(0,8).forEach((a: any) => {
+      const ts = a.ts ?? (a.dt ? new Date(a.dt).getTime()/1000 : null)
       body += `<div class="news-item">
-        <div>
-          <div class="news-headline">${a.headline ?? ''}</div>
-          <div class="news-meta">${a.source ?? ''} · ${a.dt ? fmtAge(a.dt) : ''} · ${a.category ?? ''}</div>
-          ${a.summary ? `<div style="font-size:11px;color:#64748b;margin-top:3px">${a.summary}</div>` : ''}
-        </div>
+        <div class="news-headline">${a.headline??''}</div>
+        <div class="news-meta">${a.source??''} · ${ts ? fmtTs(ts) : ''} · ${a.category??''}</div>
+        ${a.summary ? `<div style="font-size:11px;color:#64748b;margin-top:3px">${a.summary}</div>` : ''}
       </div>`
     })
   }
 
-  // ── PMI HEATMAP ──────────────────────────────────────────────────────────────
-  if (selected.has('macro_pmi') && pmi?.length) {
-    body += `<h2>📊 PMI Heatmap</h2>
-    <table><thead><tr><th>Country</th><th class="right">Manufacturing</th><th class="right">Services</th><th class="right">Composite</th></tr></thead><tbody>
-    ${pmi.slice(0, 12).map((r: any) => {
-      const mfg = r.manufacturing ?? r.mfg
-      const svc = r.services ?? r.svc
-      const cmp = r.composite ?? r.comp
-      const col = (v?: number) => v == null ? '' : v >= 52 ? 'green' : v >= 50 ? 'amber' : 'red'
-      return `<tr><td>${r.country ?? r.region ?? '—'}</td>
-        <td class="right mono ${col(mfg)}">${mfg ?? '—'}</td>
-        <td class="right mono ${col(svc)}">${svc ?? '—'}</td>
-        <td class="right mono ${col(cmp)}">${cmp ?? '—'}</td>
+  // ── PMI ─────────────────────────────────────────────────────────────────────
+  if (selected.has('macro_pmi') && pmi) {
+    const mfgRows: any[] = pmi.manufacturing ?? []
+    const svcRows: any[] = pmi.services ?? []
+    const months: string[] = pmi.months ?? []
+    const lastMo = months[months.length - 1]
+    const prevMo = months[months.length - 2]
+
+    body += `<h2>🏭 PMI Heatmap</h2>
+    <table><thead><tr><th>Country</th><th class="rt">Mfg (latest)</th><th class="rt">Mfg (prev)</th><th class="rt">Svc (latest)</th></tr></thead><tbody>
+    ${mfgRows.map((row: any) => {
+      const mLast = row.months?.[lastMo]
+      const mPrev = row.months?.[prevMo]
+      const srow = svcRows.find((s: any) => s.code === row.code)
+      const sLast = srow?.months?.[lastMo]
+      const col = (v?: number) => v==null?'gr':v>=52?'g':v>=50?'a':'r'
+      return `<tr><td>${row.flag??''} ${row.name??row.code}</td>
+        <td class="rt mono ${col(mLast)}">${mLast??'—'}</td>
+        <td class="rt mono gr">${mPrev??'—'}</td>
+        <td class="rt mono ${col(sLast)}">${sLast??'—'}</td>
       </tr>`
     }).join('')}
     </tbody></table>
-    <div style="font-size:10px;color:#94a3b8;margin-top:4px">PMI: &gt;52 = expansion (green) · 50–52 = marginal growth (amber) · &lt;50 = contraction (red)</div>`
+    <div style="font-size:10px;color:#94a3b8;margin-top:4px">PMI &gt;52 expansion · 50–52 marginal · &lt;50 contraction · Month: ${lastMo}</div>`
   }
 
-  // ── ECONOMIC CALENDAR ────────────────────────────────────────────────────────
+  // ── CALENDAR ────────────────────────────────────────────────────────────────
   if (selected.has('macro_calendar') && calendar?.length) {
     body += `<h2>📅 Economic Calendar</h2>
-    <table><thead><tr><th>Date</th><th>Event</th><th>Country</th><th class="right">Impact</th><th class="right">Actual</th><th class="right">Forecast</th></tr></thead><tbody>
-    ${calendar.slice(0, 12).map((e: any) =>
-      `<tr><td>${e.date ?? ''}</td><td>${e.event ?? ''}</td><td>${e.country ?? ''}</td>
-      <td class="right"><span class="badge badge-${e.impact === 'High' ? 'red' : e.impact === 'Medium' ? 'amber' : 'gray'}" style="font-size:9px">${e.impact ?? ''}</span></td>
-      <td class="right mono">${e.actual ?? '—'}</td><td class="right mono gray">${e.forecast ?? '—'}</td></tr>`
-    ).join('')}
+    <table><thead><tr><th>Date</th><th>Event</th><th>Country</th><th class="rt">Impact</th></tr></thead><tbody>
+    ${calendar.slice(0,15).map((e: any) => {
+      const impCls = e.importance==='HIGH' ? 'br' : e.importance==='MEDIUM' ? 'ba' : 'bgr'
+      return `<tr>
+        <td>${e.date??''} <span style="font-size:9px;color:#94a3b8">${e.day_of_week??''}</span></td>
+        <td>${e.title??e.event??''} ${e.note ? `<div style="font-size:9px;color:#94a3b8">${e.note}</div>` : ''}</td>
+        <td>${e.country??''}</td>
+        <td class="rt"><span class="badge ${impCls}">${e.importance??''}</span></td>
+      </tr>`
+    }).join('')}
     </tbody></table>`
   }
 
-  // ── WATCHLIST SIGNALS ────────────────────────────────────────────────────────
+  // ── WATCHLIST SIGNALS ───────────────────────────────────────────────────────
   if (selected.has('wl_signals') && watchlist?.length) {
-    const sigColor: Record<string, string> = {
-      BUY: 'green', SQUEEZE: 'purple', WATCH: 'amber', NEUTRAL: 'gray', SELL: 'red'
-    }
+    const sigCls: Record<string,string> = { BUY:'bg', SQUEEZE:'pu', WATCH:'ba', NEUTRAL:'bgr', SELL:'br' }
     body += `<h2>⭐ Watchlist Signals</h2>
     <table><thead><tr>
       <th>Ticker</th><th>Signal</th>
-      <th class="right">Price</th><th class="right">1D</th><th class="right">5D</th><th class="right">3M</th><th class="right">1Y</th>
-      <th class="right">Vol σ</th><th class="right">Sharpe 1Y</th>
+      <th class="rt">Price</th><th class="rt">1D</th><th class="rt">5D</th><th class="rt">3M</th><th class="rt">1Y</th>
+      <th class="rt">Vol σ</th><th class="rt">Sharpe</th>
     </tr></thead><tbody>
-    ${watchlist.map(h =>
-      `<tr>
-        <td class="mono">${h.ticker}</td>
-        <td><span class="badge badge-${sigColor[h.signal] ?? 'gray'}" style="font-size:9px">${h.signal}</span></td>
-        <td class="right">${h.price != null ? `$${h.price.toFixed(2)}` : '—'}</td>
-        <td class="right mono ${(h.overnight ?? 0) >= 0 ? 'green' : 'red'}">${pctStr(h.overnight)}</td>
-        <td class="right mono ${(h['5d'] ?? 0) >= 0 ? 'green' : 'red'}">${pctStr(h['5d'])}</td>
-        <td class="right mono ${(h['3m'] ?? 0) >= 0 ? 'green' : 'red'}">${pctStr(h['3m'])}</td>
-        <td class="right mono ${(h['1y'] ?? 0) >= 0 ? 'green' : 'red'}">${pctStr(h['1y'])}</td>
-        <td class="right mono amber">${h.vol_ann != null ? `${h.vol_ann.toFixed(1)}%` : '—'}</td>
-        <td class="right mono">${h.sharpe_1y != null ? h.sharpe_1y.toFixed(2) : '—'}</td>
-      </tr>`
-    ).join('')}
+    ${watchlist.map(h => `<tr>
+      <td class="mono">${h.ticker}</td>
+      <td><span class="badge ${sigCls[h.signal]??'bgr'}" style="font-size:9px">${h.signal}</span></td>
+      <td class="rt">${h.price!=null?`$${h.price.toFixed(2)}`:'—'}</td>
+      <td class="rt mono ${(h.overnight??0)>=0?'g':'r'}">${pctStr(h.overnight)}</td>
+      <td class="rt mono ${(h['5d']??0)>=0?'g':'r'}">${pctStr(h['5d'])}</td>
+      <td class="rt mono ${(h['3m']??0)>=0?'g':'r'}">${pctStr(h['3m'])}</td>
+      <td class="rt mono ${(h['1y']??0)>=0?'g':'r'}">${pctStr(h['1y'])}</td>
+      <td class="rt mono a">${h.vol_ann!=null?`${h.vol_ann.toFixed(1)}%`:'—'}</td>
+      <td class="rt mono">${h.sharpe_1y!=null?h.sharpe_1y.toFixed(2):'—'}</td>
+    </tr>`).join('')}
     </tbody></table>`
   }
 
-  // ── WATCHLIST FUNDAMENTALS ───────────────────────────────────────────────────
+  // ── WATCHLIST FUNDAMENTALS ──────────────────────────────────────────────────
   if (selected.has('wl_fundamentals') && watchlist?.length) {
-    body += `<h2>⭐ Watchlist Fundamentals</h2>
-    <table><thead><tr>
-      <th>Ticker</th><th class="right">EPS TTM</th><th class="right">Fwd EPS</th><th class="right">EPS Growth</th><th class="right">Div Yield</th><th class="right">ROE</th>
-    </tr></thead><tbody>
-    ${watchlist.map(h =>
-      `<tr>
-        <td class="mono">${h.ticker}${h.name && h.name !== h.ticker ? `<div style="font-size:9px;color:#94a3b8">${h.name}</div>` : ''}</td>
-        <td class="right mono">${h.eps_ttm != null ? `$${h.eps_ttm.toFixed(2)}` : '—'}</td>
-        <td class="right mono">${h.eps_forward != null ? `$${h.eps_forward.toFixed(2)}` : '—'}</td>
-        <td class="right mono ${(h.eps_growth_yoy ?? 0) >= 0 ? 'green' : 'red'}">${pctStr(h.eps_growth_yoy, 0)}</td>
-        <td class="right mono ${h.dividend_yield ? 'amber' : 'gray'}">${h.dividend_yield ? `${h.dividend_yield.toFixed(1)}%` : '—'}</td>
-        <td class="right mono ${h.roe != null ? (h.roe >= 15 ? 'green' : h.roe >= 0 ? 'amber' : 'red') : 'gray'}">${h.roe != null ? `${h.roe.toFixed(1)}%` : '—'}</td>
-      </tr>`
-    ).join('')}
-    </tbody></table>`
+    const hasFunds = watchlist.some(h => h.eps_ttm != null || h.roe != null)
+    if (hasFunds) {
+      body += `<h2>⭐ Watchlist Fundamentals</h2>
+      <table><thead><tr>
+        <th>Ticker</th><th class="rt">EPS TTM</th><th class="rt">Fwd EPS</th><th class="rt">EPS Growth</th><th class="rt">Div Yield</th><th class="rt">ROE</th>
+      </tr></thead><tbody>
+      ${watchlist.map(h => `<tr>
+        <td class="mono">${h.ticker}${h.name&&h.name!==h.ticker?`<div style="font-size:9px;color:#94a3b8">${h.name}</div>`:''}</td>
+        <td class="rt mono">${h.eps_ttm!=null?`$${h.eps_ttm.toFixed(2)}`:'—'}</td>
+        <td class="rt mono">${h.eps_forward!=null?`$${h.eps_forward.toFixed(2)}`:'—'}</td>
+        <td class="rt mono ${(h.eps_growth_yoy??0)>=0?'g':'r'}">${pctStr(h.eps_growth_yoy,0)}</td>
+        <td class="rt mono a">${h.dividend_yield?`${h.dividend_yield.toFixed(1)}%`:'—'}</td>
+        <td class="rt mono ${h.roe!=null?(h.roe>=15?'g':h.roe>=0?'a':'r'):'gr'}">${h.roe!=null?`${h.roe.toFixed(1)}%`:'—'}</td>
+      </tr>`).join('')}
+      </tbody></table>`
+    } else {
+      body += `<h2>⭐ Watchlist Fundamentals</h2>
+      <p style="font-size:11px;color:#94a3b8">Fundamentals data not available — ticker-info endpoint requires individual symbol lookups.</p>`
+    }
   }
 
-  // ── PORTFOLIO HOLDINGS ───────────────────────────────────────────────────────
-  const allH = (holdings ?? []).length > 0 || (clientHoldings ?? []).length > 0
-  if (selected.has('pt_holdings') && allH) {
+  // ── SECTOR DOT CHART ────────────────────────────────────────────────────────
+  if (selected.has('wl_chart') && sectorReturns?.length) {
+    body += `<h2>📊 Sector ETF Performance</h2>`
+    body += buildSectorDotChart(sectorReturns)
+  }
+
+  // ── HOLDINGS ────────────────────────────────────────────────────────────────
+  if (selected.has('pt_holdings') && (holdings?.length || clientHoldings?.length)) {
     const renderHoldings = (h: PortfolioHolding[], label: string) => {
       if (!h.length) return ''
       const total = h.reduce((s, x) => s + x.pct, 0) || 1
+      // Build pie slices grouped by category
+      const catMap: Record<string, number> = {}
+      h.forEach(x => { catMap[x.category] = (catMap[x.category]??0) + x.pct/total*100 })
+      const slices = Object.entries(catMap).map(([cat, pct]) => ({
+        label: cat, pct, color: CAT_COLORS[cat] ?? '#94a3b8'
+      }))
+
       return `<h3>${label}</h3>
-      <table><thead><tr><th>Ticker</th><th>Name</th><th>Category</th><th class="right">Weight</th><th class="right">Est Return p.a.</th></tr></thead><tbody>
+      ${buildPieChart(slices, `${label} — Allocation by Category`)}
+      <table><thead><tr><th>Ticker</th><th>Name</th><th>Category</th><th class="rt">Weight</th><th class="rt">Est Return p.a.</th></tr></thead><tbody>
       ${h.map(x => {
-        const w = (x.pct / total * 100)
-        const barColor = CAT_COLOR[x.category] ?? '#94a3b8'
+        const w = x.pct/total*100
+        const bar = `<span style="display:inline-block;width:${Math.min(Math.round(w*2),60)}px;height:8px;border-radius:2px;background:${CAT_COLORS[x.category]??'#94a3b8'};vertical-align:middle;margin-right:4px"></span>`
         return `<tr>
-          <td class="mono">${x.ticker}${x.isCustom ? ' <span style="font-size:9px;color:#f59e0b">custom</span>' : ''}</td>
+          <td class="mono">${x.ticker}${x.isCustom?' <span style="font-size:9px;color:#f59e0b">custom</span>':''}</td>
           <td style="color:#64748b">${x.name}</td>
-          <td>${x.category.replace(/_/g, ' ')}</td>
-          <td class="right">
-            <span class="alloc-bar" style="width:${Math.round(w * 2)}px;background:${barColor}"></span>${w.toFixed(1)}%
-          </td>
-          <td class="right mono ${x.managerReturn >= 0 ? 'blue' : 'red'}">${pctStr(x.managerReturn)}</td>
+          <td>${x.category.replace(/_/g,' ')}</td>
+          <td class="rt">${bar}${w.toFixed(1)}%</td>
+          <td class="rt mono ${x.managerReturn>=0?'b':'r'}">${pctStr(x.managerReturn)}</td>
         </tr>`
       }).join('')}
       </tbody></table>`
     }
     body += `<h2>📐 Holdings Allocation</h2>`
-    body += renderHoldings(holdings ?? [], 'GoalBasedPortfolio')
-    if (clientHoldings?.length) body += renderHoldings(clientHoldings, 'Balanced Portfolio')
+    body += renderHoldings(holdings??[], 'GoalBasedPortfolio')
+    if (clientHoldings?.length) body += renderHoldings(clientHoldings, `Balanced Portfolio${clientName?' — '+clientName:''}`)
   }
 
-  // ── PORTFOLIO PROJECTIONS ─────────────────────────────────────────────────────
-  if (selected.has('pt_projections') && (proj || cProj)) {
+  // ── PROJECTIONS ─────────────────────────────────────────────────────────────
+  if (selected.has('pt_projections') && (proj||cProj)) {
     body += `<h2>📐 Return Projections</h2>
-    <table><thead><tr><th>Scenario</th><th class="right">GoalBasedPortfolio</th>${cProj ? '<th class="right">Balanced Portfolio</th>' : ''}</tr></thead><tbody>`
+    <table><thead><tr><th>Scenario</th><th class="rt">GoalBasedPortfolio</th>${cProj?'<th class="rt">Balanced Portfolio</th>':''}</tr></thead><tbody>`
     const rows = [
-      { label: 'Est Return (manager)',   m: proj?.managerBlended,      c: cProj?.managerBlended,      cls: 'blue'   },
-      { label: 'YTD Return (live)',      m: proj?.aceBlended,           c: cProj?.aceBlended,          cls: 'green'  },
-      { label: 'Bear case (−50% base)', m: (proj?.aceBlended ?? 0) * 0.5,  c: (cProj?.aceBlended ?? 0) * 0.5,  cls: 'red'    },
-      { label: 'Bull case (×1.6 base)', m: (proj?.aceBlended ?? 0) * 1.6,  c: (cProj?.aceBlended ?? 0) * 1.6,  cls: 'green'  },
+      { label:'Est Return (manager)',    m:proj?.managerBlended,              c:cProj?.managerBlended,              cls:'b' },
+      { label:'YTD Return (live)',       m:proj?.aceBlended,                  c:cProj?.aceBlended,                  cls:'g' },
+      { label:'Bear case (−50% base)',   m:(proj?.aceBlended??0)*0.5,         c:(cProj?.aceBlended??0)*0.5,         cls:'r' },
+      { label:'Bull case (×1.6 base)',   m:(proj?.aceBlended??0)*1.6,         c:(cProj?.aceBlended??0)*1.6,         cls:'g' },
+      { label:'Portfolio Volatility σ',  m:proj?.portfolioVol,                c:cProj?.portfolioVol,                cls:'a' },
+      { label:'Sharpe — YTD Return',     m:proj?.sharpeAce,                   c:cProj?.sharpeAce,                   cls:'gr' },
+      { label:'Sharpe — Est Return',     m:proj?.sharpeManager,               c:cProj?.sharpeManager,               cls:'gr' },
     ]
     rows.forEach(r => {
       body += `<tr><td>${r.label}</td>
-        <td class="right mono ${r.cls}">${proj ? pctStr(r.m) : '—'}</td>
-        ${cProj ? `<td class="right mono ${r.cls}">${pctStr(r.c)}</td>` : ''}
+        <td class="rt mono ${r.cls}">${proj?pctStr(r.m):'—'}</td>
+        ${cProj?`<td class="rt mono ${r.cls}">${pctStr(r.c)}</td>`:''}
       </tr>`
     })
-    body += `<tr style="border-top:1px solid #e2e8f0"><td>Portfolio Volatility (σ)</td>
-      <td class="right mono amber">${proj ? `${proj.portfolioVol.toFixed(1)}%` : '—'}</td>
-      ${cProj ? `<td class="right mono amber">${cProj.portfolioVol.toFixed(1)}%</td>` : ''}
-    </tr>
-    <tr><td>Sharpe — YTD Return</td>
-      <td class="right mono">${proj ? proj.sharpeAce.toFixed(2) : '—'}</td>
-      ${cProj ? `<td class="right mono">${cProj.sharpeAce.toFixed(2)}</td>` : ''}
-    </tr>
-    <tr><td>Sharpe — Est Return</td>
-      <td class="right mono">${proj ? proj.sharpeManager.toFixed(2) : '—'}</td>
-      ${cProj ? `<td class="right mono">${cProj.sharpeManager.toFixed(2)}</td>` : ''}
-    </tr>
-    </tbody></table>`
+    body += `</tbody></table>`
   }
 
-  // ── PORTFOLIO COMPARE ─────────────────────────────────────────────────────────
-  if (selected.has('pt_compare') && (holdings?.length && clientHoldings?.length && proj && cProj)) {
-    const allCats = [...new Set([...(holdings ?? []), ...(clientHoldings ?? [])].map(h => h.category))]
-    const mTotal = holdings!.reduce((s, h) => s + h.pct, 0) || 1
-    const cTotal = clientHoldings!.reduce((s, h) => s + h.pct, 0) || 1
+  // ── PORTFOLIO COMPARE ───────────────────────────────────────────────────────
+  if (selected.has('pt_compare') && holdings?.length && clientHoldings?.length) {
+    const cats = [...new Set([...holdings, ...clientHoldings].map(h => h.category))]
+    const mTot = holdings.reduce((s,h)=>s+h.pct,0)||1
+    const cTot = clientHoldings.reduce((s,h)=>s+h.pct,0)||1
     body += `<h2>⚖️ Portfolio Comparison</h2>
-    <table><thead><tr><th>Asset Class</th><th class="right">GoalBased %</th><th class="right">Balanced % ${clientName ? `(${clientName})` : ''}</th><th class="right">Gap</th></tr></thead><tbody>
-    ${allCats.map(cat => {
-      const mP = holdings!.filter(h => h.category === cat).reduce((s, h) => s + h.pct / mTotal * 100, 0)
-      const cP = clientHoldings!.filter(h => h.category === cat).reduce((s, h) => s + h.pct / cTotal * 100, 0)
+    <table><thead><tr><th>Asset Class</th><th class="rt">GoalBased %</th><th class="rt">Balanced %</th><th class="rt">Gap</th></tr></thead><tbody>
+    ${cats.map(cat => {
+      const mP = holdings.filter(h=>h.category===cat).reduce((s,h)=>s+h.pct/mTot*100,0)
+      const cP = clientHoldings.filter(h=>h.category===cat).reduce((s,h)=>s+h.pct/cTot*100,0)
       const delta = cP - mP
-      return `<tr>
-        <td>${cat.replace(/_/g, ' ')}</td>
-        <td class="right mono blue">${mP.toFixed(1)}%</td>
-        <td class="right mono">${cP.toFixed(1)}%</td>
-        <td class="right mono ${delta >= 0 ? 'green' : 'red'}">${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%</td>
+      return `<tr><td>${cat.replace(/_/g,' ')}</td>
+        <td class="rt mono b">${mP.toFixed(1)}%</td>
+        <td class="rt mono">${cP.toFixed(1)}%</td>
+        <td class="rt mono ${delta>=0?'g':'r'}">${delta>=0?'+':''}${delta.toFixed(1)}%</td>
       </tr>`
     }).join('')}
     </tbody></table>`
   }
 
-  const reportedSections = ALL_SECTIONS.filter(s => selected.has(s.id)).map(s => s.label).join(', ')
+  // ── COMPLEMENT CHART ────────────────────────────────────────────────────────
+  if (selected.has('pt_complement') && holdings?.length && clientHoldings?.length) {
+    body += `<h2>🔗 How the Two Portfolios Complement Each Other</h2>
+    <p style="font-size:11px;color:#64748b;margin-bottom:8px">Each bar shows asset class weight for GoalBasedPortfolio (left, indigo) vs Balanced Portfolio (right, green). Where one covers the other&apos;s gaps, together they provide broader diversification.</p>`
+    body += buildComplementChart(holdings, clientHoldings)
+  }
+
+  const sections = ALL_SECTIONS.filter(s => selected.has(s.id)).map(s => s.label).join(', ')
 
   return `<!DOCTYPE html>
 <html lang="en"><head>
-<meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>X68 Financial Report · ${date}</title>
 <style>${css}</style>
 </head><body>
 <h1>X68 Financial District — Report</h1>
-<div class="subtitle">${date} · Sections: ${reportedSections} · All figures are indicative estimates only, not investment advice.</div>
+<div class="subtitle">${date} · Sections: ${sections} · All figures are indicative estimates only, not investment advice.</div>
 ${body}
 <footer>Generated by X68 Financial District · AceEcotopia · ${date} · Not investment advice.</footer>
-<script>window.onload = () => window.print()</script>
+<script>window.onload=()=>window.print()</script>
 </body></html>`
 }
 
-// ── Modal component ────────────────────────────────────────────────────────────
+// ── Modal ───────────────────────────────────────────────────────────────────────
 export default function FinancialPrintModal({
   onClose, defaultSegments,
-  watchlistData, holdings, clientHoldings, proj, cProj, clientName,
+  watchlistData, sectorReturns: sectorReturnsProp,
+  holdings, clientHoldings, proj, cProj, clientName,
 }: Props) {
-  // Section selection — pre-check defaultSegments
   const initSelected = () => {
     const s = new Set<string>()
     ALL_SECTIONS.forEach(sec => {
@@ -368,134 +476,134 @@ export default function FinancialPrintModal({
   }
   const [selected, setSelected] = useState<Set<string>>(initSelected)
   const [generating, setGenerating] = useState(false)
-  const [fetchStatus, setFetchStatus] = useState<Record<string, 'idle' | 'loading' | 'done' | 'error'>>({})
+  const [macroStatus, setMacroStatus] = useState<'idle'|'loading'|'done'|'error'>('idle')
+  const [wlStatus,    setWlStatus]    = useState<'idle'|'loading'|'done'|'error'>('idle')
+  const [sectorStatus,setSectorStatus]= useState<'idle'|'loading'|'done'|'error'>('idle')
 
-  // Live data fetched by this modal
   const [snapshot,  setSnapshot]  = useState<any>(null)
   const [news,      setNews]      = useState<any[]>([])
-  const [pmi,       setPmi]       = useState<any[]>([])
+  const [pmi,       setPmi]       = useState<any>(null)
   const [calendar,  setCalendar]  = useState<any[]>([])
   const [wlSignals, setWlSignals] = useState<WatchlistHolding[]>(watchlistData ?? [])
-  const [wlFunds,   setWlFunds]   = useState<WatchlistHolding[]>([])
+  const [sectorRets,setSectorRets]= useState<{ticker:string;ret:number}[]>(sectorReturnsProp ?? [])
 
-  const needsMacro = ['macro_snapshot','macro_news','macro_pmi','macro_calendar'].some(id => selected.has(id))
-  const needsWl    = ['wl_signals','wl_fundamentals'].some(id => selected.has(id))
+  const needsMacro  = ['macro_snapshot','macro_news','macro_pmi','macro_calendar'].some(id => selected.has(id))
+  const needsWl     = ['wl_signals','wl_fundamentals'].some(id => selected.has(id))
+  const needsSector = selected.has('wl_chart') && !sectorReturnsProp?.length
 
-  // Pre-fetch when modal opens so generate is fast
   useEffect(() => {
-    if (needsMacro && !snapshot) {
-      setFetchStatus(s => ({ ...s, macro: 'loading' }))
-      Promise.all([
-        fetch('/api/nexus/macro/market-snapshot').then(r => r.json()).catch(() => null),
-        fetch('/api/nexus/macro/news').then(r => r.json()).catch(() => []),
-        fetch('/api/nexus/macro/pmi').then(r => r.json()).catch(() => []),
-        fetch('/api/nexus/macro/calendar').then(r => r.json()).catch(() => []),
-      ]).then(([snap, n, p, cal]) => {
-        if (snap) setSnapshot(snap)
-        setNews(Array.isArray(n) ? n : n?.news ?? [])
-        setPmi(Array.isArray(p) ? p : p?.rows ?? [])
-        setCalendar(Array.isArray(cal) ? cal : cal?.events ?? [])
-        setFetchStatus(s => ({ ...s, macro: 'done' }))
-      }).catch(() => setFetchStatus(s => ({ ...s, macro: 'error' })))
-    }
+    if (!needsMacro || macroStatus !== 'idle') return
+    setMacroStatus('loading')
+    Promise.all([
+      fetch('/api/nexus/macro/market-snapshot').then(r=>r.json()).catch(()=>null),
+      fetch('/api/nexus/macro/news').then(r=>r.json()).catch(()=>({articles:[]})),
+      fetch('/api/nexus/macro/pmi').then(r=>r.json()).catch(()=>null),
+      fetch('/api/nexus/macro/calendar').then(r=>r.json()).catch(()=>({events:[]})),
+    ]).then(([snap, n, p, cal]) => {
+      if (snap) setSnapshot(snap)
+      setNews(n?.articles ?? n?.news ?? (Array.isArray(n) ? n : []))
+      setPmi(p)
+      setCalendar(cal?.events ?? (Array.isArray(cal) ? cal : []))
+      setMacroStatus('done')
+    }).catch(()=>setMacroStatus('error'))
   }, [needsMacro])
 
   useEffect(() => {
-    if (needsWl && !watchlistData?.length) {
-      setFetchStatus(s => ({ ...s, wl: 'loading' }))
-      fetch('/api/citizen/watchlist/performance').then(r => r.json())
-        .then(d => { setWlSignals(d.tickers ?? []); setFetchStatus(s => ({ ...s, wl: 'done' })) })
-        .catch(() => setFetchStatus(s => ({ ...s, wl: 'error' })))
-
-      fetch('/api/citizen/watchlist/fundamentals').then(r => r.json())
-        .then(d => setWlFunds(d.tickers ?? []))
-        .catch(() => {})
-    }
+    if (!needsWl || wlStatus !== 'idle' || watchlistData?.length) return
+    setWlStatus('loading')
+    fetch('/api/citizen/watchlist/performance').then(r=>r.json())
+      .then(d => { setWlSignals(d.tickers ?? []); setWlStatus('done') })
+      .catch(()=>setWlStatus('error'))
   }, [needsWl])
 
+  // Fetch sector returns if not pre-supplied by parent
+  const SECTOR_ETFS = ['XLK','XLF','XLV','XLY','XLP','XLE','XLI','XLU','XLRE','XLC','XLB']
+  useEffect(() => {
+    if (sectorReturnsProp?.length) { setSectorRets(sectorReturnsProp); setSectorStatus('done'); return }
+    if (!needsSector || sectorStatus !== 'idle') return
+    setSectorStatus('loading')
+    fetch('/api/nexus/financial/perf-periods', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tickers: SECTOR_ETFS }),
+    })
+      .then(r => r.json())
+      .then((d: any) => {
+        const results = (d.tickers ?? []).map((t: any) => ({
+          ticker: t.ticker,
+          ret: t['3m'] ?? t['5d'] ?? null,  // best available ≈ 1M proxy
+        })).filter((x: any) => x.ret != null)
+        setSectorRets(results)
+        setSectorStatus('done')
+      })
+      .catch(() => setSectorStatus('error'))
+  }, [needsSector, sectorReturnsProp])
+
   function toggle(id: string) {
-    setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+    setSelected(prev => { const n=new Set(prev); n.has(id)?n.delete(id):n.add(id); return n })
   }
   function toggleSegment(seg: SegmentKey) {
-    const segSections = ALL_SECTIONS.filter(s => s.seg === seg)
-    const allOn = segSections.every(s => selected.has(s.id))
-    setSelected(prev => {
-      const n = new Set(prev)
-      segSections.forEach(s => allOn ? n.delete(s.id) : n.add(s.id))
-      return n
-    })
+    const secs = ALL_SECTIONS.filter(s => s.seg === seg)
+    const allOn = secs.every(s => selected.has(s.id))
+    setSelected(prev => { const n=new Set(prev); secs.forEach(s=>allOn?n.delete(s.id):n.add(s.id)); return n })
   }
 
   function generate() {
     if (!selected.size) return
     setGenerating(true)
-    // Merge fundamentals into wlSignals for the report
-    const mergedWl: WatchlistHolding[] = wlSignals.map(h => {
-      const f = wlFunds.find((x: any) => x.ticker === h.ticker) as any
-      return f ? { ...h, eps_ttm: f.eps_ttm, eps_forward: f.eps_forward, eps_growth_yoy: f.eps_growth_yoy, dividend_yield: f.dividend_yield, roe: f.roe } : h
-    })
     try {
-      const html = buildReport(selected, { snapshot, news, pmi, calendar, watchlist: mergedWl, holdings, clientHoldings, proj, cProj, clientName })
+      const html = buildReport(selected, {
+        snapshot, news, pmi, calendar,
+        watchlist: wlSignals, sectorReturns: sectorRets,
+        holdings, clientHoldings, proj, cProj, clientName,
+      })
       const w = window.open('', '_blank')
       if (w) { w.document.write(html); w.document.close() }
-    } finally {
-      setGenerating(false)
-    }
+    } finally { setGenerating(false) }
   }
 
-  const segGroups = (['macro', 'watchlist', 'portfolio'] as SegmentKey[]).map(seg => ({
-    seg, sections: ALL_SECTIONS.filter(s => s.seg === seg),
-    allOn: ALL_SECTIONS.filter(s => s.seg === seg).every(s => selected.has(s.id)),
-    anyOn: ALL_SECTIONS.filter(s => s.seg === seg).some(s => selected.has(s.id)),
+  const segGroups = (['macro','watchlist','portfolio'] as SegmentKey[]).map(seg => ({
+    seg, sections: ALL_SECTIONS.filter(s=>s.seg===seg),
+    allOn: ALL_SECTIONS.filter(s=>s.seg===seg).every(s=>selected.has(s.id)),
   }))
 
-  const isLoading = Object.values(fetchStatus).some(v => v === 'loading')
+  const isLoading = macroStatus==='loading' || wlStatus==='loading' || sectorStatus==='loading'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
       <div className="bg-[#0d1220] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
-        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/8">
           <div>
             <div className="text-sm font-bold text-white">🖨 Build Report</div>
-            <div className="text-[10px] text-slate-500 mt-0.5">Select sections to include · opens print dialog in new tab</div>
+            <div className="text-[10px] text-slate-500 mt-0.5">Select sections · opens print dialog in new tab</div>
           </div>
-          <button onClick={onClose} className="text-slate-600 hover:text-white transition text-lg leading-none">✕</button>
+          <button onClick={onClose} className="text-slate-600 hover:text-white transition text-lg">✕</button>
         </div>
 
-        {/* Section selector */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-          {segGroups.map(({ seg, sections, allOn, anyOn }) => (
+          {segGroups.map(({ seg, sections, allOn }) => (
             <div key={seg}>
-              {/* Segment header + select-all toggle */}
-              <button onClick={() => toggleSegment(seg)}
+              <button onClick={()=>toggleSegment(seg)}
                 className="w-full flex items-center justify-between mb-2 group">
-                <span className="text-[11px] font-semibold text-slate-300 group-hover:text-white transition">
-                  {SEG_LABEL[seg]}
-                </span>
-                <span className={`text-[9px] px-2 py-0.5 rounded border transition ${allOn ? 'border-cyan-500/50 text-cyan-400 bg-cyan-500/10' : anyOn ? 'border-white/15 text-slate-500' : 'border-white/10 text-slate-700'}`}>
-                  {allOn ? 'Deselect all' : 'Select all'}
+                <span className="text-[11px] font-semibold text-slate-300 group-hover:text-white transition">{SEG_LABEL[seg]}</span>
+                <span className={`text-[9px] px-2 py-0.5 rounded border transition ${allOn?'border-cyan-500/50 text-cyan-400 bg-cyan-500/10':'border-white/10 text-slate-700'}`}>
+                  {allOn?'Deselect all':'Select all'}
                 </span>
               </button>
 
-              {/* Fetch status */}
-              {seg === 'macro' && fetchStatus.macro === 'loading' && (
-                <div className="text-[9px] text-slate-600 animate-pulse mb-1">Fetching macro data…</div>
-              )}
-              {seg === 'watchlist' && fetchStatus.wl === 'loading' && (
-                <div className="text-[9px] text-slate-600 animate-pulse mb-1">Fetching watchlist data…</div>
-              )}
+              {seg==='macro' && macroStatus==='loading' && <div className="text-[9px] text-slate-600 animate-pulse mb-1">Fetching macro data…</div>}
+              {seg==='watchlist' && wlStatus==='loading' && <div className="text-[9px] text-slate-600 animate-pulse mb-1">Fetching watchlist data…</div>}
+              {seg==='watchlist' && sectorStatus==='loading' && <div className="text-[9px] text-slate-600 animate-pulse mb-1">Fetching sector returns…</div>}
 
               <div className="space-y-1.5">
                 {sections.map(sec => {
                   const on = selected.has(sec.id)
                   return (
                     <label key={sec.id}
-                      className={`flex items-start gap-3 cursor-pointer rounded-lg border px-3 py-2.5 transition ${on ? 'border-cyan-500/30 bg-cyan-500/6' : 'border-white/6 bg-white/2 hover:bg-white/4'}`}>
-                      <input type="checkbox" checked={on} onChange={() => toggle(sec.id)}
-                        className="mt-0.5 shrink-0 accent-cyan-400" />
+                      className={`flex items-start gap-3 cursor-pointer rounded-lg border px-3 py-2.5 transition ${on?'border-cyan-500/30 bg-cyan-500/6':'border-white/6 bg-white/2 hover:bg-white/4'}`}>
+                      <input type="checkbox" checked={on} onChange={()=>toggle(sec.id)} className="mt-0.5 shrink-0 accent-cyan-400"/>
                       <div>
-                        <div className={`text-[11px] font-medium ${on ? 'text-white' : 'text-slate-400'}`}>{sec.label}</div>
+                        <div className={`text-[11px] font-medium ${on?'text-white':'text-slate-400'}`}>{sec.label}</div>
                         <div className="text-[9px] text-slate-600">{sec.desc}</div>
                       </div>
                     </label>
@@ -506,20 +614,16 @@ export default function FinancialPrintModal({
           ))}
         </div>
 
-        {/* Footer */}
         <div className="px-5 py-4 border-t border-white/8 flex items-center gap-3">
           <div className="flex-1 text-[10px] text-slate-600">
-            {selected.size} section{selected.size !== 1 ? 's' : ''} selected
-            {isLoading && <span className="ml-2 animate-pulse">· fetching data…</span>}
+            {selected.size} section{selected.size!==1?'s':''} selected
+            {isLoading && <span className="ml-2 animate-pulse">· fetching…</span>}
           </div>
-          <button onClick={onClose} className="px-4 py-2 rounded-lg text-xs text-slate-500 hover:text-white border border-white/10 hover:border-white/20 transition">
-            Cancel
-          </button>
-          <button onClick={generate}
-            disabled={!selected.size || generating}
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-xs text-slate-500 hover:text-white border border-white/10 hover:border-white/20 transition">Cancel</button>
+          <button onClick={generate} disabled={!selected.size||generating}
             className="px-5 py-2 rounded-lg text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-black transition disabled:opacity-40 flex items-center gap-1.5">
-            {generating ? <span className="animate-spin">⟳</span> : '🖨'}
-            {generating ? 'Generating…' : 'Generate & Print'}
+            {generating?<span className="animate-spin">⟳</span>:'🖨'}
+            {generating?'Generating…':'Generate & Print'}
           </button>
         </div>
       </div>
