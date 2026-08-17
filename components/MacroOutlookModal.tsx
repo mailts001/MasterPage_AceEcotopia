@@ -1,5 +1,5 @@
 'use client'
-// v4 — us-stocks, sectors, narrative, sticky-tabs
+// v5 — finnhub news feed
 import { useEffect, useState } from 'react'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -21,6 +21,10 @@ interface SectorLeaderboard {
   all: AssetRow[]
 }
 interface AssetClass { key: string; name: string; assets: AssetRow[] }
+interface NewsArticle {
+  headline: string; summary: string; source: string; url: string
+  image?: string; dt: string; category: string; related?: string
+}
 interface Snapshot {
   generated_at: string | null; regime: string; summary: string; narrative?: string
   classes: AssetClass[]; top_gainers: AssetRow[]; top_losers: AssetRow[]
@@ -122,22 +126,25 @@ function PerfBar({ value, max }: { value: number | null; max: number }) {
 
 // ── Main Modal ─────────────────────────────────────────────────────────────────
 export default function MacroOutlookModal({ onClose }: { onClose: () => void }) {
-  const [tab, setTab]           = useState<'snapshot' | 'calendar' | 'pmi'>('snapshot')
+  const [tab, setTab]           = useState<'snapshot' | 'calendar' | 'pmi' | 'news'>('snapshot')
   const [pmiType, setPmiType]   = useState<'manufacturing' | 'services'>('manufacturing')
   const [filterCat, setFilterCat] = useState('ALL')
 
   const [events,   setEvents]   = useState<CalEvent[]>([])
   const [pmi,      setPmi]      = useState<PmiData | null>(null)
   const [snap,     setSnap]     = useState<Snapshot | null>(null)
+  const [news,     setNews]     = useState<NewsArticle[]>([])
 
   const [calLoading,  setCalLoading]  = useState(true)
   const [pmiLoading,  setPmiLoading]  = useState(true)
   const [snapLoading, setSnapLoading] = useState(true)
+  const [newsLoading, setNewsLoading] = useState(true)
 
   useEffect(() => {
     fetch('/api/nexus/macro/calendar').then(r => r.json()).then(d => { setEvents(d.events ?? []); setCalLoading(false) }).catch(() => setCalLoading(false))
     fetch('/api/nexus/macro/pmi').then(r => r.json()).then(d => { setPmi(d); setPmiLoading(false) }).catch(() => setPmiLoading(false))
     fetch('/api/nexus/macro/market-snapshot').then(r => r.json()).then(d => { setSnap(d); setSnapLoading(false) }).catch(() => setSnapLoading(false))
+    fetch('/api/nexus/macro/news').then(r => r.json()).then(d => { setNews(d.articles ?? []); setNewsLoading(false) }).catch(() => setNewsLoading(false))
   }, [])
 
   const categories = ['ALL', ...Array.from(new Set(events.map(e => e.category))).sort()]
@@ -148,6 +155,7 @@ export default function MacroOutlookModal({ onClose }: { onClose: () => void }) 
     { key: 'snapshot', label: '📊 Market Snapshot' },
     { key: 'calendar', label: '📅 Economic Calendar' },
     { key: 'pmi',      label: '🏭 PMI Heatmap' },
+    { key: 'news',     label: '📰 Market News' },
   ] as const
 
   return (
@@ -182,6 +190,7 @@ export default function MacroOutlookModal({ onClose }: { onClose: () => void }) 
           {tab === 'snapshot' && <SnapshotView snap={snap} loading={snapLoading} />}
           {tab === 'calendar' && <CalendarView events={filtered} weekGroups={weekGroups} categories={categories} filterCat={filterCat} setFilterCat={setFilterCat} loading={calLoading} />}
           {tab === 'pmi'      && <PmiView pmi={pmi} pmiType={pmiType} setPmiType={setPmiType} loading={pmiLoading} />}
+          {tab === 'news'     && <NewsView articles={news} loading={newsLoading} />}
         </div>
 
         {/* Footer */}
@@ -599,6 +608,89 @@ function PmiView({ pmi, pmiType, setPmiType, loading }: {
           )
         })}
       </div>
+    </div>
+  )
+}
+
+// ── News Tab ───────────────────────────────────────────────────────────────────
+const CAT_NEWS_COLOR: Record<string, string> = {
+  'Market': 'text-cyan-300 bg-cyan-500/10 border-cyan-500/30',
+  'Forex':  'text-purple-300 bg-purple-500/10 border-purple-500/30',
+  'M&A':    'text-amber-300 bg-amber-500/10 border-amber-500/30',
+}
+
+function NewsView({ articles, loading }: { articles: NewsArticle[]; loading: boolean }) {
+  const [filter, setFilter] = useState<string>('All')
+
+  if (loading) return <Spinner />
+  if (!articles.length) return <ErrorMsg msg="No news available. Finnhub data may be loading." />
+
+  const cats   = ['All', ...Array.from(new Set(articles.map(a => a.category)))]
+  const shown  = filter === 'All' ? articles : articles.filter(a => a.category === filter)
+
+  function timeAgo(dt: string) {
+    const diff = (Date.now() - new Date(dt).getTime()) / 1000
+    if (diff < 3600)  return `${Math.round(diff / 60)}m ago`
+    if (diff < 86400) return `${Math.round(diff / 3600)}h ago`
+    return `${Math.round(diff / 86400)}d ago`
+  }
+
+  return (
+    <div>
+      {/* Filter pills */}
+      <div className="flex flex-wrap gap-1.5 mb-4">
+        {cats.map(c => (
+          <button key={c} onClick={() => setFilter(c)}
+            className={`px-2.5 py-1 rounded-full text-[10px] font-medium border transition ${filter === c ? 'bg-cyan-500/20 border-cyan-400/60 text-cyan-300' : 'bg-slate-800/60 border-slate-700/40 text-slate-400 hover:border-slate-500'}`}
+          >{c}</button>
+        ))}
+        <span className="ml-auto text-[10px] text-slate-600 self-center">Via Finnhub · 30-min cache</span>
+      </div>
+
+      {/* Article list */}
+      <div className="space-y-2">
+        {shown.map((a, i) => {
+          const catCls = CAT_NEWS_COLOR[a.category] ?? 'text-slate-300 bg-slate-800/40 border-slate-700/30'
+          return (
+            <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
+              className="flex gap-3 p-3 rounded-xl border border-slate-700/30 bg-slate-800/30 hover:bg-slate-800/60 hover:border-slate-600/50 transition group"
+            >
+              {/* Thumbnail */}
+              {a.image ? (
+                <div className="w-16 h-14 rounded-lg overflow-hidden shrink-0 bg-slate-700/30">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={a.image} alt="" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition" onError={e => { (e.target as HTMLImageElement).style.display='none' }} />
+                </div>
+              ) : (
+                <div className="w-16 h-14 rounded-lg shrink-0 bg-slate-700/20 flex items-center justify-center text-2xl">
+                  {a.category === 'Forex' ? '💱' : a.category === 'M&A' ? '🤝' : '📈'}
+                </div>
+              )}
+
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded border font-mono uppercase shrink-0 ${catCls}`}>{a.category}</span>
+                  <span className="text-[10px] text-slate-500 font-medium shrink-0">{a.source}</span>
+                  <span className="text-[10px] text-slate-600 shrink-0">{timeAgo(a.dt)}</span>
+                  {a.related && <span className="text-[9px] text-slate-600 font-mono ml-auto truncate max-w-[120px]">{a.related}</span>}
+                </div>
+                <p className="text-[12px] font-medium text-slate-200 leading-snug group-hover:text-white transition line-clamp-2">{a.headline}</p>
+                {a.summary && a.summary !== a.headline && (
+                  <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-2 leading-relaxed">{a.summary}</p>
+                )}
+              </div>
+
+              {/* Arrow */}
+              <span className="text-slate-600 group-hover:text-slate-400 transition shrink-0 self-center text-xs">↗</span>
+            </a>
+          )
+        })}
+      </div>
+
+      <p className="text-[10px] text-slate-700 text-center mt-4">
+        News sourced from Reuters, Bloomberg, MarketWatch, CNBC and others via Finnhub · For information only
+      </p>
     </div>
   )
 }
