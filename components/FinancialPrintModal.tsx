@@ -145,6 +145,73 @@ function buildWatchlistPerfChart(tickers: WatchlistHolding[]): string {
   </svg>`
 }
 
+// ── SVG Line chart from price-history rebased series ─────────────────────────
+function buildLineChart(history: any): string {
+  if (!history?.series) return ''
+  const series = history.series as Record<string, {dates: string[]; rebased: number[]}>
+  const tickers = Object.keys(series).filter(k => series[k]?.rebased?.length > 1)
+  if (!tickers.length) return ''
+
+  // Find date union (use first ticker's dates as x-axis)
+  const dates = series[tickers[0]].dates
+  const n = dates.length
+
+  let gMin = 0, gMax = 0
+  tickers.forEach(t => series[t].rebased.forEach(v => { if (v < gMin) gMin = v; if (v > gMax) gMax = v }))
+  const range = (gMax - gMin) || 1
+
+  const W = 560, padL = 42, padR = 20, padT = 20, padB = 40, chartH = 130
+  const H = padT + chartH + padB
+  const chartW = W - padL - padR
+
+  const COLORS = ['#3b82f6','#06b6d4','#22c55e','#f59e0b','#ef4444','#a855f7','#ec4899','#84cc16','#14b8a6','#f97316']
+  const zeroY = padT + (gMax / range) * chartH
+
+  // Build polylines
+  let lines = ''
+  tickers.forEach((t, ti) => {
+    const pts = series[t].rebased.map((v, i) => {
+      const x = padL + (i / Math.max(n - 1, 1)) * chartW
+      const y = padT + ((gMax - v) / range) * chartH
+      return `${x.toFixed(1)},${y.toFixed(1)}`
+    }).join(' ')
+    lines += `<polyline points="${pts}" fill="none" stroke="${COLORS[ti % COLORS.length]}" stroke-width="1.5" stroke-linejoin="round"/>`
+    // Label at end
+    const lastV = series[t].rebased[series[t].rebased.length - 1]
+    const lastX = padL + chartW + 2
+    const lastY = padT + ((gMax - lastV) / range) * chartH
+    lines += `<text x="${lastX}" y="${(lastY + 3).toFixed(1)}" font-size="8" fill="${COLORS[ti % COLORS.length]}" font-family="monospace" font-weight="700">${t}</text>`
+  })
+
+  // Y-axis ticks
+  let yAxis = ''
+  const tickVals = [-20, -10, 0, 10, 20, 30].filter(v => v >= gMin - 5 && v <= gMax + 5)
+  tickVals.forEach(v => {
+    const y = padT + ((gMax - v) / range) * chartH
+    yAxis += `<line x1="${padL - 3}" y1="${y.toFixed(1)}" x2="${padL + chartW}" y2="${y.toFixed(1)}" stroke="#e2e8f0" stroke-width="0.5"/>`
+    yAxis += `<text x="${padL - 5}" y="${(y + 3).toFixed(1)}" text-anchor="end" font-size="7" fill="#94a3b8">${v >= 0 ? '+' : ''}${v}%</text>`
+  })
+
+  // Zero line
+  yAxis += `<line x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${padL + chartW}" y2="${zeroY.toFixed(1)}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3,2"/>`
+
+  // X-axis date labels (show ~5 evenly spaced)
+  let xLabels = ''
+  const xStep = Math.max(1, Math.floor(n / 5))
+  for (let i = 0; i < n; i += xStep) {
+    const x = padL + (i / Math.max(n - 1, 1)) * chartW
+    const d = dates[i]?.slice(5) ?? ''  // MM-DD
+    xLabels += `<text x="${x.toFixed(1)}" y="${H - padB + 14}" text-anchor="middle" font-size="7" fill="#94a3b8">${d}</text>`
+  }
+
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;height:auto;display:block;margin:8px 0">
+    <text x="${W/2}" y="12" text-anchor="middle" font-size="11" font-weight="600" fill="#1e293b">Watchlist % Change (Rebased, 1M)</text>
+    ${yAxis}
+    ${lines}
+    ${xLabels}
+  </svg>`
+}
+
 // ── SVG Pie Chart (inline, no dependencies) ───────────────────────────────────
 function buildPieChart(slices: { label: string; pct: number; color: string }[], title: string): string {
   const total = slices.reduce((s, x) => s + x.pct, 0) || 1
@@ -253,10 +320,11 @@ function buildComplementChart(
 function buildReport(selected: Set<string>, data: {
   snapshot?: any; news?: any[]; pmi?: any; calendar?: any[]
   watchlist?: WatchlistHolding[]; sectorReturns?: { ticker: string; ret: number }[]
+  lineHistory?: any  // price-history API response {series: {[ticker]: {dates,rebased}}}
   holdings?: PortfolioHolding[]; clientHoldings?: PortfolioHolding[]
   proj?: PortfolioProjections; cProj?: PortfolioProjections; clientName?: string
 }) {
-  const { snapshot, news, pmi, calendar, watchlist, sectorReturns,
+  const { snapshot, news, pmi, calendar, watchlist, sectorReturns, lineHistory,
           holdings, clientHoldings, proj, cProj, clientName } = data
   const date = new Date().toLocaleDateString('en-SG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 
@@ -410,6 +478,10 @@ function buildReport(selected: Set<string>, data: {
   // ── WATCHLIST PERF CHART ────────────────────────────────────────────────────
   if (selected.has('wl_perf_chart') && watchlist?.length) {
     body += `<h2>⭐ Watchlist % Change Chart</h2>`
+    // Line chart (rebased 1M if history available)
+    const lc = lineHistory ? buildLineChart(lineHistory) : ''
+    if (lc) body += lc
+    // Bar chart (multi-period comparison)
     body += buildWatchlistPerfChart(watchlist)
   }
 
@@ -547,13 +619,13 @@ function buildReport(selected: Set<string>, data: {
   return `<!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>X68 Financial Report · ${date}</title>
+<title>Goal Based Investment Planning Summary Report · ${date}</title>
 <style>${css}</style>
 </head><body>
-<h1>X68 Financial District — Report</h1>
+<h1>Goal Based Investment Planning Summary Report</h1>
 <div class="subtitle">${date} · Sections: ${sections} · All figures are indicative estimates only, not investment advice.</div>
 ${body}
-<footer>Generated by X68 Financial District · AceEcotopia · ${date} · Not investment advice.</footer>
+<footer>Goal Based Investment Planning · X68 AceEcotopia · ${date} · Not investment advice.</footer>
 <script>window.onload=()=>window.print()</script>
 </body></html>`
 }
@@ -573,20 +645,48 @@ export default function FinancialPrintModal({
   }
   const [selected, setSelected] = useState<Set<string>>(initSelected)
   const [generating, setGenerating] = useState(false)
-  const [macroStatus, setMacroStatus] = useState<'idle'|'loading'|'done'|'error'>('idle')
-  const [wlStatus,    setWlStatus]    = useState<'idle'|'loading'|'done'|'error'>('idle')
-  const [sectorStatus,setSectorStatus]= useState<'idle'|'loading'|'done'|'error'>('idle')
+  const [macroStatus,   setMacroStatus]   = useState<'idle'|'loading'|'done'|'error'>('idle')
+  const [wlStatus,      setWlStatus]      = useState<'idle'|'loading'|'done'|'error'>('idle')
+  const [sectorStatus,  setSectorStatus]  = useState<'idle'|'loading'|'done'|'error'>('idle')
+  const [lineStatus,    setLineStatus]    = useState<'idle'|'loading'|'done'|'error'>('idle')
+  const [portStatus,    setPortStatus]    = useState<'idle'|'loading'|'done'|'error'>('idle')
 
-  const [snapshot,  setSnapshot]  = useState<any>(null)
-  const [news,      setNews]      = useState<any[]>([])
-  const [pmi,       setPmi]       = useState<any>(null)
-  const [calendar,  setCalendar]  = useState<any[]>([])
-  const [wlSignals, setWlSignals] = useState<WatchlistHolding[]>(watchlistData ?? [])
-  const [sectorRets,setSectorRets]= useState<{ticker:string;ret:number}[]>(sectorReturnsProp ?? [])
+  const [snapshot,      setSnapshot]      = useState<any>(null)
+  const [news,          setNews]          = useState<any[]>([])
+  const [pmi,           setPmi]           = useState<any>(null)
+  const [calendar,      setCalendar]      = useState<any[]>([])
+  const [wlSignals,     setWlSignals]     = useState<WatchlistHolding[]>(watchlistData ?? [])
+  const [sectorRets,    setSectorRets]    = useState<{ticker:string;ret:number}[]>(sectorReturnsProp ?? [])
+  const [lineHistory,   setLineHistory]   = useState<any>(null)  // price-history response
+  // Portfolio state — filled from props or localStorage
+  const [ptHoldings,    setPtHoldings]    = useState<PortfolioHolding[]>(holdings ?? [])
+  const [ptClientH,     setPtClientH]     = useState<PortfolioHolding[]>(clientHoldings ?? [])
+  const [ptProj,        setPtProj]        = useState<PortfolioProjections|undefined>(proj)
+  const [ptCProj,       setPtCProj]       = useState<PortfolioProjections|undefined>(cProj)
+  const [ptClientName,  setPtClientName]  = useState<string|undefined>(clientName)
 
   const needsMacro  = ['macro_snapshot','macro_news','macro_pmi','macro_calendar'].some(id => selected.has(id))
-  const needsWl     = ['wl_signals','wl_fundamentals'].some(id => selected.has(id))
+  const needsWl     = ['wl_signals','wl_fundamentals','wl_perf_chart'].some(id => selected.has(id))
   const needsSector = selected.has('wl_chart') && !sectorReturnsProp?.length
+  const needsLine   = selected.has('wl_perf_chart')
+  const needsPort   = ['pt_holdings','pt_projections','pt_compare','pt_complement'].some(id => selected.has(id))
+
+  // Load portfolio from localStorage if not passed as props
+  useEffect(() => {
+    if (holdings?.length || clientHoldings?.length || portStatus !== 'idle') return
+    if (!needsPort) return
+    setPortStatus('loading')
+    try {
+      const raw = localStorage.getItem('portbuilder_draft_v1')
+      if (raw) {
+        const d = JSON.parse(raw)
+        if (d.holdings?.length)       setPtHoldings(d.holdings)
+        if (d.clientHoldings?.length) setPtClientH(d.clientHoldings)
+        if (d.clientProfile?.name)    setPtClientName(d.clientProfile.name)
+      }
+      setPortStatus('done')
+    } catch { setPortStatus('done') }
+  }, [needsPort, holdings, clientHoldings])
 
   useEffect(() => {
     if (!needsMacro || macroStatus !== 'idle') return
@@ -613,6 +713,18 @@ export default function FinancialPrintModal({
       .catch(()=>setWlStatus('error'))
   }, [needsWl])
 
+  // Fetch 1M price history for line chart
+  useEffect(() => {
+    if (!needsLine || lineStatus !== 'idle') return
+    const syms = (watchlistData ?? wlSignals).map(h => h.ticker).filter(Boolean)
+    if (!syms.length) return
+    setLineStatus('loading')
+    fetch(`/api/nexus/watchlist/price-history?symbols=${syms.join(',')}&period=1M`)
+      .then(r => r.json())
+      .then(d => { setLineHistory(d); setLineStatus('done') })
+      .catch(() => setLineStatus('error'))
+  }, [needsLine, wlSignals])
+
   // Fetch sector returns if not pre-supplied by parent
   const SECTOR_ETFS = ['XLK','XLF','XLV','XLY','XLP','XLE','XLI','XLU','XLRE','XLC','XLB']
   useEffect(() => {
@@ -628,7 +740,7 @@ export default function FinancialPrintModal({
       .then((d: any) => {
         const results = (d.tickers ?? []).map((t: any) => ({
           ticker: t.ticker,
-          ret: t['3m'] ?? t['5d'] ?? null,  // best available ≈ 1M proxy
+          ret: t['3m'] ?? t['5d'] ?? null,
         })).filter((x: any) => x.ret != null)
         setSectorRets(results)
         setSectorStatus('done')
@@ -651,8 +763,9 @@ export default function FinancialPrintModal({
     try {
       const html = buildReport(selected, {
         snapshot, news, pmi, calendar,
-        watchlist: wlSignals, sectorReturns: sectorRets,
-        holdings, clientHoldings, proj, cProj, clientName,
+        watchlist: wlSignals, sectorReturns: sectorRets, lineHistory,
+        holdings: ptHoldings, clientHoldings: ptClientH,
+        proj: ptProj, cProj: ptCProj, clientName: ptClientName,
       })
       const w = window.open('', '_blank')
       if (w) { w.document.write(html); w.document.close() }
@@ -664,7 +777,7 @@ export default function FinancialPrintModal({
     allOn: ALL_SECTIONS.filter(s=>s.seg===seg).every(s=>selected.has(s.id)),
   }))
 
-  const isLoading = macroStatus==='loading' || wlStatus==='loading' || sectorStatus==='loading'
+  const isLoading = macroStatus==='loading' || wlStatus==='loading' || sectorStatus==='loading' || lineStatus==='loading' || portStatus==='loading'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
@@ -691,6 +804,9 @@ export default function FinancialPrintModal({
               {seg==='macro' && macroStatus==='loading' && <div className="text-[9px] text-slate-600 animate-pulse mb-1">Fetching macro data…</div>}
               {seg==='watchlist' && wlStatus==='loading' && <div className="text-[9px] text-slate-600 animate-pulse mb-1">Fetching watchlist data…</div>}
               {seg==='watchlist' && sectorStatus==='loading' && <div className="text-[9px] text-slate-600 animate-pulse mb-1">Fetching sector returns…</div>}
+              {seg==='watchlist' && lineStatus==='loading' && <div className="text-[9px] text-slate-600 animate-pulse mb-1">Fetching price history…</div>}
+              {seg==='portfolio' && portStatus==='loading' && <div className="text-[9px] text-slate-600 animate-pulse mb-1">Loading portfolio from saved draft…</div>}
+              {seg==='portfolio' && portStatus==='done' && ptHoldings.length>0 && !holdings?.length && <div className="text-[9px] text-green-600 mb-1">✓ Loaded {ptHoldings.length} holdings from saved draft</div>}
 
               <div className="space-y-1.5">
                 {sections.map(sec => {
