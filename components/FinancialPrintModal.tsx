@@ -412,28 +412,76 @@ function buildReport(selected: Set<string>, recipientName: string, data: {
 
   // ── PMI ─────────────────────────────────────────────────────────────────────
   if (selected.has('macro_pmi') && pmi) {
-    const mfgRows: any[] = pmi.manufacturing ?? []
-    const svcRows: any[] = pmi.services ?? []
     const months: string[] = pmi.months ?? []
-    const lastMo = months[months.length - 1]
-    const prevMo = months[months.length - 2]
+    // Colour cell by value — same thresholds as web
+    const pmiCellStyle = (v: number | null | undefined) => {
+      if (v == null) return 'background:#f8fafc;color:#94a3b8'
+      if (v >= 55)   return 'background:#059669;color:#fff'
+      if (v >= 52)   return 'background:#34d399;color:#065f46'
+      if (v >= 50)   return 'background:#a7f3d0;color:#065f46'
+      if (v >= 48)   return 'background:#fca5a5;color:#7f1d1d'
+      return              'background:#dc2626;color:#fff'
+    }
+    const moLabel = (m: string) => {
+      const [y, mo] = m.split('-')
+      return new Date(+y, +mo - 1).toLocaleDateString('en-SG', { month: 'short', year: '2-digit' })
+    }
+
+    const renderPmiTable = (rows: any[], label: string) => {
+      if (!rows?.length) return ''
+      // Summary cards row
+      const lastMo = months[months.length - 1]
+      const prevMo = months[months.length - 2]
+      const cards = rows.map((c: any) => {
+        const vals = months.map((m: string) => c.months?.[m]).filter((v: any) => v != null) as number[]
+        const latest = vals[vals.length - 1], prev = vals[vals.length - 2]
+        const trend = latest != null && prev != null ? latest - prev : null
+        const expanding = latest != null && latest >= 50
+        const col = expanding ? '#16a34a' : '#dc2626'
+        return `<div style="display:inline-flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;margin:4px;min-width:150px">
+          <span style="font-size:18px">${c.flag??''}</span>
+          <div>
+            <div style="display:flex;align-items:baseline;gap:6px">
+              <span style="font-size:11px;font-weight:600;color:#1e293b">${c.name??c.code}</span>
+              ${latest!=null?`<span style="font-size:12px;font-family:monospace;font-weight:700;color:${col}">${latest.toFixed(1)}</span>`:''}
+              ${trend!=null?`<span style="font-size:10px;color:${col}">${trend>0?'▲':'▼'}${Math.abs(trend).toFixed(1)}</span>`:''}
+            </div>
+            <div style="font-size:10px;color:#64748b">${expanding?'Expanding':'Contracting'} · ${label.includes('Service')?'Services':'Manufacturing'}</div>
+          </div>
+        </div>`
+      }).join('')
+
+      // Full heatmap table — show last 6 months to fit on page
+      const showMonths = months.slice(-6)
+      return `<h3>${label}</h3>
+      <div style="margin-bottom:12px;flex-wrap:wrap;display:flex">${cards}</div>
+      <div style="overflow-x:auto;margin-bottom:8px">
+      <table style="width:100%;border-collapse:collapse;font-size:10px">
+        <thead><tr style="background:#f8fafc">
+          <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0;min-width:120px">Country</th>
+          ${showMonths.map((m: string) => `<th style="text-align:center;padding:6px 4px;border-bottom:1px solid #e2e8f0;white-space:nowrap;color:#64748b;font-weight:normal">${moLabel(m)}</th>`).join('')}
+        </tr></thead>
+        <tbody>
+        ${rows.map((c: any, i: number) => `
+          <tr style="${i%2===1?'background:#f8fafc':''}">
+            <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:500;color:#334155">${c.flag??''} ${c.name??c.code}</td>
+            ${showMonths.map((m: string) => {
+              const v = c.months?.[m] as number | null | undefined
+              return `<td style="padding:3px 2px;border-bottom:1px solid #f1f5f9;text-align:center">
+                <div style="border-radius:4px;padding:3px 2px;font-family:monospace;font-weight:700;${pmiCellStyle(v)}">${v!=null?v.toFixed(1):'—'}</div>
+              </td>`
+            }).join('')}
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      </div>
+      <div style="font-size:10px;color:#94a3b8">■ ≥55 strong expansion · ■ 52–55 · ■ 50–52 marginal · ■ 48–50 · ■ &lt;48 deep contraction · Threshold: 50</div>`
+    }
 
     body += `<h2>🏭 PMI Heatmap</h2>
-    <table><thead><tr><th>Country</th><th class="rt">Mfg (latest)</th><th class="rt">Mfg (prev)</th><th class="rt">Svc (latest)</th></tr></thead><tbody>
-    ${mfgRows.map((row: any) => {
-      const mLast = row.months?.[lastMo]
-      const mPrev = row.months?.[prevMo]
-      const srow = svcRows.find((s: any) => s.code === row.code)
-      const sLast = srow?.months?.[lastMo]
-      const col = (v?: number) => v==null?'gr':v>=52?'g':v>=50?'a':'r'
-      return `<tr><td>${row.flag??''} ${row.name??row.code}</td>
-        <td class="rt mono ${col(mLast)}">${mLast??'—'}</td>
-        <td class="rt mono gr">${mPrev??'—'}</td>
-        <td class="rt mono ${col(sLast)}">${sLast??'—'}</td>
-      </tr>`
-    }).join('')}
-    </tbody></table>
-    <div style="font-size:10px;color:#94a3b8;margin-top:4px">PMI &gt;52 expansion · 50–52 marginal · &lt;50 contraction · Month: ${lastMo}</div>`
+    ${renderPmiTable(pmi.manufacturing ?? [], '🏭 Manufacturing PMI')}
+    ${renderPmiTable(pmi.services     ?? [], '🏢 Services PMI')}
+    <div style="font-size:10px;color:#94a3b8;margin-top:4px">Source: ${pmi.source ?? 'ISM · S&P Global'}</div>`
   }
 
   // ── CALENDAR ────────────────────────────────────────────────────────────────
