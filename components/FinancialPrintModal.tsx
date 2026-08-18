@@ -320,46 +320,104 @@ function buildComplementChart(
 function buildReport(selected: Set<string>, recipientName: string, data: {
   snapshot?: any; news?: any[]; pmi?: any; calendar?: any[]
   watchlist?: WatchlistHolding[]; sectorReturns?: { ticker: string; ret: number }[]
-  lineHistory?: any
+  lineHistory?: any; fundamentals?: Record<string, any>
   holdings?: PortfolioHolding[]; clientHoldings?: PortfolioHolding[]
   proj?: PortfolioProjections; cProj?: PortfolioProjections; clientName?: string
 }) {
-  const { snapshot, news, pmi, calendar, watchlist, sectorReturns, lineHistory,
+  const { snapshot, news, pmi, calendar, watchlist, sectorReturns, lineHistory, fundamentals,
           holdings, clientHoldings, proj, cProj, clientName } = data
   const date = new Date().toLocaleDateString('en-SG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+  const refNo = `REF-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}${String(new Date().getDate()).padStart(2,'0')}-${Math.random().toString(36).slice(2,6).toUpperCase()}`
 
   const css = `
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1e293b;background:#fff;padding:32px;max-width:900px;margin:auto}
-    h1{font-size:22px;font-weight:700;color:#0f172a;margin-bottom:4px}
-    .subtitle{font-size:11px;color:#64748b;margin-bottom:28px}
-    h2{font-size:14px;font-weight:700;color:#1e293b;margin:28px 0 10px;padding-bottom:6px;border-bottom:2px solid #e2e8f0}
-    h3{font-size:12px;font-weight:600;color:#334155;margin:14px 0 6px}
-    .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:10px;font-weight:700}
-    .bg{background:#22c55e;color:#fff}.br{background:#ef4444;color:#fff}.ba{background:#f59e0b;color:#fff}.bb{background:#3b82f6;color:#fff}.bgr{background:#f1f5f9;color:#475569}
-    table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px}
-    th{background:#f8fafc;padding:7px 10px;text-align:left;font-weight:600;color:#64748b;border-bottom:1px solid #e2e8f0}
-    td{padding:7px 10px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1e293b;background:#fff;font-size:11px;line-height:1.6}
+    .page-wrap{max-width:760px;margin:0 auto;padding:32px 48px}
+    /* ── Cover page ── */
+    .cover{min-height:100vh;display:flex;flex-direction:column;justify-content:space-between;padding:80px 60px 60px;background:linear-gradient(150deg,#0f172a 0%,#1e3a5f 60%,#0f172a 100%);color:#fff;page-break-after:always;break-after:page;margin:-32px -48px 0}
+    .cover-brand{font-size:10px;letter-spacing:4px;text-transform:uppercase;color:#64748b;margin-bottom:8px}
+    .cover-org{font-size:12px;color:#94a3b8;margin-bottom:80px}
+    .cover-tag{display:inline-block;padding:3px 12px;border:1px solid #f59e0b;color:#f59e0b;border-radius:2px;font-size:9px;letter-spacing:2px;text-transform:uppercase;margin-bottom:20px}
+    .cover-title{font-size:30px;font-weight:700;line-height:1.2;color:#fff;margin-bottom:10px}
+    .cover-for{font-size:16px;color:#94a3b8;margin-bottom:4px}
+    .cover-client{font-size:22px;color:#e2e8f0;font-weight:600;margin-bottom:48px}
+    .cover-divider{width:60px;height:3px;background:#f59e0b;margin:24px 0}
+    .cover-meta{font-size:10px;color:#475569}
+    .cover-meta-row{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid rgba(255,255,255,0.08)}
+    .cover-meta-label{color:#475569}
+    .cover-meta-val{color:#94a3b8}
+    /* ── Print running header/footer ── */
+    .print-header,.print-footer-bar{display:none}
+    @media print{
+      .cover{margin:0}
+      .print-header{display:flex;position:fixed;top:0;left:0;right:0;height:32px;background:#fff;border-bottom:1px solid #e2e8f0;padding:0 36px;align-items:center;justify-content:space-between;font-size:8px;color:#94a3b8;z-index:999}
+      .print-footer-bar{display:flex;position:fixed;bottom:0;left:0;right:0;height:32px;background:#fff;border-top:1px solid #e2e8f0;padding:0 36px;align-items:center;justify-content:space-between;font-size:8px;color:#94a3b8;z-index:999}
+      .page-wrap{padding-top:48px;padding-bottom:48px}
+      h2{break-after:avoid;page-break-after:avoid}
+      h3{break-after:avoid;page-break-after:avoid}
+      .sec-head+*{break-before:avoid;page-break-before:avoid}
+      tr{page-break-inside:avoid}
+      .news-item{page-break-inside:avoid}
+      thead{display:table-header-group}
+    }
+    /* ── TOC ── */
+    .toc{page-break-after:always;break-after:page;padding:32px 0}
+    .toc-heading{font-size:18px;font-weight:700;color:#0f172a;margin-bottom:6px}
+    .toc-sub{font-size:10px;color:#94a3b8;margin-bottom:24px}
+    .toc-seg{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#64748b;margin:16px 0 6px}
+    .toc-item{display:flex;align-items:baseline;padding:5px 0;font-size:11px;color:#334155;border-bottom:1px dotted #e2e8f0}
+    .toc-dots{flex:1;border-bottom:1px dotted #cbd5e1;margin:0 8px;height:1px;align-self:center}
+    .toc-pg{font-size:9px;color:#94a3b8}
+    /* ── Section headings ── */
+    h2.sec-head{font-size:15px;font-weight:700;color:#0f172a;margin:36px 0 14px;padding-bottom:8px;border-bottom:2.5px solid #0f172a;font-family:-apple-system,sans-serif}
+    h3{font-size:12px;font-weight:600;color:#334155;margin:14px 0 7px}
+    /* ── Tables ── */
+    table{width:100%;border-collapse:collapse;font-size:10px;margin-bottom:10px}
+    th{background:#f8fafc;padding:6px 9px;text-align:left;font-weight:700;color:#64748b;border-bottom:2px solid #e2e8f0;font-size:9px;text-transform:uppercase;letter-spacing:0.4px}
+    td{padding:6px 9px;border-bottom:1px solid #f1f5f9;vertical-align:top}
     tr:last-child td{border-bottom:none}
+    /* ── Misc ── */
+    .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:9px;font-weight:700}
+    .bg{background:#dcfce7;color:#166534}.br{background:#fee2e2;color:#991b1b}.ba{background:#fef9c3;color:#854d0e}.bb{background:#dbeafe;color:#1e40af}.bgr{background:#f1f5f9;color:#475569}.pu{background:#ede9fe;color:#5b21b6}
     .rt{text-align:right}.mono{font-family:'Courier New',monospace;font-weight:700}
-    .g{color:#16a34a}.r{color:#dc2626}.b{color:#2563eb}.a{color:#d97706}.pu{color:#7c3aed}.gr{color:#64748b}
-    .narrative{font-size:11px;line-height:1.7;color:#334155;background:#f8fafc;border-left:3px solid #3b82f6;padding:10px 14px;margin:8px 0;border-radius:0 6px 6px 0}
-    .narrative p{margin-bottom:8px}.narrative p:last-child{margin-bottom:0}
-    .narrative strong{color:#1e40af}
-    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-    .news-item{margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #f1f5f9}
-    .news-meta{font-size:10px;color:#94a3b8;margin-top:2px}
-    .news-headline{font-size:12px;color:#1e293b;font-weight:500;line-height:1.4}
-    footer{margin-top:32px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8}
-    @media print{body{padding:16px}}
+    .g{color:#16a34a}.r{color:#dc2626}.b{color:#2563eb}.a{color:#d97706}.gr{color:#64748b}
+    .narrative{font-size:11px;line-height:1.8;color:#334155;background:#f8fafc;border-left:4px solid #0f172a;padding:12px 16px;margin:10px 0;border-radius:0 8px 8px 0}
+    .narrative p{margin-bottom:9px}.narrative p:last-child{margin-bottom:0}
+    .narrative strong{color:#1e293b;font-weight:700}
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+    .news-item{margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #f1f5f9}
+    .news-meta{font-size:9px;color:#94a3b8;margin-top:3px}
+    .news-headline{font-size:11px;color:#1e293b;font-weight:600;line-height:1.4}
+    /* ── Disclaimer page ── */
+    .disclaimer{page-break-before:always;break-before:page;padding-top:32px}
+    .disclaimer h2.sec-head{color:#64748b;border-bottom-color:#e2e8f0;font-size:13px}
+    .disclaimer-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:20px 24px;font-size:9.5px;line-height:1.85;color:#475569;margin-top:14px}
+    .disclaimer-box p{margin-bottom:12px}.disclaimer-box p:last-child{margin-bottom:0}
+    .disclaimer-sig{margin-top:24px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:9px;color:#94a3b8}
   `
 
-  let body = ''
+  // ── TOC helper ───────────────────────────────────────────────────────────────
+  const tocSections = ALL_SECTIONS.filter(s => selected.has(s.id))
+  const tocBySegment = (['macro','watchlist','portfolio'] as SegmentKey[]).map(seg => ({
+    seg, label: SEG_LABEL[seg],
+    items: tocSections.filter(s => s.seg === seg),
+  })).filter(g => g.items.length)
+
+  const tocHtml = `<div class="toc">
+    <div class="toc-heading">Table of Contents</div>
+    <div class="toc-sub">${refNo}</div>
+    ${tocBySegment.map(g => `
+      <div class="toc-seg">${g.label}</div>
+      ${g.items.map(s => `<div class="toc-item"><span>${s.label}</span><span class="toc-dots"></span><span class="toc-pg">—</span></div>`).join('')}
+    `).join('')}
+  </div>`
+
+  let body = tocHtml
 
   // ── MARKET SNAPSHOT ─────────────────────────────────────────────────────────
   if (selected.has('macro_snapshot') && snapshot) {
     const regCls = (r: string) => r.includes('BULL') ? 'bg' : r.includes('BEAR') ? 'br' : 'ba'
-    body += `<h2>🌐 Market Snapshot</h2>
+    body += `<h2 class="sec-head">🌐 Market Snapshot</h2>
     <span class="badge ${regCls(snapshot.regime ?? '')}">${snapshot.regime ?? '—'}</span>
     <div class="two-col" style="margin-top:10px">`
 
@@ -399,7 +457,7 @@ function buildReport(selected: Set<string>, recipientName: string, data: {
 
   // ── NEWS ────────────────────────────────────────────────────────────────────
   if (selected.has('macro_news') && news?.length) {
-    body += `<h2>📰 Market News</h2>`
+    body += `<h2 class="sec-head">📰 Market News</h2>`
     news.slice(0,8).forEach((a: any) => {
       const ts = a.ts ?? (a.dt ? new Date(a.dt).getTime()/1000 : null)
       body += `<div class="news-item">
@@ -478,7 +536,7 @@ function buildReport(selected: Set<string>, recipientName: string, data: {
       <div style="font-size:10px;color:#94a3b8">■ ≥55 strong expansion · ■ 52–55 · ■ 50–52 marginal · ■ 48–50 · ■ &lt;48 deep contraction · Threshold: 50</div>`
     }
 
-    body += `<h2>🏭 PMI Heatmap</h2>
+    body += `<h2 class="sec-head">🏭 PMI Heatmap</h2>
     ${renderPmiTable(pmi.manufacturing ?? [], '🏭 Manufacturing PMI')}
     ${renderPmiTable(pmi.services     ?? [], '🏢 Services PMI')}
     <div style="font-size:10px;color:#94a3b8;margin-top:4px">Source: ${pmi.source ?? 'ISM · S&P Global'}</div>`
@@ -486,7 +544,7 @@ function buildReport(selected: Set<string>, recipientName: string, data: {
 
   // ── CALENDAR ────────────────────────────────────────────────────────────────
   if (selected.has('macro_calendar') && calendar?.length) {
-    body += `<h2>📅 Economic Calendar</h2>
+    body += `<h2 class="sec-head">📅 Economic Calendar</h2>
     <table><thead><tr><th>Date</th><th>Event</th><th>Country</th><th class="rt">Impact</th></tr></thead><tbody>
     ${calendar.slice(0,15).map((e: any) => {
       const impCls = e.importance==='HIGH' ? 'br' : e.importance==='MEDIUM' ? 'ba' : 'bgr'
@@ -502,12 +560,12 @@ function buildReport(selected: Set<string>, recipientName: string, data: {
 
   // ── WATCHLIST SIGNALS ───────────────────────────────────────────────────────
   if (selected.has('wl_signals') && !watchlist?.length) {
-    body += `<h2>⭐ Watchlist Signals</h2>
+    body += `<h2 class="sec-head">⭐ Watchlist Signals</h2>
     <p style="font-size:11px;color:#94a3b8;padding:8px 0">No watchlist tickers found. Add tickers in the Watchlist Signals page first.</p>`
   }
   if (selected.has('wl_signals') && watchlist?.length) {
     const sigCls: Record<string,string> = { BUY:'bg', SQUEEZE:'pu', WATCH:'ba', NEUTRAL:'bgr', SELL:'br' }
-    body += `<h2>⭐ Watchlist Signals</h2>
+    body += `<h2 class="sec-head">⭐ Watchlist Signals</h2>
     <table><thead><tr>
       <th>Ticker</th><th>Signal</th>
       <th class="rt">Price</th><th class="rt">1D</th><th class="rt">5D</th><th class="rt">3M</th><th class="rt">1Y</th>
@@ -529,7 +587,7 @@ function buildReport(selected: Set<string>, recipientName: string, data: {
 
   // ── WATCHLIST PERF CHART ────────────────────────────────────────────────────
   if (selected.has('wl_perf_chart') && watchlist?.length) {
-    body += `<h2>⭐ Watchlist % Change Chart</h2>`
+    body += `<h2 class="sec-head">⭐ Watchlist % Change Chart</h2>`
     // Line chart (rebased 1M if history available)
     const lc = lineHistory ? buildLineChart(lineHistory) : ''
     if (lc) body += lc
@@ -539,37 +597,53 @@ function buildReport(selected: Set<string>, recipientName: string, data: {
 
   // ── WATCHLIST FUNDAMENTALS ──────────────────────────────────────────────────
   if (selected.has('wl_fundamentals') && watchlist?.length) {
-    const hasFunds = watchlist.some(h => h.eps_ttm != null || h.roe != null)
-    if (hasFunds) {
-      body += `<h2>⭐ Watchlist Fundamentals</h2>
-      <table><thead><tr>
-        <th>Ticker</th><th class="rt">EPS TTM</th><th class="rt">Fwd EPS</th><th class="rt">EPS Growth</th><th class="rt">Div Yield</th><th class="rt">ROE</th>
+    body += `<h2 class="sec-head">⭐ Watchlist Fundamentals</h2>`
+    if (fundamentals && Object.keys(fundamentals).length) {
+      body += `<table><thead><tr>
+        <th>Ticker / Name</th><th class="rt">EPS TTM</th><th class="rt">Fwd EPS</th><th class="rt">EPS Growth</th><th class="rt">Div Yield</th><th class="rt">ROE</th><th class="rt">P/E</th><th class="rt">Mkt Cap</th>
       </tr></thead><tbody>
-      ${watchlist.map(h => `<tr>
-        <td class="mono">${h.ticker}${h.name&&h.name!==h.ticker?`<div style="font-size:9px;color:#94a3b8">${h.name}</div>`:''}</td>
-        <td class="rt mono">${h.eps_ttm!=null?`$${h.eps_ttm.toFixed(2)}`:'—'}</td>
-        <td class="rt mono">${h.eps_forward!=null?`$${h.eps_forward.toFixed(2)}`:'—'}</td>
-        <td class="rt mono ${(h.eps_growth_yoy??0)>=0?'g':'r'}">${pctStr(h.eps_growth_yoy,0)}</td>
-        <td class="rt mono a">${h.dividend_yield?`${h.dividend_yield.toFixed(1)}%`:'—'}</td>
-        <td class="rt mono ${h.roe!=null?(h.roe>=15?'g':h.roe>=0?'a':'r'):'gr'}">${h.roe!=null?`${h.roe.toFixed(1)}%`:'—'}</td>
-      </tr>`).join('')}
+      ${watchlist.map(h => {
+        const f = fundamentals[h.ticker] ?? {}
+        const eps_ttm = f.eps_ttm ?? h.eps_ttm
+        const eps_fwd = f.eps_forward ?? h.eps_forward
+        const eps_g   = f.eps_growth_yoy ?? h.eps_growth_yoy
+        const div     = f.dividend_yield ?? h.dividend_yield
+        const roe     = f.roe ?? h.roe
+        const pe      = f.pe_ratio ?? f.pe ?? null
+        const mcap    = f.market_cap ?? null
+        const fmtM = (v: number | null) => {
+          if (v == null) return '—'
+          if (v >= 1e12) return `$${(v/1e12).toFixed(1)}T`
+          if (v >= 1e9)  return `$${(v/1e9).toFixed(1)}B`
+          return `$${(v/1e6).toFixed(0)}M`
+        }
+        return `<tr>
+          <td class="mono" style="font-size:10px">${h.ticker}${h.name&&h.name!==h.ticker?`<div style="font-size:9px;color:#94a3b8;font-family:sans-serif;font-weight:normal">${h.name}</div>`:''}</td>
+          <td class="rt mono">${eps_ttm!=null?`$${Number(eps_ttm).toFixed(2)}`:'—'}</td>
+          <td class="rt mono">${eps_fwd!=null?`$${Number(eps_fwd).toFixed(2)}`:'—'}</td>
+          <td class="rt mono ${(Number(eps_g)??0)>=0?'g':'r'}">${eps_g!=null?pctStr(Number(eps_g),0):'—'}</td>
+          <td class="rt mono a">${div?`${Number(div).toFixed(1)}%`:'—'}</td>
+          <td class="rt mono ${roe!=null?(Number(roe)>=15?'g':Number(roe)>=0?'a':'r'):'gr'}">${roe!=null?`${Number(roe).toFixed(1)}%`:'—'}</td>
+          <td class="rt mono gr">${pe!=null?Number(pe).toFixed(1):'—'}</td>
+          <td class="rt mono gr">${fmtM(mcap)}</td>
+        </tr>`
+      }).join('')}
       </tbody></table>`
     } else {
-      body += `<h2>⭐ Watchlist Fundamentals</h2>
-      <p style="font-size:11px;color:#94a3b8">Fundamentals data not available — ticker-info endpoint requires individual symbol lookups.</p>`
+      body += `<p style="font-size:11px;color:#94a3b8;padding:8px 0">Fundamentals data is loading or unavailable. Ensure tickers are added to the Watchlist Signals page.</p>`
     }
   }
 
   // ── SECTOR DOT CHART ────────────────────────────────────────────────────────
   if (selected.has('wl_chart') && sectorReturns?.length) {
-    body += `<h2>📊 Sector ETF Performance</h2>`
+    body += `<h2 class="sec-head">📊 Sector ETF Performance</h2>`
     body += buildSectorDotChart(sectorReturns)
   }
 
   // ── HOLDINGS ────────────────────────────────────────────────────────────────
   if (selected.has('pt_holdings')) {
     if (!holdings?.length && !clientHoldings?.length) {
-      body += `<h2>📐 Holdings Allocation</h2>
+      body += `<h2 class="sec-head">📐 Holdings Allocation</h2>
       <p style="font-size:11px;color:#94a3b8;padding:8px 0">No portfolio holdings have been built yet. Visit GoalBasedPortfolio to add assets.</p>`
     }
   }
@@ -600,18 +674,18 @@ function buildReport(selected: Set<string>, recipientName: string, data: {
       }).join('')}
       </tbody></table>`
     }
-    body += `<h2>📐 Holdings Allocation</h2>`
+    body += `<h2 class="sec-head">📐 Holdings Allocation</h2>`
     body += renderHoldings(holdings??[], 'GoalBasedPortfolio')
     if (clientHoldings?.length) body += renderHoldings(clientHoldings, `Balanced Portfolio${clientName?' — '+clientName:''}`)
   }
 
   // ── PROJECTIONS ─────────────────────────────────────────────────────────────
   if (selected.has('pt_projections') && !proj && !cProj) {
-    body += `<h2>📐 Return Projections</h2>
+    body += `<h2 class="sec-head">📐 Return Projections</h2>
     <p style="font-size:11px;color:#94a3b8;padding:8px 0">No portfolio data available — add holdings in GoalBasedPortfolio first.</p>`
   }
   if (selected.has('pt_projections') && (proj||cProj)) {
-    body += `<h2>📐 Return Projections</h2>
+    body += `<h2 class="sec-head">📐 Return Projections</h2>
     <table><thead><tr><th>Scenario</th><th class="rt">GoalBasedPortfolio</th>${cProj?'<th class="rt">Balanced Portfolio</th>':''}</tr></thead><tbody>`
     const rows = [
       { label:'Est Return (manager)',    m:proj?.managerBlended,              c:cProj?.managerBlended,              cls:'b' },
@@ -633,14 +707,14 @@ function buildReport(selected: Set<string>, recipientName: string, data: {
 
   // ── PORTFOLIO COMPARE ───────────────────────────────────────────────────────
   if (selected.has('pt_compare') && !(holdings?.length && clientHoldings?.length)) {
-    body += `<h2>⚖️ Portfolio Comparison</h2>
+    body += `<h2 class="sec-head">⚖️ Portfolio Comparison</h2>
     <p style="font-size:11px;color:#94a3b8;padding:8px 0">Comparison requires both GoalBasedPortfolio and Balanced Portfolio to have holdings.</p>`
   }
   if (selected.has('pt_compare') && holdings?.length && clientHoldings?.length) {
     const cats = [...new Set([...holdings, ...clientHoldings].map(h => h.category))]
     const mTot = holdings.reduce((s,h)=>s+h.pct,0)||1
     const cTot = clientHoldings.reduce((s,h)=>s+h.pct,0)||1
-    body += `<h2>⚖️ Portfolio Comparison</h2>
+    body += `<h2 class="sec-head">⚖️ Portfolio Comparison</h2>
     <table><thead><tr><th>Asset Class</th><th class="rt">GoalBased %</th><th class="rt">Balanced %</th><th class="rt">Gap</th></tr></thead><tbody>
     ${cats.map(cat => {
       const mP = holdings.filter(h=>h.category===cat).reduce((s,h)=>s+h.pct/mTot*100,0)
@@ -657,18 +731,65 @@ function buildReport(selected: Set<string>, recipientName: string, data: {
 
   // ── COMPLEMENT CHART ────────────────────────────────────────────────────────
   if (selected.has('pt_complement') && !(holdings?.length && clientHoldings?.length)) {
-    body += `<h2>🔗 How the Two Portfolios Complement Each Other</h2>
+    body += `<h2 class="sec-head">🔗 How the Two Portfolios Complement Each Other</h2>
     <p style="font-size:11px;color:#94a3b8;padding:8px 0">Requires both portfolios to have holdings.</p>`
   }
   if (selected.has('pt_complement') && holdings?.length && clientHoldings?.length) {
-    body += `<h2>🔗 How the Two Portfolios Complement Each Other</h2>
+    body += `<h2 class="sec-head">🔗 How the Two Portfolios Complement Each Other</h2>
     <p style="font-size:11px;color:#64748b;margin-bottom:8px">Each bar shows asset class weight for GoalBasedPortfolio (left, indigo) vs Balanced Portfolio (right, green). Where one covers the other&apos;s gaps, together they provide broader diversification.</p>`
     body += buildComplementChart(holdings, clientHoldings)
   }
 
-  const sections = ALL_SECTIONS.filter(s => selected.has(s.id)).map(s => s.label).join(', ')
   const forLine  = recipientName.trim() ? `, for ${recipientName.trim()}` : ''
   const titleStr = `Investment Planning Summary Report${forLine}`
+  const clientLine = recipientName.trim()
+    ? `<div class="cover-for">Prepared for</div><div class="cover-client">${recipientName.trim()}</div>`
+    : ''
+
+  const coverHtml = `<div class="cover">
+    <div>
+      <div class="cover-brand">X68 AceEcotopia</div>
+      <div class="cover-org">Goal-Based Investment Planning Platform</div>
+    </div>
+    <div>
+      <div class="cover-tag">Confidential</div>
+      <div class="cover-title">Investment Planning<br/>Summary Report</div>
+      <div class="cover-divider"></div>
+      ${clientLine}
+    </div>
+    <div style="width:100%">
+      <div class="cover-meta-row">
+        <span class="cover-meta-label">Date of Report</span>
+        <span class="cover-meta-val">${date}</span>
+      </div>
+      <div class="cover-meta-row">
+        <span class="cover-meta-label">Reference</span>
+        <span class="cover-meta-val">${refNo}</span>
+      </div>
+      <div class="cover-meta-row">
+        <span class="cover-meta-label">Report Type</span>
+        <span class="cover-meta-val">Investment Planning Summary — Indicative Only</span>
+      </div>
+      <div class="cover-meta-row" style="border-bottom:none;margin-top:12px">
+        <span style="font-size:9px;color:#334155">This document is prepared solely for the intended recipient. The information contained herein is indicative and does not constitute investment advice. Refer to the Disclaimer on the final page.</span>
+      </div>
+    </div>
+  </div>`
+
+  const disclaimerHtml = `<div class="disclaimer">
+    <h2 class="sec-head">Important Disclaimer &amp; Regulatory Notice</h2>
+    <div class="disclaimer-box">
+      <p>Reproduction of any information, data or material, including ratings ("<strong>Content</strong>") in any form is prohibited except with the prior written permission of the relevant party. Such party, its affiliates and suppliers ("<strong>Content Providers</strong>") do not guarantee the accuracy, adequacy, completeness, timeliness or availability of any Content and are not responsible for any errors or omissions (negligent or otherwise), regardless of the cause, or for the results obtained from the use of such Content.</p>
+      <p>In no event shall Content Providers be liable for any damages, costs, expenses, legal fees, or losses (including lost income or lost profit and opportunity costs) in connection with any use of the Content. A reference to a particular investment or security, a rating or any observation concerning an investment that is part of the Content is not a recommendation to buy, sell or hold such investment or security, does not address the suitability of an investment or security and should not be relied on as investment advice. Credit ratings are statements of opinions and are not statements of fact.</p>
+      <p>All figures, projections, return estimates, scenario analyses and portfolio allocations contained in this report are <strong>indicative only</strong> and are based on information available at the time of preparation. Past performance is not indicative of future results. Projected returns and risk metrics are estimates that may differ materially from actual outcomes due to market conditions, economic events, and other factors beyond our control.</p>
+      <p>This report does not constitute financial advice, investment advice, trading advice or any other form of advice. The content is prepared for informational purposes only and is not tailored to the specific investment objectives, financial situation or particular needs of any individual recipient. Recipients should seek independent professional financial advice before making any investment decisions.</p>
+      <p>X68 AceEcotopia is not licensed as a financial adviser, investment manager, or dealer in securities in any jurisdiction. Neither X68 AceEcotopia nor its affiliates, directors, officers, employees or agents accept any liability whatsoever for any direct, indirect, consequential or other losses or damages arising from reliance on this document or its contents.</p>
+    </div>
+    <div class="disclaimer-sig">
+      X68 AceEcotopia · Goal-Based Investment Planning Platform · ${date} · ${refNo}<br/>
+      This report was generated by an automated system. For queries, contact the issuing representative.
+    </div>
+  </div>`
 
   return `<!DOCTYPE html>
 <html lang="en"><head>
@@ -676,10 +797,19 @@ function buildReport(selected: Set<string>, recipientName: string, data: {
 <title>${titleStr}</title>
 <style>${css}</style>
 </head><body>
-<h1>${titleStr}</h1>
-<div class="subtitle">${date} · Sections: ${sections} · All figures are indicative estimates only, not investment advice.</div>
+${coverHtml}
+<div class="print-header">
+  <span>X68 AceEcotopia · ${titleStr}</span>
+  <span>${refNo} · ${date}</span>
+</div>
+<div class="print-footer-bar">
+  <span>CONFIDENTIAL — For intended recipient only. Not investment advice. See Disclaimer.</span>
+  <span>X68 AceEcotopia · Goal-Based Investment Planning</span>
+</div>
+<div class="page-wrap">
 ${body}
-<footer>Goal Based Investment Planning · X68 AceEcotopia · ${date} · Not investment advice.</footer>
+${disclaimerHtml}
+</div>
 <script>window.onload=()=>window.print()</script>
 </body></html>`
 }
@@ -702,6 +832,7 @@ export default function FinancialPrintModal({
   const [generating,    setGenerating]    = useState(false)
   const [macroStatus,   setMacroStatus]   = useState<'idle'|'loading'|'done'|'error'>('idle')
   const [wlStatus,      setWlStatus]      = useState<'idle'|'loading'|'done'|'error'>('idle')
+  const [fundStatus,    setFundStatus]    = useState<'idle'|'loading'|'done'|'error'>('idle')
   const [sectorStatus,  setSectorStatus]  = useState<'idle'|'loading'|'done'|'error'>('idle')
   const [lineStatus,    setLineStatus]    = useState<'idle'|'loading'|'done'|'error'>('idle')
   const [portStatus,    setPortStatus]    = useState<'idle'|'loading'|'done'|'error'>('idle')
@@ -711,6 +842,7 @@ export default function FinancialPrintModal({
   const [pmi,           setPmi]           = useState<any>(null)
   const [calendar,      setCalendar]      = useState<any[]>([])
   const [wlSignals,     setWlSignals]     = useState<WatchlistHolding[]>(watchlistData ?? [])
+  const [wlFundamentals,setWlFundamentals]= useState<Record<string,any>>({})
   const [sectorRets,    setSectorRets]    = useState<{ticker:string;ret:number}[]>(sectorReturnsProp ?? [])
   const [lineHistory,   setLineHistory]   = useState<any>(null)
   // Portfolio — from props or localStorage; projections computed here
@@ -807,6 +939,26 @@ export default function FinancialPrintModal({
     }
   }, [needsWl, watchlistData])
 
+  // Fetch fundamentals per ticker (one request per symbol) after signals known
+  useEffect(() => {
+    if (!selected.has('wl_fundamentals') || fundStatus !== 'idle') return
+    const syms = wlSignals.map(h => h.ticker).filter(Boolean)
+    if (!syms.length) return
+    setFundStatus('loading')
+    Promise.all(
+      syms.map(sym =>
+        fetch(`/api/nexus/watchlist/fundamentals?symbol=${encodeURIComponent(sym)}`)
+          .then(r => r.json())
+          .catch(() => ({ ticker: sym }))
+      )
+    ).then(results => {
+      const map: Record<string, any> = {}
+      results.forEach((r: any) => { if (r?.ticker) map[r.ticker] = r })
+      setWlFundamentals(map)
+      setFundStatus('done')
+    }).catch(() => setFundStatus('error'))
+  }, [wlSignals, selected])
+
   // Step 2: fetch price history after signals are known (so we have ticker list)
   useEffect(() => {
     if (!selected.has('wl_perf_chart') || lineStatus !== 'idle') return
@@ -857,7 +1009,7 @@ export default function FinancialPrintModal({
     try {
       const html = buildReport(selected, recipientName, {
         snapshot, news, pmi, calendar,
-        watchlist: wlSignals, sectorReturns: sectorRets, lineHistory,
+        watchlist: wlSignals, sectorReturns: sectorRets, lineHistory, fundamentals: wlFundamentals,
         holdings: ptHoldings, clientHoldings: ptClientH,
         proj: ptProj, cProj: ptCProj, clientName: ptClientName,
       })
@@ -871,7 +1023,7 @@ export default function FinancialPrintModal({
     allOn: ALL_SECTIONS.filter(s=>s.seg===seg).every(s=>selected.has(s.id)),
   }))
 
-  const isLoading = macroStatus==='loading' || wlStatus==='loading' || sectorStatus==='loading' || lineStatus==='loading' || portStatus==='loading'
+  const isLoading = macroStatus==='loading' || wlStatus==='loading' || fundStatus==='loading' || sectorStatus==='loading' || lineStatus==='loading' || portStatus==='loading'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
@@ -897,6 +1049,8 @@ export default function FinancialPrintModal({
 
               {seg==='macro' && macroStatus==='loading' && <div className="text-[9px] text-slate-600 animate-pulse mb-1">Fetching macro data…</div>}
               {seg==='watchlist' && wlStatus==='loading' && <div className="text-[9px] text-slate-600 animate-pulse mb-1">Fetching watchlist data…</div>}
+              {seg==='watchlist' && fundStatus==='loading' && <div className="text-[9px] text-slate-600 animate-pulse mb-1">Fetching fundamentals per ticker…</div>}
+              {seg==='watchlist' && fundStatus==='done' && Object.keys(wlFundamentals).length>0 && <div className="text-[9px] text-green-600 mb-1">✓ Fundamentals loaded for {Object.keys(wlFundamentals).length} tickers</div>}
               {seg==='watchlist' && sectorStatus==='loading' && <div className="text-[9px] text-slate-600 animate-pulse mb-1">Fetching sector returns…</div>}
               {seg==='watchlist' && lineStatus==='loading' && <div className="text-[9px] text-slate-600 animate-pulse mb-1">Fetching price history…</div>}
               {seg==='portfolio' && portStatus==='loading' && <div className="text-[9px] text-slate-600 animate-pulse mb-1">Loading portfolio from saved draft…</div>}
