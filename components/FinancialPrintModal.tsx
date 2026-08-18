@@ -317,7 +317,7 @@ function buildComplementChart(
 }
 
 // ── HTML report builder ────────────────────────────────────────────────────────
-function buildReport(selected: Set<string>, recipientName: string, data: {
+function buildReport(selected: Set<string>, recipientName: string, preparedBy: string, data: {
   snapshot?: any; news?: any[]; pmi?: any; calendar?: any[]
   watchlist?: WatchlistHolding[]; sectorReturns?: { ticker: string; ret: number }[]
   lineHistory?: any; fundamentals?: Record<string, any>
@@ -331,10 +331,10 @@ function buildReport(selected: Set<string>, recipientName: string, data: {
 
   const css = `
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1e293b;background:#fff;font-size:11px;line-height:1.6}
-    .page-wrap{max-width:760px;margin:0 auto;padding:32px 48px}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1e293b;background:#fff;font-size:11px;line-height:1.6;margin:0;padding:0}
+    .page-wrap{max-width:760px;margin:0 auto;padding:0 48px 48px}
     /* ── Cover page ── */
-    .cover{min-height:100vh;display:flex;flex-direction:column;justify-content:space-between;padding:80px 60px 60px;background:linear-gradient(150deg,#0f172a 0%,#1e3a5f 60%,#0f172a 100%);color:#fff;page-break-after:always;break-after:page;margin:-32px -48px 0}
+    .cover{min-height:100vh;display:flex;flex-direction:column;justify-content:space-between;padding:80px 60px 60px;background:linear-gradient(150deg,#0f172a 0%,#1e3a5f 60%,#0f172a 100%);color:#fff;page-break-after:always;break-after:page;margin:0 -48px}
     .cover-brand{font-size:10px;letter-spacing:4px;text-transform:uppercase;color:#64748b;margin-bottom:8px}
     .cover-org{font-size:12px;color:#94a3b8;margin-bottom:80px}
     .cover-tag{display:inline-block;padding:3px 12px;border:1px solid #f59e0b;color:#f59e0b;border-radius:2px;font-size:9px;letter-spacing:2px;text-transform:uppercase;margin-bottom:20px}
@@ -346,19 +346,20 @@ function buildReport(selected: Set<string>, recipientName: string, data: {
     .cover-meta-row{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid rgba(255,255,255,0.08)}
     .cover-meta-label{color:#475569}
     .cover-meta-val{color:#94a3b8}
-    /* ── Print running header/footer ── */
-    .print-header,.print-footer-bar{display:none}
+    /* ── Print pagination ── */
     @media print{
-      .cover{margin:0}
-      .print-header{display:flex;position:fixed;top:0;left:0;right:0;height:32px;background:#fff;border-bottom:1px solid #e2e8f0;padding:0 36px;align-items:center;justify-content:space-between;font-size:8px;color:#94a3b8;z-index:999}
-      .print-footer-bar{display:flex;position:fixed;bottom:0;left:0;right:0;height:32px;background:#fff;border-top:1px solid #e2e8f0;padding:0 36px;align-items:center;justify-content:space-between;font-size:8px;color:#94a3b8;z-index:999}
-      .page-wrap{padding-top:48px;padding-bottom:48px}
-      h2{break-after:avoid;page-break-after:avoid}
+      @page{margin:18mm 15mm 18mm}
+      .cover{page-break-after:always}
+      h2.sec-head{break-after:avoid;page-break-after:avoid}
       h3{break-after:avoid;page-break-after:avoid}
-      .sec-head+*{break-before:avoid;page-break-before:avoid}
       tr{page-break-inside:avoid}
       .news-item{page-break-inside:avoid}
       thead{display:table-header-group}
+      .no-break{page-break-inside:avoid;break-inside:avoid}
+      .narrative p{page-break-inside:avoid;orphans:3;widows:3}
+      .two-col{page-break-inside:avoid}
+      svg{page-break-inside:avoid}
+      .chart-block{page-break-inside:avoid;break-inside:avoid}
     }
     /* ── TOC ── */
     .toc{page-break-after:always;break-after:page;padding:32px 0}
@@ -439,7 +440,7 @@ function buildReport(selected: Set<string>, recipientName: string, data: {
       body += `<h3>AI Market Narrative</h3>
       <div class="narrative">${snapshot.narrative
         .split('\n\n').filter(Boolean)
-        .map((p: string) => `<p>${p.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</p>`).join('')}
+        .map((p: string) => `<p style="page-break-inside:avoid;margin-bottom:9px">${p.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</p>`).join('')}
       </div>`
     }
 
@@ -658,8 +659,8 @@ function buildReport(selected: Set<string>, recipientName: string, data: {
         label: cat, pct, color: CAT_COLORS[cat] ?? '#94a3b8'
       }))
 
-      return `<h3>${label}</h3>
-      ${buildPieChart(slices, `${label} — Allocation by Category`)}
+      return `<div class="no-break"><h3>${label}</h3>
+      <div class="chart-block">${buildPieChart(slices, `${label} — Allocation by Category`)}</div>
       <table><thead><tr><th>Ticker</th><th>Name</th><th>Category</th><th class="rt">Weight</th><th class="rt">Est Return p.a.</th></tr></thead><tbody>
       ${h.map(x => {
         const w = x.pct/total*100
@@ -672,7 +673,7 @@ function buildReport(selected: Set<string>, recipientName: string, data: {
           <td class="rt mono ${x.managerReturn>=0?'b':'r'}">${pctStr(x.managerReturn)}</td>
         </tr>`
       }).join('')}
-      </tbody></table>`
+      </tbody></table></div>`
     }
     body += `<h2 class="sec-head">📐 Holdings Allocation</h2>`
     body += renderHoldings(holdings??[], 'GoalBasedPortfolio')
@@ -686,7 +687,7 @@ function buildReport(selected: Set<string>, recipientName: string, data: {
   }
   if (selected.has('pt_projections') && (proj||cProj)) {
     body += `<h2 class="sec-head">📐 Return Projections</h2>
-    <table><thead><tr><th>Scenario</th><th class="rt">GoalBasedPortfolio</th>${cProj?'<th class="rt">Balanced Portfolio</th>':''}</tr></thead><tbody>`
+    <div class="no-break"><table><thead><tr><th>Scenario</th><th class="rt">Goal-Based Portfolio</th>${cProj?'<th class="rt">Balanced Portfolio</th>':''}</tr></thead><tbody>`
     const rows = [
       { label:'Est Return (manager)',    m:proj?.managerBlended,              c:cProj?.managerBlended,              cls:'b' },
       { label:'YTD Return (live)',       m:proj?.aceBlended,                  c:cProj?.aceBlended,                  cls:'g' },
@@ -702,7 +703,7 @@ function buildReport(selected: Set<string>, recipientName: string, data: {
         ${cProj?`<td class="rt mono ${r.cls}">${pctStr(r.c)}</td>`:''}
       </tr>`
     })
-    body += `</tbody></table>`
+    body += `</tbody></table></div>`
   }
 
   // ── PORTFOLIO COMPARE ───────────────────────────────────────────────────────
@@ -736,20 +737,27 @@ function buildReport(selected: Set<string>, recipientName: string, data: {
   }
   if (selected.has('pt_complement') && holdings?.length && clientHoldings?.length) {
     body += `<h2 class="sec-head">🔗 How the Two Portfolios Complement Each Other</h2>
-    <p style="font-size:11px;color:#64748b;margin-bottom:8px">Each bar shows asset class weight for GoalBasedPortfolio (left, indigo) vs Balanced Portfolio (right, green). Where one covers the other&apos;s gaps, together they provide broader diversification.</p>`
+    <div class="chart-block">
+    <p style="font-size:11px;color:#64748b;margin-bottom:8px">Each bar shows asset class weight for the Goal-Based Portfolio (left, indigo) vs Balanced Portfolio (right, green). Where one covers the other&apos;s gaps, together they provide broader diversification.</p>`
     body += buildComplementChart(holdings, clientHoldings)
+    body += `</div>`
   }
 
   const forLine  = recipientName.trim() ? `, for ${recipientName.trim()}` : ''
   const titleStr = `Investment Planning Summary Report${forLine}`
+  const byLine   = preparedBy.trim() ? preparedBy.trim() : 'Investment Planning'
+
   const clientLine = recipientName.trim()
     ? `<div class="cover-for">Prepared for</div><div class="cover-client">${recipientName.trim()}</div>`
+    : ''
+  const authorLine = preparedBy.trim()
+    ? `<div class="cover-meta-row"><span class="cover-meta-label">Prepared by</span><span class="cover-meta-val">${preparedBy.trim()}</span></div>`
     : ''
 
   const coverHtml = `<div class="cover">
     <div>
-      <div class="cover-brand">X68 AceEcotopia</div>
-      <div class="cover-org">Goal-Based Investment Planning Platform</div>
+      <div class="cover-brand">${byLine}</div>
+      <div class="cover-org">Goal-Based Investment Planning</div>
     </div>
     <div>
       <div class="cover-tag">Confidential</div>
@@ -762,6 +770,7 @@ function buildReport(selected: Set<string>, recipientName: string, data: {
         <span class="cover-meta-label">Date of Report</span>
         <span class="cover-meta-val">${date}</span>
       </div>
+      ${authorLine}
       <div class="cover-meta-row">
         <span class="cover-meta-label">Reference</span>
         <span class="cover-meta-val">${refNo}</span>
@@ -783,11 +792,11 @@ function buildReport(selected: Set<string>, recipientName: string, data: {
       <p>In no event shall Content Providers be liable for any damages, costs, expenses, legal fees, or losses (including lost income or lost profit and opportunity costs) in connection with any use of the Content. A reference to a particular investment or security, a rating or any observation concerning an investment that is part of the Content is not a recommendation to buy, sell or hold such investment or security, does not address the suitability of an investment or security and should not be relied on as investment advice. Credit ratings are statements of opinions and are not statements of fact.</p>
       <p>All figures, projections, return estimates, scenario analyses and portfolio allocations contained in this report are <strong>indicative only</strong> and are based on information available at the time of preparation. Past performance is not indicative of future results. Projected returns and risk metrics are estimates that may differ materially from actual outcomes due to market conditions, economic events, and other factors beyond our control.</p>
       <p>This report does not constitute financial advice, investment advice, trading advice or any other form of advice. The content is prepared for informational purposes only and is not tailored to the specific investment objectives, financial situation or particular needs of any individual recipient. Recipients should seek independent professional financial advice before making any investment decisions.</p>
-      <p>X68 AceEcotopia is not licensed as a financial adviser, investment manager, or dealer in securities in any jurisdiction. Neither X68 AceEcotopia nor its affiliates, directors, officers, employees or agents accept any liability whatsoever for any direct, indirect, consequential or other losses or damages arising from reliance on this document or its contents.</p>
+      <p>The preparer of this report is not licensed as a financial adviser, investment manager, or dealer in securities in any jurisdiction. Neither the preparer nor its affiliates, directors, officers, employees or agents accept any liability whatsoever for any direct, indirect, consequential or other losses or damages arising from reliance on this document or its contents.</p>
     </div>
     <div class="disclaimer-sig">
-      X68 AceEcotopia · Goal-Based Investment Planning Platform · ${date} · ${refNo}<br/>
-      This report was generated by an automated system. For queries, contact the issuing representative.
+      ${preparedBy.trim() ? `Prepared by: ${preparedBy.trim()} · ` : ''}Goal-Based Investment Planning · ${date} · ${refNo}<br/>
+      This report was generated by an automated planning system. For queries, contact the issuing representative.
     </div>
   </div>`
 
@@ -797,16 +806,8 @@ function buildReport(selected: Set<string>, recipientName: string, data: {
 <title>${titleStr}</title>
 <style>${css}</style>
 </head><body>
-${coverHtml}
-<div class="print-header">
-  <span>X68 AceEcotopia · ${titleStr}</span>
-  <span>${refNo} · ${date}</span>
-</div>
-<div class="print-footer-bar">
-  <span>CONFIDENTIAL — For intended recipient only. Not investment advice. See Disclaimer.</span>
-  <span>X68 AceEcotopia · Goal-Based Investment Planning</span>
-</div>
 <div class="page-wrap">
+${coverHtml}
 ${body}
 ${disclaimerHtml}
 </div>
@@ -829,6 +830,7 @@ export default function FinancialPrintModal({
   }
   const [selected,      setSelected]      = useState<Set<string>>(initSelected)
   const [recipientName, setRecipientName] = useState('')      // "for Xxxx" in title
+  const [preparedBy,    setPreparedBy]    = useState('')      // "Prepared by" on cover
   const [generating,    setGenerating]    = useState(false)
   const [macroStatus,   setMacroStatus]   = useState<'idle'|'loading'|'done'|'error'>('idle')
   const [wlStatus,      setWlStatus]      = useState<'idle'|'loading'|'done'|'error'>('idle')
@@ -1007,7 +1009,7 @@ export default function FinancialPrintModal({
     if (!selected.size) return
     setGenerating(true)
     try {
-      const html = buildReport(selected, recipientName, {
+      const html = buildReport(selected, recipientName, preparedBy, {
         snapshot, news, pmi, calendar,
         watchlist: wlSignals, sectorReturns: sectorRets, lineHistory, fundamentals: wlFundamentals,
         holdings: ptHoldings, clientHoldings: ptClientH,
@@ -1075,10 +1077,10 @@ export default function FinancialPrintModal({
           ))}
         </div>
 
-        {/* Recipient name + actions */}
-        <div className="px-5 pt-3 pb-1 border-t border-white/8">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-[10px] text-slate-500 whitespace-nowrap">Prepared for:</span>
+        {/* Recipient + author + actions */}
+        <div className="px-5 pt-3 pb-1 border-t border-white/8 space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-slate-500 w-24 shrink-0">Prepared for:</span>
             <input
               value={recipientName}
               onChange={e => setRecipientName(e.target.value)}
@@ -1086,11 +1088,23 @@ export default function FinancialPrintModal({
               className="flex-1 bg-white/5 border border-white/12 rounded-lg px-3 py-1.5 text-[11px] text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/40"
             />
           </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-slate-500 w-24 shrink-0">Prepared by:</span>
+            <input
+              value={preparedBy}
+              onChange={e => setPreparedBy(e.target.value)}
+              placeholder="Your name / firm (optional)"
+              className="flex-1 bg-white/5 border border-white/12 rounded-lg px-3 py-1.5 text-[11px] text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/40"
+            />
+          </div>
           {recipientName.trim() && (
-            <div className="text-[10px] text-cyan-400/80 mb-2">
-              Report title: <span className="font-medium">Investment Planning Summary Report, for {recipientName.trim()}</span>
+            <div className="text-[10px] text-cyan-400/80">
+              Title: <span className="font-medium">Investment Planning Summary Report, for {recipientName.trim()}</span>
             </div>
           )}
+          <div className="text-[9px] text-slate-700 bg-white/3 rounded px-2 py-1.5">
+            💡 <span className="text-slate-600">In the print dialog → More settings → uncheck <em>Headers and footers</em> to remove the &quot;about:blank&quot; URL from each page.</span>
+          </div>
         </div>
         <div className="px-5 pb-4 flex items-center gap-3">
           <div className="flex-1 text-[10px] text-slate-600">
