@@ -756,10 +756,6 @@ function buildReport(selected: Set<string>, recipientName: string, preparedBy: s
 
   const coverHtml = `<div class="cover">
     <div>
-      <div class="cover-brand">${byLine}</div>
-      <div class="cover-org">Goal-Based Investment Planning</div>
-    </div>
-    <div>
       <div class="cover-tag">Confidential</div>
       <div class="cover-title">Investment Planning<br/>Summary Report</div>
       <div class="cover-divider"></div>
@@ -1103,7 +1099,7 @@ export default function FinancialPrintModal({
             </div>
           )}
           <div className="text-[9px] text-slate-700 bg-white/3 rounded px-2 py-1.5">
-            💡 <span className="text-slate-600">In the print dialog → More settings → uncheck <em>Headers and footers</em> to remove the &quot;about:blank&quot; URL from each page.</span>
+            💡 <span className="text-slate-600">The &quot;about:blank&quot; at the bottom is the browser&apos;s own print footer (not our content). Remove it: print dialog → More settings → uncheck <em>Headers and footers</em>.</span>
           </div>
         </div>
         <div className="px-5 pb-4 flex items-center gap-3">
