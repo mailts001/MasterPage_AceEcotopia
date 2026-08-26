@@ -16,7 +16,7 @@ const ITEMS: Item[] = [
     answer: (
       <div className="space-y-3 text-sm text-gray-400 leading-relaxed">
         <p>AI agents monitor the things you already spend money on — property, stocks, flights, and products — 24/7. When a signal fires (price anomaly, squeeze setup, arbitrage gap, deal alert) you get notified instantly via <strong className="text-white">Telegram or email</strong> before the window closes.</p>
-        <p>Without X68 you'd need seven different apps, manual price checking, and stock scanner subscriptions. Here it's one account, one Telegram, seven districts all running in parallel.</p>
+        <p>Without X68 you'd need eight different apps, manual price checking, and stock scanner subscriptions. Here it's one account, one Telegram, eight districts all running in parallel.</p>
         <div className="grid grid-cols-2 gap-2 mt-3">
           {[
             ['PropOS',       'Property price alerts, neighbourhood data'],
@@ -26,6 +26,7 @@ const ITEMS: Item[] = [
             ['SerenityOS',   'Daily wellness score, SG events radar, morning brief'],
             ['MarketingOS',  'AI video scripts + EN/ZH voiceover, TikTok-ready in 24h'],
             ['CareerGenome', 'AI career genome interview, trajectory simulator, hiring signals'],
+            ['Alt. HealthCare', 'TCM constitution analysis, BaZi birth chart, personalised herb & diet recs'],
           ].map(([d, desc]) => (
             <div key={d} className="bg-white/5 rounded-lg p-3">
               <div className="text-white text-xs font-semibold mb-1">{d}</div>
@@ -79,6 +80,12 @@ const ITEMS: Item[] = [
               who: 'VP/MD/C-suite professional, or recruiter sourcing senior talent',
               signals: 'AI narrative interview maps your Career Genome across 10 dimensions, simulates trajectory paths, predicts hiring cycles',
               action: 'Discover your genome free, or recruiters get B2B candidate search access',
+            },
+            {
+              name: 'Alternative HealthCare', color: 'text-orange-400', border: 'border-orange-500/30',
+              who: 'Anyone curious about TCM, gut health, or personalised wellness beyond Western medicine',
+              signals: 'Symptom → TCM constitution pattern mapping, BaZi & ZiWei birth chart cross-reference, herb & diet suitability matrix',
+              action: 'Daily Telegram check-in tracks your recovery; 3D acupuncture body map shows active Qi points',
             },
           ].map(d => (
             <div key={d.name} className={`border ${d.border} rounded-xl p-4 space-y-2`}>

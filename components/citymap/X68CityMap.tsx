@@ -9,6 +9,7 @@ import EcommerceDistrict from './EcommerceDistrict'
 import SerenityDistrict from './SerenityDistrict'
 import MarketingOSDistrict from './MarketingOSDistrict'
 import CareerGenomeDistrict from './CareerGenomeDistrict'
+import DeepQiDistrict from './DeepQiDistrict'
 
 interface DistrictState {
   id: string
@@ -60,6 +61,7 @@ export default function X68CityMap() {
   const serenity    = districts?.serenity    ?? mockDistrict('serenity')
   const marketingos = districts?.marketingos ?? mockDistrict('marketingos')
   const careergenome = districts?.careergenome ?? mockDistrict('careergenome')
+  const deepqi       = districts?.deepqi       ?? mockDistrict('deepqi')
 
   return (
     <section className="py-24 px-4 border-t border-white/5">
@@ -188,6 +190,21 @@ export default function X68CityMap() {
                 activeMonitors={careergenome.active_monitors}
               />
             </DistrictCard>
+
+            {/* DeepQi — TCM + BaZi Wellness, District 8 */}
+            <DistrictCard
+              district={deepqi}
+              accent="orange"
+              href="https://deep-qi-web.vercel.app"
+              external
+            >
+              <DeepQiDistrict
+                healthScore={deepqi.health_score}
+                alertsToday={deepqi.alerts_today}
+                revenueTier={deepqi.revenue_tier}
+                activeMonitors={deepqi.active_monitors}
+              />
+            </DistrictCard>
           </div>
         )}
 
@@ -232,6 +249,7 @@ function DistrictCard({
     emerald: 'border-emerald-500/30 hover:border-emerald-500/60',
     rose:    'border-rose-500/30 hover:border-rose-500/60',
     indigo:  'border-indigo-500/30 hover:border-indigo-500/60',
+    orange:  'border-orange-500/30 hover:border-orange-500/60',
   }
 
   return (

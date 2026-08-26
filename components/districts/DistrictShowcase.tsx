@@ -123,6 +123,23 @@ const DISTRICTS = [
     features: ['🧬 AI narrative interview → Career Genome','🗺️ Trajectory Simulator with probability scores','📡 Hiring cycle prediction before roles post','👔 Recruiter search access (B2B)','💼 For senior/executive professionals'],
     stat: { value: '10', label: 'Genome dimensions scored' },
   },
+  {
+    id:       'deepqi',
+    name:     'Alternative HealthCare',
+    tagline:  'TCM Wellness & BaZi',
+    icon:     '☯',
+    accent:   '#f97316',
+    accentCls:'text-orange-400',
+    borderCls:'border-orange-500/30',
+    video:    '/districts/deepqi.mp4',
+    poster:   '/districts/deepqi-poster.jpg',
+    href:     'https://deep-qi-web.vercel.app',
+    joinHref: 'https://deep-qi-web.vercel.app',
+    externalLabel: 'Start Diagnosis →',
+    desc:     'TCM symptom analysis meets BaZi astrology — maps your constitution pattern, cross-references your birth chart, and delivers personalised herb & diet recommendations via Telegram. Check in daily to track your recovery.',
+    features: ['🌿 TCM symptom → constitution pattern', '🀄 BaZi & ZiWei birth chart cross-reference', '🫙 Personalised herb & diet recommendations', '🤖 Telegram bot daily check-in loop', '🗺️ 3D acupuncture body map (Qi points)'],
+    stat: { value: '3D', label: 'Acupuncture body map' },
+  },
 ]
 
 const REPLAY_DELAY_MS = 3000   // hold on last frame for 3s before replaying

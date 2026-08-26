@@ -129,6 +129,7 @@ interface Intel {
   // regime
   regime: string
   regime_score: number
+  regime_max_score?: number
   regime_signals: string[]
   regime_updated: string | null
   commentary: string
@@ -1092,7 +1093,7 @@ export default function FinancialDashboard() {
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className={`text-lg font-bold ${regimeColor.text}`}>{intel.regime}</span>
                         <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${regimeColor.badge}`}>
-                          {intel.regime_score}/10 signals
+                          {intel.regime_score}/{intel.regime_max_score ?? 14} signals
                         </span>
                         {!intel.entry_allowed && (
                           <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border border-red-500/40 bg-red-500/10 text-red-400">ENTRIES HALTED</span>

@@ -220,7 +220,7 @@ If citizen count shows 0, check `SUPABASE_SERVICE_ROLE_KEY` is set in Vercel env
 
 ## Citystate API — Districts Live Count
 
-The `districts` object in `app/api/nexus/citystate/route.ts` must include ALL 7 districts or the "Districts Live" counter will be wrong. Current list: `propos`, `aceeconomy`, `nexustravel`, `commerce`, `serenity`, `marketingos`, `careergenome`.
+The `districts` object in `app/api/nexus/citystate/route.ts` must include ALL 8 districts or the "Districts Live" counter will be wrong. Current list: `propos`, `aceeconomy`, `nexustravel`, `commerce`, `serenity`, `marketingos`, `careergenome`, `deepqi`.
 
 > Each district entry needs at minimum: `health_score`, `alerts_today`, `active_monitors`, `revenue_tier`, `status`.
 
@@ -280,7 +280,7 @@ git push origin main
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Citizens shows 0 | `SUPABASE_SERVICE_ROLE_KEY` missing/wrong in Vercel | Check env vars in Vercel dashboard |
-| Districts Live < 7 | Missing district in citystate route | Add to `districts` object in `citystate/route.ts` |
+| Districts Live < 8 | Missing district in citystate route | Add to `districts` object in `citystate/route.ts` |
 | Financial tab empty | VPS API down | `systemctl restart financial_nexus` on VPS |
 | GA Intel 404 | `financial_nexus` running old code before `__main__` fix | Ensure `/api/nexus/intel` route is above `if __name__` in `nexus_api.py` |
 | HK/JP/SG tab always empty | Scanner hasn't run yet (outside market hours) | Expected — each market only populates after its cron runs; check `scanner_results.json` `last_updated` field |

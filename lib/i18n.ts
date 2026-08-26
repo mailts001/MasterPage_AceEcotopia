@@ -128,13 +128,13 @@ export const strings = {
   cta_contact:     { en: 'Contact Us',        zh: '联系我们' },
 
   // ── Pricing features ─────────────────────────────────────────────
-  pf_alerts3:      { en: '3 alerts/month across all 7 districts',    zh: '每月 3 条提醒，覆盖全部 7 个智能区' },
+  pf_alerts3:      { en: '3 alerts/month across all 8 districts',    zh: '每月 3 条提醒，覆盖全部 8 个智能区' },
   pf_readonly:     { en: 'Read-only access to all district dashboards', zh: '只读访问所有智能区仪表板' },
   pf_watchlist5:   { en: 'Basic watchlist (up to 5 assets)',          zh: '基础自选列表（最多 5 项资产）' },
   pf_api100:       { en: '100 API calls/day (1 key)',                 zh: '每日 100 次 API 调用（1 个密钥）' },
   pf_credits50:    { en: '50 Nexus Credits on signup',               zh: '注册获赠 50 积分' },
   pf_refer:        { en: 'Earn credits by referring friends',         zh: '邀请好友赚取积分' },
-  pf_unlimited:    { en: 'Unlimited alerts — all 7 districts',       zh: '无限提醒——覆盖全部 7 个智能区' },
+  pf_unlimited:    { en: 'Unlimited alerts — all 8 districts',       zh: '无限提醒——覆盖全部 8 个智能区' },
   pf_telegram:     { en: 'Telegram instant delivery (before email)',  zh: 'Telegram 即时送达（优先于邮件）' },
   pf_watchlistU:   { en: 'Unlimited watchlist assets',               zh: '自选列表资产无上限' },
   pf_api10k:       { en: '10,000 API calls/day (3 keys)',            zh: '每日 10,000 次 API 调用（3 个密钥）' },
@@ -147,7 +147,7 @@ export const strings = {
   pf_api_bulk:     { en: 'Bulk API access',                          zh: '批量 API 访问' },
   // ── Register page ────────────────────────────────────────────────
   reg_already_title:  { en: "You're already a Citizen!",                        zh: '您已是公民！' },
-  reg_already_sub:    { en: 'Your X68 account covers all 7 districts — including', zh: '您的 X68 账户已覆盖全部 7 个智能区，包括' },
+  reg_already_sub:    { en: 'Your X68 account covers all 8 districts — including', zh: '您的 X68 账户已覆盖全部 8 个智能区，包括' },
   reg_already_note:   { en: 'No separate join needed. Head to your dashboard to access', zh: '无需单独加入。前往仪表板访问' },
   reg_already_note2:  { en: 'and configure your watchlist.',                    zh: '并配置您的自选列表。' },
   reg_go_dashboard:   { en: 'Go to Dashboard →',                                zh: '前往仪表板 →' },
@@ -186,7 +186,7 @@ export const strings = {
   dt_commerce_benefit:  { en: 'Get price gap signals across Shopee, Lazada & Amazon', zh: '获取 Shopee、Lazada 与亚马逊跨平台价差信号' },
   dt_default_name:      { en: 'X68',                  zh: 'X68' },
   dt_default_tag:       { en: 'AI Economic Ecosystem', zh: 'AI 经济生态系统' },
-  dt_default_benefit:   { en: 'Access all 7 districts — property, stocks, travel, commerce, wellness, marketing & career AI agents', zh: '访问全部 7 个智能区——房产、股票、旅行、电商、健康、营销与职业 AI 代理' },
+  dt_default_benefit:   { en: 'Access all 8 districts — property, stocks, travel, commerce, wellness, marketing, career & TCM AI agents', zh: '访问全部 8 个智能区——房产、股票、旅行、电商、健康、营销、职业与中医 AI 代理' },
 
 } as const
 
@@ -220,7 +220,7 @@ export const districtFeatures = {
     zh: ['🧬 AI 叙事访谈生成十维职业基因图谱','🗺️ 职业路径模拟器（含概率评分）','📡 职位发布前预测招聘周期','👔 招聘方搜索权限（B2B）','💰 注册赠 50 积分'],
   },
   default: {
-    en: ['🌐 Access all 7 AI districts','🔔 3 free alerts per month','💰 50 Nexus Credits on signup','🔗 Earn 100 credits per referral','👤 Citizen profile & watchlist'],
-    zh: ['🌐 访问全部 7 个智能区','🔔 每月 3 条免费提醒','💰 注册赠 50 积分','🔗 每次推荐赚 100 积分','👤 公民档案与自选列表'],
+    en: ['🌐 Access all 8 AI districts','🔔 3 free alerts per month','💰 50 Nexus Credits on signup','🔗 Earn 100 credits per referral','👤 Citizen profile & watchlist'],
+    zh: ['🌐 访问全部 8 个智能区','🔔 每月 3 条免费提醒','💰 注册赠 50 积分','🔗 每次推荐赚 100 积分','👤 公民档案与自选列表'],
   },
 } as const
