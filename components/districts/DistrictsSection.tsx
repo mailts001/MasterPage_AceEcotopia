@@ -101,6 +101,16 @@ const DISTRICTS: DistrictEntry[] = [
     secondaryLabel: { en: 'For Recruiters →', zh: '招聘方入口 →' },
     secondaryExternal: true,
   },
+  {
+    id: 'deepqi',
+    nameKey: 'd_deepqi_name', tagKey: 'd_deepqi_tag', descKey: 'd_deepqi_desc',
+    icon: '☯',
+    color: 'from-orange-500/20 to-amber-500/20', border: 'border-orange-500/30', accent: 'text-orange-400',
+    visitHref: 'https://deep-qi-web.vercel.app', external: true, requiresAuth: false,
+    features: { en: ['TCM symptom → constitution pattern','BaZi & ZiWei birth chart','Herb & diet matrix','Telegram daily check-in'],
+                zh: ['症状→中医体质分析','八字与紫微斗数','草药与饮食矩阵','Telegram 每日签到'] },
+    citizenValue: { en: 'Personalised TCM wellness — free to start', zh: '个性化中医健康——免费开始' },
+  },
 ]
 
 export default function DistrictsSection() {

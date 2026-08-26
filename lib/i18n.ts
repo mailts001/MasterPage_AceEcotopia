@@ -15,7 +15,7 @@ export const strings = {
   // ── Hero ─────────────────────────────────────────────────────────
   hero_badge:     { en: 'AI Agents Active',      zh: 'AI 代理运行中' },
   hero_h1a:       { en: 'One Account.',           zh: '一个账户。' },
-  hero_h1b:       { en: 'Seven AI Districts.',    zh: '七大智能区。' },
+  hero_h1b:       { en: 'Eight AI Districts.',    zh: '八大智能区。' },
   hero_sub:       {
     en: 'X68 runs AI agents on property, stocks, flights, commerce and wellness — 24/7. You get alerts when something is worth acting on.',
     zh: 'X68 的 AI 代理全天候监测房产、股票、机票、电商与健康资讯。有价值的机会出现时，即时通知您。',
@@ -37,7 +37,7 @@ export const strings = {
   stat_alerts:     { en: 'Alerts Sent',           zh: '已发送提醒' },
 
   // ── Districts section ────────────────────────────────────────────
-  districts_h2a:  { en: 'Seven',     zh: '七大' },
+  districts_h2a:  { en: 'Eight',     zh: '八大' },
   districts_h2b:  { en: 'Districts', zh: '智能区' },
   districts_sub:  {
     en: 'Each district has AI agents running 24/7. As a citizen, you decide which ones work for you.',
@@ -94,6 +94,13 @@ export const strings = {
   d_careergenome_desc: {
     en: 'AI narrative interview maps your Career Genome across 10 dimensions, simulates trajectory paths, and predicts hiring cycles before roles are posted.',
     zh: 'AI 叙事访谈绘制您的十维职业基因图谱，模拟职业发展路径，并在职位发布前预测招聘周期。',
+  },
+
+  d_deepqi_name: { en: 'Alternative HealthCare',  zh: '中医替代健康区' },
+  d_deepqi_tag:  { en: 'TCM Wellness & BaZi',      zh: '中医健康与八字' },
+  d_deepqi_desc: {
+    en: 'TCM symptom analysis meets BaZi astrology — maps your constitution pattern, cross-references your birth chart, and delivers personalised herb & diet recommendations via Telegram.',
+    zh: '中医症状分析与八字星盘结合——分析体质类型，交叉比对命盘，通过 Telegram 推送个性化草药与饮食建议。',
   },
 
   // ── How it works ─────────────────────────────────────────────────

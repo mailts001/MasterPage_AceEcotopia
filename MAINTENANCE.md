@@ -228,7 +228,7 @@ The `districts` object in `app/api/nexus/citystate/route.ts` must include ALL 8 
 
 ## Adding a New District — Checklist
 
-- [ ] `lib/i18n.ts` — add name/tag/desc keys + `districtFeatures` entry; update "Seven" → "Eight" in hero/pricing strings
+- [x] `lib/i18n.ts` — add name/tag/desc keys + `districtFeatures` entry; update "Seven" → "Eight" in hero/pricing strings
 - [ ] `components/districts/DistrictsSection.tsx` — add `DistrictEntry` to `DISTRICTS` array
 - [ ] `components/districts/DistrictShowcase.tsx` — add entry with video/poster assets
 - [ ] `components/citymap/` — create `NewDistrict.tsx` SVG animation; add to `X68CityMap.tsx`
