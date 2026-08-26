@@ -64,7 +64,7 @@ export default function X68CityMap() {
   const deepqi       = districts?.deepqi       ?? mockDistrict('deepqi')
 
   return (
-    <section className="py-24 px-4 border-t border-white/5">
+    <section className="pt-24 pb-12 px-4 border-t border-white/5">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
@@ -83,7 +83,7 @@ export default function X68CityMap() {
 
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {[1,2,3,4,5,6,7].map(i => (
+            {[1,2,3,4,5,6,7,8].map(i => (
               <div key={i} className="h-48 rounded-xl bg-white/5 animate-pulse" />
             ))}
           </div>
