@@ -181,6 +181,17 @@ export default function CommercePage() {
           </p>
         </div>
 
+        {/* Deal Hunt game banner */}
+        <Link href="/citizen/dashboard/commerce/play"
+          className="flex items-center gap-4 bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/30 rounded-2xl px-5 py-4 hover:border-amber-400/60 transition group">
+          <span className="text-3xl">🎮</span>
+          <div className="flex-1">
+            <div className="font-semibold text-amber-300 group-hover:text-amber-200 transition">Deal Hunt — Play & Win Coupons</div>
+            <div className="text-xs text-gray-500 mt-0.5">Find the hidden deal among the crowd · Earn XP · Unlock real merchant coupons</div>
+          </div>
+          <span className="text-amber-400 text-sm group-hover:translate-x-1 transition-transform">Play →</span>
+        </Link>
+
         {/* Stats */}
         {!loading && opportunities.length > 0 && (
           <div className="grid grid-cols-3 gap-4">
