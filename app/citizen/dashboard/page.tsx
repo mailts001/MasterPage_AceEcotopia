@@ -112,37 +112,32 @@ export default async function CitizenDashboard() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/citizen/login')
 
-  const { data: citizen } = await supabase
-    .from('citizens')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+  // Fetch citizen + watchlist in parallel
+  const [{ data: citizen }, { data: watchlist }] = await Promise.all([
+    supabase.from('citizens').select('*').eq('id', user.id).single(),
+    supabase.from('saved_assets').select('*').eq('citizen_id', user.id).order('created_at', { ascending: false }),
+  ])
 
+  // First-time signup bonus — fire-and-forget, never blocks render
   if (citizen && citizen.nexus_credits === 0) {
-    const { count } = await supabase
+    supabase
       .from('credits_ledger')
       .select('*', { count: 'exact', head: true })
       .eq('citizen_id', user.id)
-    if ((count ?? 0) === 0) {
-      await awardCredits(user.id, 'signup_bonus').catch(() => {})
-      sendWelcomeEmail({
-        to: user.email!,
-        citizenName: citizen.display_name ?? 'Citizen',
-        referralCode: citizen.referral_code ?? '',
-      }).catch(() => {})
-      const referralCode = user.user_metadata?.referred_by_code
-      if (referralCode) await processReferral(user.id, referralCode).catch(() => {})
-      const { data: refreshed } = await supabase.from('citizens').select('*').eq('id', user.id).single()
-      if (refreshed) Object.assign(citizen, refreshed)
-    }
+      .then(({ count }) => {
+        if ((count ?? 0) === 0) {
+          awardCredits(user.id, 'signup_bonus').catch(() => {})
+          sendWelcomeEmail({
+            to: user.email!,
+            citizenName: citizen.display_name ?? 'Citizen',
+            referralCode: citizen.referral_code ?? '',
+          }).catch(() => {})
+          const referralCode = user.user_metadata?.referred_by_code
+          if (referralCode) processReferral(user.id, referralCode).catch(() => {})
+        }
+      })
+      .catch(() => {})
   }
-
-  // Load watchlist
-  const { data: watchlist } = await supabase
-    .from('saved_assets')
-    .select('*')
-    .eq('citizen_id', user.id)
-    .order('created_at', { ascending: false })
 
   const tier = citizen?.tier ?? 'explorer'
   const isExplorer = tier === 'explorer'
