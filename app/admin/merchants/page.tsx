@@ -236,7 +236,7 @@ function CampaignsTab({ secret }: { secret: string }) {
   const setStatus = async (id: string, status: string) => {
     await adminFetch(secret, '/api/admin/merchants', {
       method: 'POST',
-      body: JSON.stringify({ table: 'campaigns', row: { id, status } }),
+      body: JSON.stringify({ table: 'campaigns', id, row: { status } }),
     })
     setCampaigns(cs => cs.map(c => c.id === id ? { ...c, status } : c))
   }

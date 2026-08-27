@@ -32,10 +32,17 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   if (!checkAuth(req)) return unauthorized()
-  const { table, row } = await req.json()
+  const { table, row, id } = await req.json()
 
   const allowed = ['merchants', 'products', 'campaigns', 'coupons', 'campaign_placements']
   if (!allowed.includes(table)) return NextResponse.json({ error: 'Invalid table' }, { status: 400 })
+
+  if (id) {
+    // Update existing row
+    const { data, error } = await adminSupabase.from(table).update(row).eq('id', id).select().single()
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ data })
+  }
 
   const { data, error } = await adminSupabase.from(table).insert(row).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

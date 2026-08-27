@@ -120,23 +120,20 @@ export default async function CitizenDashboard() {
 
   // First-time signup bonus — fire-and-forget, never blocks render
   if (citizen && citizen.nexus_credits === 0) {
-    supabase
-      .from('credits_ledger')
-      .select('*', { count: 'exact', head: true })
-      .eq('citizen_id', user.id)
-      .then(({ count }) => {
-        if ((count ?? 0) === 0) {
-          awardCredits(user.id, 'signup_bonus').catch(() => {})
-          sendWelcomeEmail({
-            to: user.email!,
-            citizenName: citizen.display_name ?? 'Citizen',
-            referralCode: citizen.referral_code ?? '',
-          }).catch(() => {})
-          const referralCode = user.user_metadata?.referred_by_code
-          if (referralCode) processReferral(user.id, referralCode).catch(() => {})
-        }
-      })
-      .catch(() => {})
+    void Promise.resolve(
+      supabase.from('credits_ledger').select('*', { count: 'exact', head: true }).eq('citizen_id', user.id)
+    ).then(({ count }) => {
+      if ((count ?? 0) === 0) {
+        void awardCredits(user.id, 'signup_bonus').catch(() => {})
+        void sendWelcomeEmail({
+          to: user.email!,
+          citizenName: citizen!.display_name ?? 'Citizen',
+          referralCode: citizen!.referral_code ?? '',
+        }).catch(() => {})
+        const referralCode = user.user_metadata?.referred_by_code
+        if (referralCode) void processReferral(user.id, referralCode).catch(() => {})
+      }
+    }).catch(() => {})
   }
 
   const tier = citizen?.tier ?? 'explorer'
