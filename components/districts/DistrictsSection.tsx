@@ -67,6 +67,9 @@ const DISTRICTS: DistrictEntry[] = [
     features: { en: ['Price gap scanning','Arbitrage signals','Competitor monitoring','Auto-listing'],
                 zh: ['价差扫描','套利信号','竞品监测','自动刊登'] },
     citizenValue: { en: 'Find profit gaps others miss', zh: '发现他人忽视的利润空间' },
+    secondaryHref: '/citizen/dashboard/commerce/play',
+    secondaryLabel: { en: '🎮 Play Deal Hunt →', zh: '🎮 玩寻宝游戏 →' },
+    secondaryExternal: false,
   },
   {
     id: 'serenity',
