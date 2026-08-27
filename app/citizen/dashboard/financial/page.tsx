@@ -796,10 +796,34 @@ export default function FinancialDashboard() {
 
                 {/* Scanner picks */}
                 <div>
-                  <div className="flex items-center gap-2 mb-3">
+                  <div className="flex items-center gap-2 mb-3 flex-wrap">
                     <span className="text-xs font-mono text-cyan-400 uppercase tracking-widest">{m.label}</span>
-                    {picks?.timestamp && <span className="text-[10px] text-slate-600">Last scan: {new Date(picks.timestamp).toLocaleString('en-SG', { dateStyle: 'short', timeStyle: 'short' })}</span>}
+                    {picks?.timestamp && (() => {
+                      const ageMs = Date.now() - new Date(picks.timestamp!).getTime()
+                      const ageH  = ageMs / 3600000
+                      const label = ageH < 1
+                        ? `${Math.round(ageMs / 60000)}m ago`
+                        : `${ageH.toFixed(1)}h ago`
+                      const stale = ageH > 4
+                      return (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
+                          stale
+                            ? 'text-amber-400 border-amber-500/30 bg-amber-500/10'
+                            : 'text-slate-500 border-white/10'
+                        }`}>
+                          {stale ? '⚠ ' : ''}Signal captured {label}
+                        </span>
+                      )
+                    })()}
                   </div>
+                  {picks?.timestamp && (() => {
+                    const ageH = (Date.now() - new Date(picks.timestamp!).getTime()) / 3600000
+                    return ageH > 4 ? (
+                      <div className="mb-3 rounded-lg border border-amber-500/20 bg-amber-500/8 px-3 py-2 text-[10px] text-amber-400/80">
+                        Prices shown are from scan time — not live. RSI, MACD &amp; volume signals remain valid but verify current price before acting.
+                      </div>
+                    ) : null
+                  })()}
                   {(picks?.scanner_picks?.length ?? 0) === 0 ? (
                     <div className="border border-dashed border-white/10 rounded-xl p-8 text-center">
                       <p className="text-slate-600 text-sm mb-1">No {market} picks right now</p>
@@ -833,7 +857,8 @@ export default function FinancialDashboard() {
                           <div className="flex gap-3 text-[10px] flex-wrap">
                             {p.rsi && <span><span className="text-slate-600">RSI </span><span className={`font-mono font-bold ${p.rsi > 70 ? 'text-red-400' : p.rsi < 40 ? 'text-green-400' : 'text-cyan-400'}`}>{p.rsi.toFixed(0)}</span></span>}
                             {p.volume_ratio && <span><span className="text-slate-600">Vol Surge </span><span className={`font-mono font-bold ${p.volume_ratio > 1.5 ? 'text-yellow-400' : 'text-slate-400'}`}>{p.volume_ratio.toFixed(1)}×</span></span>}
-                            {(p.change_pct ?? 0) !== 0 && <span><span className="text-slate-600">1d </span><span className={`font-mono font-bold ${(p.change_pct ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>{(p.change_pct ?? 0) >= 0 ? '+' : ''}{p.change_pct!.toFixed(2)}%</span></span>}
+                            {(p.change_pct ?? 0) !== 0 && (p.price ?? 0) > 0 && <span><span className="text-slate-600">1d </span><span className={`font-mono font-bold ${(p.change_pct ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>{(p.change_pct ?? 0) >= 0 ? '+' : ''}{p.change_pct!.toFixed(2)}%</span></span>}
+                            {(p.price ?? 0) === 0 && <span className="text-[9px] text-slate-700 italic">price unavailable at scan time</span>}
                           </div>
                           {/* Fibonacci levels */}
                           {(p.recommendation === 'BUY' || p.recommendation === 'STRONG BUY') && (p.fib_r1 || p.fib_r2) && (
