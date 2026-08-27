@@ -23,7 +23,7 @@ async function adminFetch(secret: string, path: string, opts?: RequestInit) {
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
-type Tab = 'merchants' | 'campaigns' | 'placements'
+type Tab = 'merchants' | 'products' | 'coupons' | 'campaigns' | 'placements'
 
 export default function AdminMerchantsPage() {
   const [secret, setSecret]   = useState('')
@@ -92,18 +92,36 @@ export default function AdminMerchantsPage() {
           </button>
         </div>
 
-        <div className="flex gap-2 border-b border-white/10">
-          {(['merchants', 'campaigns', 'placements'] as Tab[]).map(t => (
-            <button key={t} onClick={() => setTab(t)}
-              className={`px-4 py-2 text-sm capitalize border-b-2 transition ${
-                tab === t ? 'border-cyan-500 text-white' : 'border-transparent text-gray-500 hover:text-white'
+        {/* Step guide */}
+        <div className="flex items-center gap-2 text-xs text-gray-600 bg-white/3 border border-white/8 rounded-lg px-4 py-2">
+          <span className="text-amber-500">Setup order:</span>
+          <span>1 Merchant →</span>
+          <span>2 Products →</span>
+          <span>3 Coupons →</span>
+          <span>4 Campaign →</span>
+          <span>5 Placements</span>
+        </div>
+
+        <div className="flex gap-1 border-b border-white/10 overflow-x-auto">
+          {([
+            { key: 'merchants',  label: '① Merchants' },
+            { key: 'products',   label: '② Products' },
+            { key: 'coupons',    label: '③ Coupons' },
+            { key: 'campaigns',  label: '④ Campaigns' },
+            { key: 'placements', label: '⑤ Placements → Game' },
+          ] as { key: Tab; label: string }[]).map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`px-4 py-2 text-sm whitespace-nowrap border-b-2 transition ${
+                tab === t.key ? 'border-cyan-500 text-white' : 'border-transparent text-gray-500 hover:text-white'
               }`}>
-              {t}
+              {t.label}
             </button>
           ))}
         </div>
 
         {tab === 'merchants'  && <MerchantsTab  secret={secret} />}
+        {tab === 'products'   && <ProductsTab   secret={secret} />}
+        {tab === 'coupons'    && <CouponsTab    secret={secret} />}
         {tab === 'campaigns'  && <CampaignsTab  secret={secret} />}
         {tab === 'placements' && <PlacementsTab secret={secret} />}
       </div>
@@ -204,6 +222,253 @@ function MerchantsTab({ secret }: { secret: string }) {
                 </td>
               </tr>
             ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+// ─── Products tab ─────────────────────────────────────────────────────────────
+
+function ProductsTab({ secret }: { secret: string }) {
+  const [products, setProducts]   = useState<any[]>([])
+  const [merchants, setMerchants] = useState<any[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [form, setForm]           = useState({ merchant_id: '', name: '', image_url: '', price: '0', currency: 'SGD', category: 'general', description: '' })
+  const [saving, setSaving]       = useState(false)
+  const [err, setErr]             = useState('')
+
+  const loadAll = useCallback(async () => {
+    const [pr, mr] = await Promise.all([
+      adminFetch(secret, '/api/admin/merchants?table=products').then(r => r.json()),
+      adminFetch(secret, '/api/admin/merchants?table=merchants').then(r => r.json()),
+    ])
+    setProducts(pr.data ?? [])
+    setMerchants(mr.data ?? [])
+    setLoading(false)
+  }, [secret])
+
+  useEffect(() => { loadAll() }, [loadAll])
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true); setErr('')
+    const res = await adminFetch(secret, '/api/admin/merchants', {
+      method: 'POST',
+      body: JSON.stringify({ table: 'products', row: { ...form, price: Number(form.price) } }),
+    })
+    const j = await res.json()
+    if (j.error) { setErr(j.error); setSaving(false); return }
+    setForm({ merchant_id: form.merchant_id, name: '', image_url: '', price: '0', currency: 'SGD', category: 'general', description: '' })
+    setSaving(false)
+    loadAll()
+  }
+
+  const del = async (id: string) => {
+    if (!confirm('Delete this product?')) return
+    await adminFetch(secret, '/api/admin/merchants', { method: 'DELETE', body: JSON.stringify({ table: 'products', id }) })
+    loadAll()
+  }
+
+  return (
+    <div className="space-y-6">
+      <form onSubmit={submit} className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-4">
+        <div>
+          <h3 className="font-semibold text-sm">Add Product</h3>
+          <p className="text-xs text-gray-600 mt-0.5">Products appear as collectible items inside the game. Use a square image URL (64×64 or 128×128).</p>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1 col-span-2">
+            <label className="text-xs text-gray-500">Merchant *</label>
+            <select value={form.merchant_id} onChange={e => setForm(f => ({ ...f, merchant_id: e.target.value }))} required
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500">
+              <option value="">Select merchant…</option>
+              {merchants.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+          </div>
+          <Input label="Product Name *"    value={form.name}        onChange={v => setForm(f => ({ ...f, name: v }))}        required />
+          <Input label="Price (SGD)"       value={form.price}       onChange={v => setForm(f => ({ ...f, price: v }))}        placeholder="0" />
+          <div className="col-span-2">
+            <Input label="Image URL * (shown in game — use a direct image link, e.g. from Imgur or your CDN)"
+              value={form.image_url} onChange={v => setForm(f => ({ ...f, image_url: v }))} required
+              placeholder="https://i.imgur.com/xxx.png" />
+          </div>
+          <Input label="Category"          value={form.category}    onChange={v => setForm(f => ({ ...f, category: v }))}     placeholder="fashion / electronics / food" />
+          <Input label="Description"       value={form.description} onChange={v => setForm(f => ({ ...f, description: v }))} />
+        </div>
+        {form.image_url && (
+          <div className="flex items-center gap-3 bg-black/30 rounded-lg p-3">
+            <img src={form.image_url} alt="preview" className="w-12 h-12 rounded object-cover border border-white/10" />
+            <span className="text-xs text-gray-500">Image preview — this is what appears in the game</span>
+          </div>
+        )}
+        {err && <p className="text-red-400 text-xs">{err}</p>}
+        <button type="submit" disabled={saving}
+          className="px-5 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-sm font-medium disabled:opacity-50 transition">
+          {saving ? 'Saving…' : 'Add Product'}
+        </button>
+      </form>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-gray-500 border-b border-white/10">
+              <th className="pb-2 pr-4">Product</th>
+              <th className="pb-2 pr-4">Merchant</th>
+              <th className="pb-2 pr-4">Price</th>
+              <th className="pb-2 pr-4">Category</th>
+              <th className="pb-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5">
+            {loading ? (
+              <tr><td colSpan={5} className="py-6 text-gray-600 text-center">Loading…</td></tr>
+            ) : products.length === 0 ? (
+              <tr><td colSpan={5} className="py-6 text-gray-600 text-center">No products yet — add one above</td></tr>
+            ) : products.map(p => {
+              const merchant = merchants.find(m => m.id === p.merchant_id)
+              return (
+                <tr key={p.id}>
+                  <td className="py-3 pr-4">
+                    <div className="flex items-center gap-2">
+                      {p.image_url && <img src={p.image_url} alt="" className="w-8 h-8 rounded object-cover border border-white/10" />}
+                      <span className="font-medium">{p.name}</span>
+                    </div>
+                  </td>
+                  <td className="py-3 pr-4 text-gray-400">{merchant?.name ?? '—'}</td>
+                  <td className="py-3 pr-4 text-gray-400">${p.price} {p.currency}</td>
+                  <td className="py-3 pr-4 text-gray-400">{p.category}</td>
+                  <td className="py-3">
+                    <button onClick={() => del(p.id)} className="text-xs text-red-400 hover:text-red-300 transition">Delete</button>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+// ─── Coupons tab ──────────────────────────────────────────────────────────────
+
+function CouponsTab({ secret }: { secret: string }) {
+  const [coupons, setCoupons]   = useState<any[]>([])
+  const [products, setProducts] = useState<any[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [form, setForm]         = useState({ product_id: '', reward_type: 'coupon_pct', value: '10', code: '', inventory: '100' })
+  const [saving, setSaving]     = useState(false)
+  const [err, setErr]           = useState('')
+
+  const loadAll = useCallback(async () => {
+    const [cr, pr] = await Promise.all([
+      adminFetch(secret, '/api/admin/merchants?table=coupons').then(r => r.json()),
+      adminFetch(secret, '/api/admin/merchants?table=products').then(r => r.json()),
+    ])
+    setCoupons(cr.data ?? [])
+    setProducts(pr.data ?? [])
+    setLoading(false)
+  }, [secret])
+
+  useEffect(() => { loadAll() }, [loadAll])
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true); setErr('')
+    const res = await adminFetch(secret, '/api/admin/merchants', {
+      method: 'POST',
+      body: JSON.stringify({ table: 'coupons', row: {
+        product_id: form.product_id,
+        reward_type: form.reward_type,
+        value: Number(form.value),
+        code: form.code || null,
+        inventory: Number(form.inventory),
+      }}),
+    })
+    const j = await res.json()
+    if (j.error) { setErr(j.error); setSaving(false); return }
+    setForm(f => ({ ...f, value: '10', code: '', inventory: '100' }))
+    setSaving(false)
+    loadAll()
+  }
+
+  const del = async (id: string) => {
+    if (!confirm('Delete this coupon?')) return
+    await adminFetch(secret, '/api/admin/merchants', { method: 'DELETE', body: JSON.stringify({ table: 'coupons', id }) })
+    loadAll()
+  }
+
+  return (
+    <div className="space-y-6">
+      <form onSubmit={submit} className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-4">
+        <div>
+          <h3 className="font-semibold text-sm">Add Coupon / Reward</h3>
+          <p className="text-xs text-gray-600 mt-0.5">Each coupon is the reward a player wins when they collect the product in-game.</p>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1 col-span-2">
+            <label className="text-xs text-gray-500">Product *</label>
+            <select value={form.product_id} onChange={e => setForm(f => ({ ...f, product_id: e.target.value }))} required
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500">
+              <option value="">Select product this coupon belongs to…</option>
+              {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-gray-500">Reward Type *</label>
+            <select value={form.reward_type} onChange={e => setForm(f => ({ ...f, reward_type: e.target.value }))}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500">
+              <option value="coupon_pct">% Discount (e.g. 20% off)</option>
+              <option value="coupon_fixed">Fixed $ Off (e.g. $10 off)</option>
+              <option value="points">XP / Points</option>
+              <option value="merchandise">Free Merchandise</option>
+            </select>
+          </div>
+          <Input label="Value (% or $)" value={form.value} onChange={v => setForm(f => ({ ...f, value: v }))} placeholder="20" required />
+          <Input label="Coupon Code (optional)" value={form.code} onChange={v => setForm(f => ({ ...f, code: v }))} placeholder="DEALHUNT20" />
+          <Input label="Inventory (max redemptions)" value={form.inventory} onChange={v => setForm(f => ({ ...f, inventory: v }))} placeholder="100" />
+        </div>
+        {err && <p className="text-red-400 text-xs">{err}</p>}
+        <button type="submit" disabled={saving}
+          className="px-5 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-sm font-medium disabled:opacity-50 transition">
+          {saving ? 'Saving…' : 'Add Coupon'}
+        </button>
+      </form>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-gray-500 border-b border-white/10">
+              <th className="pb-2 pr-4">Product</th>
+              <th className="pb-2 pr-4">Type</th>
+              <th className="pb-2 pr-4">Value</th>
+              <th className="pb-2 pr-4">Code</th>
+              <th className="pb-2 pr-4">Inventory</th>
+              <th className="pb-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5">
+            {loading ? (
+              <tr><td colSpan={6} className="py-6 text-gray-600 text-center">Loading…</td></tr>
+            ) : coupons.length === 0 ? (
+              <tr><td colSpan={6} className="py-6 text-gray-600 text-center">No coupons yet — add one above</td></tr>
+            ) : coupons.map(c => {
+              const product = products.find(p => p.id === c.product_id)
+              return (
+                <tr key={c.id}>
+                  <td className="py-3 pr-4 font-medium">{product?.name ?? '—'}</td>
+                  <td className="py-3 pr-4 text-gray-400 text-xs">{c.reward_type}</td>
+                  <td className="py-3 pr-4 text-amber-400 font-mono">{c.reward_type === 'coupon_pct' ? `${c.value}%` : `$${c.value}`}</td>
+                  <td className="py-3 pr-4 text-gray-400 font-mono text-xs">{c.code ?? '—'}</td>
+                  <td className="py-3 pr-4 text-gray-400">{c.redeemed_count}/{c.inventory}</td>
+                  <td className="py-3">
+                    <button onClick={() => del(c.id)} className="text-xs text-red-400 hover:text-red-300 transition">Delete</button>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
