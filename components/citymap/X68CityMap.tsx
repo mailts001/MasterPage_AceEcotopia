@@ -262,7 +262,7 @@ function DistrictCard({
         {gameHref && (
           <Link
             href={gameHref}
-            className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/50 backdrop-blur-[2px]"
+            className="absolute inset-0 z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/50 backdrop-blur-[2px]"
             onClick={e => e.stopPropagation()}
           >
             <span className="flex flex-col items-center gap-1.5 text-center">

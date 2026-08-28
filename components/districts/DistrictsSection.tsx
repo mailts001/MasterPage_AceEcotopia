@@ -122,17 +122,20 @@ export default function DistrictsSection() {
 
   useEffect(() => {
     async function fetchDistrictData() {
-      for (const d of DISTRICTS) {
-        try {
-          const res = await fetch(`/api/nexus/district/${d.id}`)
-          if (res.ok) {
-            const data = await res.json()
-            setDistrictData(prev => ({ ...prev, [d.id]: { ...data, status: 'live' } }))
-          }
-        } catch {
-          setDistrictData(prev => ({ ...prev, [d.id]: { alerts_today: 0, active_monitors: 0, last_signal_at: null, status: 'offline' } }))
+      // Fetch all districts in parallel
+      const results = await Promise.allSettled(
+        DISTRICTS.map(d => fetch(`/api/nexus/district/${d.id}`).then(r => r.ok ? r.json() : null))
+      )
+      const updates: Record<string, DistrictData> = {}
+      results.forEach((result, i) => {
+        const id = DISTRICTS[i].id
+        if (result.status === 'fulfilled' && result.value) {
+          updates[id] = { ...result.value, status: 'live' }
+        } else {
+          updates[id] = { alerts_today: 0, active_monitors: 0, last_signal_at: null, status: 'offline' }
         }
-      }
+      })
+      setDistrictData(updates)
     }
     fetchDistrictData()
   }, [])
