@@ -600,7 +600,7 @@ function PlacementsTab({ secret }: { secret: string }) {
   const [products, setProducts] = useState<any[]>([])
   const [coupons, setCoupons]   = useState<any[]>([])
   const [loading, setLoading]   = useState(true)
-  const [form, setForm]         = useState({ campaign_id: '', product_id: '', coupon_id: '', game_id: 'tosios', district_id: 'ecommerce', game_role: 'collectible', priority: '5', spawn_count: '3' })
+  const [form, setForm]         = useState({ campaign_id: '', product_id: '', coupon_id: '', game_id: 'tosios', district_id: 'ecommerce', game_role: 'collectible', priority: '5', spawn_count: '3', background_image_url: '' })
   const [saving, setSaving]     = useState(false)
   const [err, setErr]           = useState('')
 
@@ -684,6 +684,16 @@ function PlacementsTab({ secret }: { secret: string }) {
             <input type="number" min="1" max="20" value={form.spawn_count}
               onChange={e => setForm(f => ({ ...f, spawn_count: e.target.value }))}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500" />
+          </div>
+          <div className="col-span-2 space-y-1">
+            <label className="text-xs text-gray-500">Arena Background Image URL (optional — your shop/brand photo from <a href="https://imgur.com" target="_blank" className="text-cyan-400 underline">Imgur</a> direct link)</label>
+            <input type="url" value={form.background_image_url}
+              onChange={e => setForm(f => ({ ...f, background_image_url: e.target.value }))}
+              placeholder="https://i.imgur.com/XXXXXXX.jpg"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500" />
+            {form.background_image_url && (
+              <img src={form.background_image_url} alt="preview" className="mt-1 w-40 h-24 object-cover rounded-lg border border-white/10" onError={e => (e.currentTarget.style.display='none')} />
+            )}
           </div>
         </div>
         {err && <p className="text-red-400 text-xs">{err}</p>}
