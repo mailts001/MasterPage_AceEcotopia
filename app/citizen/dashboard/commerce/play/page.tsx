@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 // ─── Phase machine ─────────────────────────────────────────────────────────────
 type Phase = 'intro' | 'launch' | 'game'
 
-const GAME_BASE_URL = 'https://assembled-possible-geographical-conversation.trycloudflare.com'
+const GAME_BASE_URL = 'https://edgar-valium-membrane-learned.trycloudflare.com'
 
 export default function CommercePlayPage() {
   const router = useRouter()
