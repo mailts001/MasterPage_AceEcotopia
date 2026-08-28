@@ -49,10 +49,14 @@ export async function POST(req: NextRequest) {
   }
 
   // Send coupon email (fire-and-forget — don't block response)
-  const product = placement.products as { name: string; image_url: string } | null
-  const coupon  = placement.coupons  as { reward_type: string; reward_value: number; coupon_code?: string } | null
-  const campaign = placement.campaigns as { merchants: { name: string; website_url?: string } } | null
-  const merchant = campaign?.merchants
+  const p = placement as unknown as {
+    products:  { name: string; image_url: string } | null
+    coupons:   { reward_type: string; reward_value: number; coupon_code?: string } | null
+    campaigns: { merchants: { name: string; website_url?: string } } | null
+  }
+  const product  = p.products
+  const coupon   = p.coupons
+  const merchant = p.campaigns?.merchants
 
   void sendCouponEmail({
     to:           citizen_email,
