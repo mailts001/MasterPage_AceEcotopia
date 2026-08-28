@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation'
 // game   → full-screen TOSIOS iframe
 type Phase = 'intro' | 'launch' | 'game'
 
-const GAME_URL = 'http://204.168.221.101:2567'
+const GAME_URL = 'https://admit-layout-representative-processed.trycloudflare.com'
 
 export default function CommercePlayPage() {
   const router = useRouter()
