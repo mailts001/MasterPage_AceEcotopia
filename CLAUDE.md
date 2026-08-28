@@ -4,7 +4,7 @@
 Next.js app on Vercel — https://master-page-ace-ecotopia.vercel.app
 Game server: Colyseus on VPS 204.168.221.101:2567 (service: colyseus_game)
 Game repo: /root/x68-game on VPS (TOSIOS fork, TypeScript monorepo)
-Cloudflare tunnel: https://admit-layout-representative-processed.trycloudflare.com → :2567
+Cloudflare tunnel: https://assembled-possible-geographical-conversation.trycloudflare.com → :2567
   - Tunnel runs in screen session "tunnel" on VPS; URL changes on restart → update GAME_BASE_URL in play/page.tsx
 
 ## Key Files
