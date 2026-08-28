@@ -493,7 +493,7 @@ function CampaignsTab({ secret }: { secret: string }) {
   const [campaigns, setCampaigns] = useState<any[]>([])
   const [merchants, setMerchants] = useState<any[]>([])
   const [loading, setLoading]     = useState(true)
-  const [form, setForm]           = useState({ merchant_id: '', name: '', objective: 'redemption', start_date: '', end_date: '', budget: '0' })
+  const [form, setForm]           = useState({ merchant_id: '', name: '', objective: 'redemption', start_date: '', end_date: '', budget: '0', background_image_url: '' })
   const [saving, setSaving]       = useState(false)
   const [err, setErr]             = useState('')
 
@@ -526,7 +526,7 @@ function CampaignsTab({ secret }: { secret: string }) {
     })
     const j = await res.json()
     if (j.error) { setErr(j.error); setSaving(false); return }
-    setForm({ merchant_id: '', name: '', objective: 'redemption', start_date: '', end_date: '', budget: '0' })
+    setForm({ merchant_id: '', name: '', objective: 'redemption', start_date: '', end_date: '', budget: '0', background_image_url: '' })
     setSaving(false)
     loadAll()
   }
@@ -547,6 +547,16 @@ function CampaignsTab({ secret }: { secret: string }) {
           <Input label="Campaign Name *" value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} required />
           <Input label="Start Date *" value={form.start_date} onChange={v => setForm(f => ({ ...f, start_date: v }))} placeholder="YYYY-MM-DD" required />
           <Input label="End Date *"   value={form.end_date}   onChange={v => setForm(f => ({ ...f, end_date: v }))}   placeholder="YYYY-MM-DD" required />
+          <div className="col-span-2 space-y-1">
+            <label className="text-xs text-gray-500">Arena Background Image URL — paste direct Imgur link (i.imgur.com/xxx.jpg) of your shop/brand photo</label>
+            <input type="url" value={form.background_image_url}
+              onChange={e => setForm(f => ({ ...f, background_image_url: e.target.value }))}
+              placeholder="https://i.imgur.com/XXXXXXX.jpg"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-500" />
+            {form.background_image_url && (
+              <img src={form.background_image_url} alt="preview" className="mt-1 w-48 h-28 object-cover rounded-lg border border-white/10" onError={e => (e.currentTarget.style.display='none')} />
+            )}
+          </div>
         </div>
         {err && <p className="text-red-400 text-xs">{err}</p>}
         <button type="submit" disabled={saving}
@@ -562,6 +572,7 @@ function CampaignsTab({ secret }: { secret: string }) {
               <th className="pb-2 pr-4">Campaign</th>
               <th className="pb-2 pr-4">Merchant</th>
               <th className="pb-2 pr-4">Dates</th>
+              <th className="pb-2 pr-4">Arena BG</th>
               <th className="pb-2 pr-4">Status</th>
               <th className="pb-2">Actions</th>
             </tr>
@@ -576,6 +587,11 @@ function CampaignsTab({ secret }: { secret: string }) {
                   <td className="py-3 pr-4 font-medium">{c.name}</td>
                   <td className="py-3 pr-4 text-gray-400">{merchant?.name ?? '—'}</td>
                   <td className="py-3 pr-4 text-gray-400 text-xs">{c.start_date} → {c.end_date}</td>
+                  <td className="py-3 pr-4">
+                    {c.background_image_url
+                      ? <img src={c.background_image_url} alt="bg" className="w-10 h-7 object-cover rounded border border-white/10" />
+                      : <span className="text-gray-700 text-xs">no bg</span>}
+                  </td>
                   <td className="py-3 pr-4"><StatusBadge status={c.status} /></td>
                   <td className="py-3 flex gap-2">
                     {c.status !== 'live'  && <ActionBtn label="Go Live" onClick={() => setStatus(c.id, 'live')} />}
@@ -600,7 +616,7 @@ function PlacementsTab({ secret }: { secret: string }) {
   const [products, setProducts] = useState<any[]>([])
   const [coupons, setCoupons]   = useState<any[]>([])
   const [loading, setLoading]   = useState(true)
-  const [form, setForm]         = useState({ campaign_id: '', product_id: '', coupon_id: '', game_id: 'tosios', district_id: 'ecommerce', game_role: 'collectible', priority: '5', spawn_count: '3', background_image_url: '' })
+  const [form, setForm]         = useState({ campaign_id: '', product_id: '', coupon_id: '', game_id: 'tosios', district_id: 'ecommerce', game_role: 'collectible', priority: '5', spawn_count: '3' })
   const [saving, setSaving]     = useState(false)
   const [err, setErr]           = useState('')
 
@@ -684,16 +700,6 @@ function PlacementsTab({ secret }: { secret: string }) {
             <input type="number" min="1" max="20" value={form.spawn_count}
               onChange={e => setForm(f => ({ ...f, spawn_count: e.target.value }))}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500" />
-          </div>
-          <div className="col-span-2 space-y-1">
-            <label className="text-xs text-gray-500">Arena Background Image URL (optional — your shop/brand photo from <a href="https://imgur.com" target="_blank" className="text-cyan-400 underline">Imgur</a> direct link)</label>
-            <input type="url" value={form.background_image_url}
-              onChange={e => setForm(f => ({ ...f, background_image_url: e.target.value }))}
-              placeholder="https://i.imgur.com/XXXXXXX.jpg"
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500" />
-            {form.background_image_url && (
-              <img src={form.background_image_url} alt="preview" className="mt-1 w-40 h-24 object-cover rounded-lg border border-white/10" onError={e => (e.currentTarget.style.display='none')} />
-            )}
           </div>
         </div>
         {err && <p className="text-red-400 text-xs">{err}</p>}
