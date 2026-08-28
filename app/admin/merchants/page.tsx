@@ -600,7 +600,7 @@ function PlacementsTab({ secret }: { secret: string }) {
   const [products, setProducts] = useState<any[]>([])
   const [coupons, setCoupons]   = useState<any[]>([])
   const [loading, setLoading]   = useState(true)
-  const [form, setForm]         = useState({ campaign_id: '', product_id: '', coupon_id: '', game_id: 'tosios', district_id: 'ecommerce', game_role: 'collectible', priority: '5' })
+  const [form, setForm]         = useState({ campaign_id: '', product_id: '', coupon_id: '', game_id: 'tosios', district_id: 'ecommerce', game_role: 'collectible', priority: '5', spawn_count: '3' })
   const [saving, setSaving]     = useState(false)
   const [err, setErr]           = useState('')
 
@@ -679,6 +679,12 @@ function PlacementsTab({ secret }: { secret: string }) {
               {['collectible','target','reward','decoy','mystery'].map(r => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
+          <div className="space-y-1">
+            <label className="text-xs text-gray-500">Spawn Count (marketing budget = items per game)</label>
+            <input type="number" min="1" max="20" value={form.spawn_count}
+              onChange={e => setForm(f => ({ ...f, spawn_count: e.target.value }))}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500" />
+          </div>
         </div>
         {err && <p className="text-red-400 text-xs">{err}</p>}
         <button type="submit" disabled={saving}
@@ -695,6 +701,7 @@ function PlacementsTab({ secret }: { secret: string }) {
               <th className="pb-2 pr-4">Campaign</th>
               <th className="pb-2 pr-4">Game / District</th>
               <th className="pb-2 pr-4">Role</th>
+              <th className="pb-2 pr-4">Spawns</th>
               <th className="pb-2">Actions</th>
             </tr>
           </thead>
@@ -715,6 +722,7 @@ function PlacementsTab({ secret }: { secret: string }) {
                   <td className="py-3 pr-4 text-gray-400">{camp?.name ?? '—'}</td>
                   <td className="py-3 pr-4 text-gray-400 text-xs">{r.game_id} / {r.district_id}</td>
                   <td className="py-3 pr-4"><RoleBadge role={r.game_role} /></td>
+                  <td className="py-3 pr-4 text-gray-400 text-xs">{r.spawn_count ?? 3}x</td>
                   <td className="py-3">
                     <button onClick={() => del(r.id)} className="text-xs text-red-400 hover:text-red-300 transition">Remove</button>
                   </td>

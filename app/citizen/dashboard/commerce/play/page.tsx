@@ -2,20 +2,34 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 // ─── Phase machine ─────────────────────────────────────────────────────────────
-// intro  → cinematic district animation
-// launch → fade-out + "Entering district…" overlay
-// game   → full-screen TOSIOS iframe
 type Phase = 'intro' | 'launch' | 'game'
 
-const GAME_URL = 'https://admit-layout-representative-processed.trycloudflare.com'
+const GAME_BASE_URL = 'https://admit-layout-representative-processed.trycloudflare.com'
 
 export default function CommercePlayPage() {
   const router = useRouter()
   const [phase, setPhase] = useState<Phase>('intro')
   const [tick, setTick]   = useState(0)
   const rafRef = useRef<number | null>(null)
+  const [gameUrl, setGameUrl] = useState(GAME_BASE_URL)
+
+  // Fetch logged-in user and embed their id+email in the game URL
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        const params = new URLSearchParams({
+          uid:   user.id,
+          email: user.email ?? '',
+          name:  user.user_metadata?.display_name ?? user.email ?? 'Citizen',
+        })
+        setGameUrl(`${GAME_BASE_URL}?${params.toString()}`)
+      }
+    })
+  }, [])
 
   // Ambient ticker for the intro animation
   useEffect(() => {
@@ -46,7 +60,7 @@ export default function CommercePlayPage() {
           <span className="text-xs text-gray-700">Collect merchant items to win coupons</span>
         </div>
         <iframe
-          src={GAME_URL}
+          src={gameUrl}
           className="flex-1 w-full border-0"
           allow="fullscreen"
           title="Deal Hunt Arena"
