@@ -85,6 +85,17 @@ export default function AdminMerchantsPage() {
           <div>
             <h1 className="text-2xl font-bold">Merchant Admin</h1>
             <p className="text-gray-500 text-sm mt-1">Manage merchants, campaigns, and game placements</p>
+            <div className="flex flex-wrap gap-3 mt-2">
+              <a href="https://imgur.com" target="_blank" rel="noopener noreferrer"
+                className="text-xs text-cyan-400 hover:text-cyan-300 underline underline-offset-2">
+                📷 Imgur (host images)
+              </a>
+              <span className="text-gray-700 text-xs">→ upload → right-click image → Copy image address → use i.imgur.com/xxx.jpg</span>
+              <a href="https://www.remove.bg/" target="_blank" rel="noopener noreferrer"
+                className="text-xs text-cyan-400 hover:text-cyan-300 underline underline-offset-2">
+                ✂️ remove.bg (transparent PNG)
+              </a>
+            </div>
           </div>
           <button onClick={() => { saveSecret(''); setSecret('') }}
             className="text-xs text-gray-600 hover:text-gray-400 transition">

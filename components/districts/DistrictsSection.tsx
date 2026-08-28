@@ -225,14 +225,14 @@ export default function DistrictsSection() {
                         href={district.secondaryHref}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-300 transition-colors"
+                        className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border ${district.border} ${district.accent} bg-white/5 hover:bg-white/10 transition-colors`}
                       >
                         {district.secondaryLabel[locale]}
                       </a>
                     ) : (
                       <Link
                         href={district.secondaryHref}
-                        className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-300 transition-colors"
+                        className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border ${district.border} ${district.accent} bg-white/5 hover:bg-white/10 transition-colors`}
                       >
                         {district.secondaryLabel[locale]}
                       </Link>

@@ -105,6 +105,19 @@ const DISTRICTS = [
     accentText: 'text-indigo-400',
     what: ['Career Genome interview', 'Trajectory Simulator', 'Hiring cycle prediction'],
   },
+  {
+    id: 'deepqi',
+    name: 'DeepQi',
+    icon: '☯',
+    tagline: 'Alternative Healthcare',
+    desc: 'TCM-powered wellness — symptom-to-constitution analysis, BaZi birth chart, herb & diet matrix, daily Telegram check-in.',
+    href: 'https://deep-qi-web.vercel.app',
+    internal: false,
+    citizenOnly: false,
+    accent: 'border-orange-500/30',
+    accentText: 'text-orange-400',
+    what: ['TCM symptom → constitution pattern', 'BaZi & ZiWei birth chart', 'Herb & diet matrix'],
+  },
 ]
 
 export default async function CitizenDashboard() {
