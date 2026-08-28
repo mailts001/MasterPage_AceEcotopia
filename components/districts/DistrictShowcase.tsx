@@ -243,25 +243,32 @@ export default function DistrictShowcase() {
               transition: 'background 0.5s',
             }} />
 
-          {/* All 4 videos stacked — only active is visible */}
+          {/* Only render the active video — avoids downloading all 8 MP4s on load */}
           {DISTRICTS.map((dist, i) => (
-            <video
-              key={dist.id}
-              ref={el => { videoRefs.current[i] = el }}
-              src={dist.video}
-              poster={dist.poster}
-              muted
-              autoPlay
-              playsInline
-              preload={i === 0 ? 'auto' : 'metadata'}
-              onEnded={() => handleEnded(i)}
-              className="w-full block transition-opacity duration-500"
-              style={{
-                display:  i === active ? 'block' : 'none',
-                aspectRatio: '16/9',
-                objectFit: 'cover',
-              }}
-            />
+            i === active ? (
+              <video
+                key={dist.id}
+                ref={el => { videoRefs.current[i] = el }}
+                src={dist.video}
+                poster={dist.poster}
+                muted
+                autoPlay
+                playsInline
+                preload="auto"
+                onEnded={() => handleEnded(i)}
+                className="w-full block"
+                style={{ aspectRatio: '16/9', objectFit: 'cover' }}
+              />
+            ) : (
+              // Keep a poster-only placeholder for inactive slots so layout doesn't shift
+              <img
+                key={dist.id}
+                src={dist.poster}
+                alt=""
+                className="w-full block"
+                style={{ display: 'none', aspectRatio: '16/9', objectFit: 'cover' }}
+              />
+            )
           ))}
 
           {/* Corner marks */}
