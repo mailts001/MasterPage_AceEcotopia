@@ -4,8 +4,9 @@
 Next.js app on Vercel — https://master-page-ace-ecotopia.vercel.app
 Game server: Colyseus on VPS 204.168.221.101:2567 (service: colyseus_game)
 Game repo: /root/x68-game on VPS (TOSIOS fork, TypeScript monorepo)
-Cloudflare tunnel: https://assembled-possible-geographical-conversation.trycloudflare.com → :2567
-  - Tunnel runs in screen session "tunnel" on VPS; URL changes on restart → update GAME_BASE_URL in play/page.tsx
+Game HTTPS proxy: https://game.204-168-221-101.nip.io → :2567 (nginx + Let's Encrypt, permanent URL)
+  - nginx config: /etc/nginx/sites-available/game on VPS
+  - Cloudflare tunnel (cloudflare_tunnel systemd service) no longer needed
 
 ## Key Files
 - app/citizen/dashboard/commerce/play/page.tsx — game iframe, passes uid/email in URL params

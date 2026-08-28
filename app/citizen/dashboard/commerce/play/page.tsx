@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 // ─── Phase machine ─────────────────────────────────────────────────────────────
 type Phase = 'intro' | 'launch' | 'game'
 
-const GAME_BASE_URL = 'https://mambo-conversation-installations-baby.trycloudflare.com'
+const GAME_BASE_URL = 'https://game.204-168-221-101.nip.io'
 
 export default function CommercePlayPage() {
   const router = useRouter()
