@@ -138,6 +138,7 @@ export default function X68CityMap() {
               district={commerce}
               accent="amber"
               href="/citizen/register?district=commerce"
+              gameHref="/citizen/dashboard/commerce/play"
             >
               <EcommerceDistrict
                 healthScore={commerce.health_score}
@@ -232,12 +233,13 @@ export default function X68CityMap() {
 }
 
 function DistrictCard({
-  district, accent, href, external, children,
+  district, accent, href, external, gameHref, children,
 }: {
   district: DistrictState
   accent: string
   href: string
   external?: boolean
+  gameHref?: string
   children: React.ReactNode
 }) {
   const tier = TIER_LABEL[district.revenue_tier] ?? TIER_LABEL.seed
@@ -254,8 +256,23 @@ function DistrictCard({
 
   return (
     <div className={`bg-white/3 border ${accentColors[accent]} rounded-2xl overflow-hidden transition group`}>
-      {/* District visual */}
-      {children}
+      {/* District visual — with optional game overlay */}
+      <div className="relative">
+        {children}
+        {gameHref && (
+          <Link
+            href={gameHref}
+            className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/50 backdrop-blur-[2px]"
+            onClick={e => e.stopPropagation()}
+          >
+            <span className="flex flex-col items-center gap-1.5 text-center">
+              <span className="text-2xl">🎮</span>
+              <span className="text-xs font-bold text-amber-300 tracking-wide uppercase">Hunt for Deals</span>
+              <span className="text-[10px] text-amber-400/70">Win real coupons →</span>
+            </span>
+          </Link>
+        )}
+      </div>
 
       {/* Info bar */}
       <div className="px-4 py-3 flex items-center justify-between">
