@@ -111,45 +111,145 @@ TILE_GIDS = {
 
 # ── Step 1: Generate .tmj map layout via Claude ──────────────────────────────
 
-MAP_SYSTEM = """You are a game map designer. Generate a valid Tiled JSON map (.tmj format) for the X68 AceEcotopia game engine.
+LAYOUT_SYSTEM = """Game map layout designer. Output ONLY a compact JSON layout spec, no markdown.
+GIDs: 27=stone,28=wood,29=carpet,38=dark,40=light,100=wall,84=pillar,94=portal,102=spawner.
+Describe a 32x32 map using rectangles and point lists — NOT full 1024-int arrays."""
 
-Rules:
-- Map must be exactly 32x32 tiles
-- Tile size: 32px per tile
-- 6 required layers: ground, walls, decor, overhead, spawners, collisions
-- 1 optional objects layer: portals
-- All layer data arrays must have exactly 1024 values (32*32)
-- GID 0 = empty tile
-- Ground tiles: 27=stone, 28=wood, 29=carpet, 38=dark, 39=mid, 40=light
-- Wall/collision tile: 100
-- Decor tiles: 84=pillar, 85=crate, 88=barrel, 94=portal_glow, 79=sign
-- Spawner tile: 102
-- Tileset image: dungeon.png (11x11 grid, 32px tiles, 121 total)
-- Outer border must always be walls (gid=100) with collisions
-- Spawner tiles go in open floor areas
-- Overhead layer (bridge spans, tunnel ceilings) renders ABOVE the player sprite
-- Portal objects layer lists named portals at map edge positions
+LAYOUT_SCHEMA = """{
+  "floor_default": 27,
+  "rooms": [{"x":1,"y":1,"w":8,"h":8,"floor":29,"name":"shop1"}],
+  "walls": [{"x":0,"y":0,"w":32,"h":1}],
+  "pillars": [{"x":5,"y":5},{"x":10,"y":10}],
+  "spawners": [{"x":3,"y":3},{"x":15,"y":15}],
+  "portals": [{"x":16,"y":1,"name":"north"},{"x":16,"y":30,"name":"south"}],
+  "bridge": {"row_start":9,"row_end":11,"col_start":12,"col_end":20},
+  "tunnel": {"col_start":14,"col_end":17,"row_start":20,"row_end":24},
+  "plaza": {"x":12,"y":12,"w":8,"h":8,"floor":40}
+}"""
 
-Output ONLY the raw JSON object, no markdown, no explanation."""
+def _build_tmj_from_layout(spec: dict, features: list) -> dict:
+    """Expand compact layout spec into full 32x32 .tmj JSON."""
+    W, H = 32, 32
+    ground   = [spec.get('floor_default', 27)] * (W * H)
+    walls    = [0] * (W * H)
+    decor    = [0] * (W * H)
+    overhead = [0] * (W * H)
+    spawners = [0] * (W * H)
+    collisions = [0] * (W * H)
+
+    def idx(x, y): return y * W + x
+    def fill_rect(arr, x, y, w, h, gid):
+        for ry in range(max(0,y), min(H, y+h)):
+            for rx in range(max(0,x), min(W, x+w)):
+                arr[idx(rx, ry)] = gid
+
+    # Outer border walls
+    for x in range(W):
+        walls[idx(x, 0)] = walls[idx(x, H-1)] = 100
+        collisions[idx(x, 0)] = collisions[idx(x, H-1)] = 100
+    for y in range(H):
+        walls[idx(0, y)] = walls[idx(W-1, y)] = 100
+        collisions[idx(0, y)] = collisions[idx(W-1, y)] = 100
+
+    # Plaza
+    plaza = spec.get('plaza')
+    if plaza:
+        fill_rect(ground, plaza['x'], plaza['y'], plaza['w'], plaza['h'], plaza.get('floor', 40))
+
+    # Rooms
+    for room in spec.get('rooms', []):
+        fill_rect(ground, room['x'], room['y'], room['w'], room['h'], room.get('floor', 29))
+        # Room walls (perimeter)
+        for rx in range(room['x'], room['x']+room['w']):
+            walls[idx(rx, room['y'])] = 100; collisions[idx(rx, room['y'])] = 100
+            walls[idx(rx, room['y']+room['h']-1)] = 100; collisions[idx(rx, room['y']+room['h']-1)] = 100
+        for ry in range(room['y'], room['y']+room['h']):
+            walls[idx(room['x'], ry)] = 100; collisions[idx(room['x'], ry)] = 100
+            walls[idx(room['x']+room['w']-1, ry)] = 100; collisions[idx(room['x']+room['w']-1, ry)] = 100
+        # Door opening in bottom wall center
+        door_x = room['x'] + room['w'] // 2
+        door_y = room['y'] + room['h'] - 1
+        walls[idx(door_x, door_y)] = 0; collisions[idx(door_x, door_y)] = 0
+
+    # Extra wall rects
+    for wr in spec.get('walls', []):
+        fill_rect(walls, wr['x'], wr['y'], wr['w'], wr['h'], 100)
+        fill_rect(collisions, wr['x'], wr['y'], wr['w'], wr['h'], 100)
+
+    # Pillars
+    for p in spec.get('pillars', []):
+        decor[idx(p['x'], p['y'])] = 84
+        collisions[idx(p['x'], p['y'])] = 100
+
+    # Spawners
+    for s in spec.get('spawners', []):
+        spawners[idx(s['x'], s['y'])] = 102
+
+    # Portals in decor
+    portal_objects = []
+    for po in spec.get('portals', []):
+        decor[idx(po['x'], po['y'])] = 94
+        portal_objects.append({"name": po.get('name','portal'), "x": po['x']*32, "y": po['y']*32, "width":32,"height":32,"type":"portal"})
+
+    # Bridge
+    bridge = spec.get('bridge')
+    if bridge and 'bridge' in features:
+        rs, re = bridge.get('row_start',9), bridge.get('row_end',11)
+        cs, ce = bridge.get('col_start',12), bridge.get('col_end',20)
+        fill_rect(ground, cs, rs, ce-cs, re-rs, 28)
+        for ry in range(rs, re):
+            for rx in range(cs+2, ce-2):
+                overhead[idx(rx, ry)] = 28
+
+    # Tunnel
+    tunnel = spec.get('tunnel')
+    if tunnel and 'tunnel' in features:
+        cs, ce = tunnel.get('col_start',14), tunnel.get('col_end',18)
+        rs, re = tunnel.get('row_start',20), tunnel.get('row_end',25)
+        fill_rect(ground, cs, rs, ce-cs, re-rs, 38)
+        fill_rect(overhead, cs, rs, ce-cs, re-rs, 100)
+
+    layers = [
+        {"name":"ground","type":"tilelayer","data":ground,"width":W,"height":H,"x":0,"y":0,"opacity":1,"visible":True},
+        {"name":"walls","type":"tilelayer","data":walls,"width":W,"height":H,"x":0,"y":0,"opacity":1,"visible":True},
+        {"name":"decor","type":"tilelayer","data":decor,"width":W,"height":H,"x":0,"y":0,"opacity":1,"visible":True},
+        {"name":"overhead","type":"tilelayer","data":overhead,"width":W,"height":H,"x":0,"y":0,"opacity":1,"visible":True},
+        {"name":"spawners","type":"tilelayer","data":spawners,"width":W,"height":H,"x":0,"y":0,"opacity":1,"visible":True},
+        {"name":"collisions","type":"tilelayer","data":collisions,"width":W,"height":H,"x":0,"y":0,"opacity":1,"visible":True},
+    ]
+    if portal_objects:
+        layers.append({"name":"portals","type":"objectgroup","objects":portal_objects,"x":0,"y":0,"opacity":1,"visible":True})
+
+    return {
+        "width": W, "height": H, "tilewidth": 32, "tileheight": 32,
+        "orientation": "orthogonal", "renderorder": "right-down",
+        "tilesets": [{"firstgid":1,"source":"dungeon.tsj"}],
+        "layers": layers,
+        "version": "1.10", "type": "map",
+        "infinite": False, "nextlayerid": len(layers)+1, "nextobjectid": 1
+    }
 
 def generate_map_layout(prompt: str, features: list, photo_b64: str | None, theme: str) -> dict:
     feature_desc = ', '.join(features) if features else 'open arena'
-    user_prompt = f"""Create a 32x32 tile game map for this district:
+    has_bridge  = 'bridge'  in features
+    has_tunnel  = 'tunnel'  in features
+    has_portals = 'portals' in features
 
-Merchant/District vibe: {prompt}
-Theme: {theme}
-Features to include: {feature_desc}
+    user_prompt = f"""Design a 32x32 game map layout for: {prompt} (theme: {theme}, features: {feature_desc})
 
-Map requirements:
-- Central plaza or gathering area with highlight floor (gid=40)
-- 2-3 shop rooms in corners (carpet floor gid=29, walled off with door openings)
-- Scattered pillar obstacles (gid=84) for gameplay cover
-- 7+ spawner positions (gid=102) in open areas
-{"- Overhead bridge: wooden path (gid=28) on ground layer at rows 9-11, with overhead tiles (gid=28) at center span cols 12-20 creating under-bridge space" if "bridge" in features else ""}
-{"- Tunnel section: dark floor (gid=38) with overhead tiles (gid=100) creating tunnel ceiling illusion, 4-wide corridor" if "tunnel" in features else ""}
-{"- 4 portal positions: north (row 1), south (row 30), east (col 30), west (col 1) — use gid=94 in decor layer" if "portals" in features else ""}
+Return ONLY a JSON object matching this schema exactly:
+{LAYOUT_SCHEMA}
 
-Output the complete valid .tmj JSON now."""
+Requirements:
+- plaza centered around x=12,y=12 size 8x8 floor=40
+- 2 shop rooms in corners, floor=29
+- 6+ spawners in open areas (not on walls)
+- pillars scattered for cover (6-10)
+{"- bridge: row_start/end around rows 9-11, col_start/end cols 12-20" if has_bridge else ""}
+{"- tunnel: col_start/end cols 14-17, row_start/end rows 20-24" if has_tunnel else ""}
+{"- portals: north(x=16,y=1), south(x=16,y=30), east(x=30,y=16), west(x=1,y=16)" if has_portals else ""}
+- floor_default should match theme vibe (27=stone,28=wood,29=carpet,38=dark,40=light)
+- ONLY use GIDs from this list: 27,28,29,38,40,84,94,100. Do NOT use any other GID values."""
 
     raw = None
 
@@ -158,12 +258,12 @@ Output the complete valid .tmj JSON now."""
         print("\n[1/4] Generating map layout via Groq (free)...")
         client = Groq(api_key=os.environ['GROQ_API_KEY'])
         response = client.chat.completions.create(
-            model="llama-3.1-70b-versatile",
+            model="qwen/qwen3.8-27b",
             messages=[
-                {"role": "system", "content": MAP_SYSTEM},
+                {"role": "system", "content": LAYOUT_SYSTEM},
                 {"role": "user", "content": user_prompt},
             ],
-            max_tokens=8000,
+            max_tokens=800,
             temperature=0.3,
         )
         raw = response.choices[0].message.content.strip()
@@ -182,8 +282,8 @@ Output the complete valid .tmj JSON now."""
             messages[0]["content"].append({"type": "text", "text": user_prompt})
         response = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=8000,
-            system=MAP_SYSTEM,
+            max_tokens=800,
+            system=LAYOUT_SYSTEM,
             messages=messages,
         )
         raw = response.content[0].text.strip()
@@ -192,7 +292,7 @@ Output the complete valid .tmj JSON now."""
         print("\n[1/4] Generating map layout via Gemini (free)...")
         r = requests.post(
             f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={os.environ['GEMINI_API_KEY']}",
-            json={"contents": [{"parts": [{"text": MAP_SYSTEM + "\n\n" + user_prompt}]}]},
+            json={"contents": [{"parts": [{"text": LAYOUT_SYSTEM + "\n\n" + user_prompt}]}]},
             timeout=60,
         )
         raw = r.json()['candidates'][0]['content']['parts'][0]['text'].strip()
@@ -200,20 +300,27 @@ Output the complete valid .tmj JSON now."""
     else:
         print("ERROR: Set one of: GROQ_API_KEY (free), ANTHROPIC_API_KEY, or GEMINI_API_KEY")
         sys.exit(1)
-    # Strip markdown fences if Claude added them
-    if raw.startswith("```"):
-        raw = raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
 
-    map_data = json.loads(raw)
+    # Strip thinking tags (qwen/deepseek models)
+    import re
+    raw = re.sub(r'<think>.*?</think>', '', raw, flags=re.DOTALL).strip()
 
-    # Validate basic structure
-    assert map_data.get('width') == 32 and map_data.get('height') == 32, "Map must be 32x32"
-    layer_names = [l['name'] for l in map_data.get('layers', [])]
-    for required in ['ground', 'walls', 'collisions', 'spawners']:
-        assert required in layer_names, f"Missing layer: {required}"
+    # Strip markdown fences
+    if '```' in raw:
+        m = re.search(r'```(?:json)?\s*([\s\S]*?)```', raw)
+        if m:
+            raw = m.group(1).strip()
 
-    print(f"  ✓ Map generated: {map_data['width']}x{map_data['height']} tiles")
-    print(f"  ✓ Layers: {layer_names}")
+    # Extract first JSON object if there's surrounding text
+    m = re.search(r'\{[\s\S]*\}', raw)
+    if m:
+        raw = m.group(0)
+
+    spec = json.loads(raw)
+    map_data = _build_tmj_from_layout(spec, features)
+
+    print(f"  ✓ Map generated: 32x32 tiles")
+    print(f"  ✓ Layers: {[l['name'] for l in map_data['layers']]}")
     return map_data
 
 # ── Step 2: Generate tile PNGs via Replicate (Stable Diffusion) ──────────────
@@ -322,9 +429,72 @@ def generate_tiles(map_data: dict, prompt: str, theme: str, override_dir: Path |
 
 # ── Step 3: Assemble tileset sheet ───────────────────────────────────────────
 
+PLACEHOLDER_COLORS = {
+    1:  (60,50,45,255), 2:  (65,55,50,255), 3:  (70,60,55,255),
+    4:  (75,65,60,255), 5:  (80,70,65,255), 6:  (85,75,70,255),
+    7:  (90,80,75,255), 8:  (95,85,80,255), 9:  (100,90,85,255),
+    10: (105,95,90,255),11: (110,100,95,255),12: (115,105,100,255),
+    13: (120,110,105,255),14:(60,80,60,255),15: (65,85,65,255),
+    16: (70,90,70,255),17: (75,95,75,255),18: (80,100,80,255),
+    19: (85,105,85,255),20: (90,110,90,255),21: (95,115,95,255),
+    22: (60,60,80,255),23: (65,65,85,255),24: (70,70,90,255),
+    25: (75,75,95,255),26: (80,80,100,255),
+    27: (80,70,60,255),    # stone floor
+    28: (120,80,40,255),   # wood floor
+    29: (100,60,80,255),   # carpet
+    30: (90,70,50,255),31: (85,65,45,255),32: (80,60,40,255),
+    33: (75,55,35,255),34: (70,50,30,255),35: (65,45,25,255),
+    36: (60,40,20,255),37: (55,35,15,255),
+    38: (40,40,50,255),    # dark tunnel
+    39: (50,50,60,255),    # mid floor
+    40: (180,160,100,255), # light plaza
+    41: (170,150,90,255),42: (160,140,80,255),43: (150,130,70,255),
+    44: (140,120,60,255),45: (130,110,50,255),46: (120,100,40,255),
+    47: (110,90,30,255),48: (100,80,20,255),49: (90,70,10,255),
+    50: (80,60,0,255),51: (70,50,0,255),52: (60,40,0,255),
+    53: (50,30,0,255),54: (40,20,0,255),55: (30,10,0,255),
+    56: (20,0,0,255),57: (10,0,0,255),58: (0,0,0,255),
+    59: (10,10,10,255),60: (20,20,20,255),61: (30,30,30,255),
+    62: (40,40,40,255),63: (50,50,50,255),64: (60,60,60,255),
+    65: (70,70,70,255),66: (80,80,80,255),67: (90,90,90,255),
+    68: (100,100,100,255),69: (110,110,110,255),70: (120,120,120,255),
+    71: (130,130,130,255),72: (140,140,140,255),73: (150,150,150,255),
+    74: (160,160,160,255),75: (170,170,170,255),76: (180,180,180,255),
+    77: (190,190,190,255),78: (200,200,200,255),79: (60,80,100,255),
+    80: (70,90,110,255),81: (80,100,120,255),82: (90,110,130,255),
+    83: (100,120,140,255),
+    84: (120,120,140,255),  # pillar
+    85: (110,90,70,255),86: (100,80,60,255),87: (90,70,50,255),
+    88: (80,60,40,255),89: (70,50,30,255),90: (60,40,20,255),
+    91: (50,30,10,255),92: (40,20,0,255),93: (30,10,0,255),
+    94: (0,200,255,255),    # portal
+    95: (0,180,230,255),96: (0,160,210,255),97: (0,140,190,255),
+    98: (0,120,170,255),99: (0,100,150,255),
+    100: (50,45,55,255),    # wall
+    101: (55,50,60,255),
+    102: (255,200,0,255),   # spawner
+    103: (240,180,0,255),104: (220,160,0,255),105: (200,140,0,255),
+    106: (180,120,0,255),107: (160,100,0,255),108: (140,80,0,255),
+    109: (120,60,0,255),110: (100,40,0,255),111: (80,20,0,255),
+    112: (60,0,0,255),113: (40,0,0,255),114: (20,0,0,255),
+    115: (0,0,20,255),116: (0,0,40,255),117: (0,0,60,255),
+    118: (0,0,80,255),119: (0,0,100,255),120: (0,0,120,255),
+    121: (0,0,140,255),
+}
+
+def _make_placeholder(gid: int) -> Image.Image:
+    color = PLACEHOLDER_COLORS.get(gid, (80,80,80,255))
+    img = Image.new("RGBA", (TILE_SIZE, TILE_SIZE), color)
+    # draw a subtle grid line to distinguish tiles
+    from PIL import ImageDraw
+    draw = ImageDraw.Draw(img)
+    draw.rectangle([0,0,TILE_SIZE-1,TILE_SIZE-1], outline=(0,0,0,60))
+    return img
+
 def assemble_tileset(tiles_dir: Path, output_path: Path) -> None:
     print("\n[3/4] Assembling tileset sheet...")
-    sheet = Image.new("RGBA", (SHEET_W, SHEET_H), (0, 0, 0, 0))
+    # Dark neutral background for unused slots
+    sheet = Image.new("RGBA", (SHEET_W, SHEET_H), (30, 28, 35, 255))
 
     placed = 0
     for gid in range(1, COLS * ROWS + 1):
@@ -333,17 +503,41 @@ def assemble_tileset(tiles_dir: Path, output_path: Path) -> None:
             tiles_dir / f"tile_{gid}.png",
         ]
         tile_file = next((p for p in candidates if p.exists()), None)
-        row = (gid - 1) // COLS
         col = (gid - 1) % COLS
+        row = (gid - 1) // COLS
         x, y = col * TILE_SIZE, row * TILE_SIZE
 
         if tile_file:
             tile = Image.open(tile_file).convert("RGBA").resize((TILE_SIZE, TILE_SIZE), Image.LANCZOS)
             sheet.paste(tile, (x, y))
             placed += 1
+        # else: leave dark background — Tiled will show empty dark tile for unused slots
 
     sheet.save(output_path)
-    print(f"  ✓ Sheet assembled: {output_path.name} ({SHEET_W}×{SHEET_H}px, {placed} tiles placed)")
+    print(f"  ✓ Sheet assembled: {output_path.name} ({SHEET_W}×{SHEET_H}px, {placed} tiles placed at correct GID positions)")
+
+def write_tsj(output_dir: Path, png_name: str) -> Path:
+    """Write a Tiled tileset sidecar .tsj file (named dungeon.tsj, referenced by the map)."""
+    tsj = {
+        "columns": COLS,
+        "image": png_name,  # relative path — both files in same dir
+        "imageheight": SHEET_H,
+        "imagewidth": SHEET_W,
+        "margin": 0,
+        "name": png_name.replace('.png',''),
+        "spacing": 0,
+        "tilecount": COLS * ROWS,
+        "tiledversion": "1.10.1",
+        "tileheight": TILE_SIZE,
+        "tilewidth": TILE_SIZE,
+        "type": "tileset",
+        "version": "1.10"
+    }
+    tsj_path = output_dir / "dungeon.tsj"
+    with open(tsj_path, 'w') as f:
+        json.dump(tsj, f, indent=2)
+    print(f"  ✓ Tileset sidecar: dungeon.tsj")
+    return tsj_path
 
 # ── Step 4: Deploy to VPS ─────────────────────────────────────────────────────
 
@@ -468,9 +662,10 @@ def main():
     # Step 2: Tile PNGs
     generate_tiles(map_json, args.prompt, args.theme, override_dir, tiles_dir)
 
-    # Step 3: Assemble sheet
+    # Step 3: Assemble sheet + write .tsj sidecar for Tiled
     tileset_out = out_dir / f"dungeon_{args.theme}.png"
     assemble_tileset(tiles_dir, tileset_out)
+    write_tsj(out_dir, tileset_out.name)
 
     # Step 4: Deploy
     if not args.preview_only:

@@ -23,7 +23,7 @@ async function adminFetch(secret: string, path: string, opts?: RequestInit) {
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
-type Tab = 'merchants' | 'products' | 'coupons' | 'campaigns' | 'placements'
+type Tab = 'merchants' | 'products' | 'coupons' | 'campaigns' | 'placements' | 'arena'
 
 export default function AdminMerchantsPage() {
   const [secret, setSecret]   = useState('')
@@ -120,6 +120,7 @@ export default function AdminMerchantsPage() {
             { key: 'coupons',    label: '③ Coupons' },
             { key: 'campaigns',  label: '④ Campaigns' },
             { key: 'placements', label: '⑤ Placements → Game' },
+            { key: 'arena',      label: '🗺 Arena Builder' },
           ] as { key: Tab; label: string }[]).map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`px-4 py-2 text-sm whitespace-nowrap border-b-2 transition ${
@@ -135,6 +136,7 @@ export default function AdminMerchantsPage() {
         {tab === 'coupons'    && <CouponsTab    secret={secret} />}
         {tab === 'campaigns'  && <CampaignsTab  secret={secret} />}
         {tab === 'placements' && <PlacementsTab secret={secret} />}
+        {tab === 'arena'      && <ArenaTab      secret={secret} />}
       </div>
     </div>
   )
@@ -797,5 +799,212 @@ function ActionBtn({ label, onClick, danger = false }: { label: string; onClick:
       className={`text-xs px-2 py-1 rounded transition ${danger ? 'text-red-400 hover:bg-red-500/10' : 'text-cyan-400 hover:bg-cyan-500/10'}`}>
       {label}
     </button>
+  )
+}
+
+// ─── Arena Builder tab ────────────────────────────────────────────────────────
+
+const FEATURES = ['bridge', 'tunnel', 'portals', 'boss_room', 'maze'] as const
+const THEMES   = ['default', 'boutique', 'tech_hub', 'street_food', 'district'] as const
+
+type ArenaFeature = typeof FEATURES[number]
+type ArenaTheme   = typeof THEMES[number]
+
+function ArenaTab({ secret }: { secret: string }) {
+  const [prompt,   setPrompt]   = useState('boutique fashion district, warm marble, pink brand accents')
+  const [theme,    setTheme]    = useState<ArenaTheme>('boutique')
+  const [features, setFeatures] = useState<ArenaFeature[]>(['bridge', 'tunnel', 'portals'])
+  const [status,   setStatus]   = useState<'idle' | 'generating' | 'done' | 'error'>('idle')
+  const [log,      setLog]      = useState<string[]>([])
+  const [mapPreview, setMapPreview] = useState<string>('')
+  const [deployCmd,  setDeployCmd]  = useState<string>('')
+
+  function toggleFeature(f: ArenaFeature) {
+    setFeatures(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f])
+  }
+
+  async function generate() {
+    setStatus('generating')
+    setLog([])
+    setMapPreview('')
+    setDeployCmd('')
+
+    try {
+      const res = await fetch('/api/admin/arena/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
+        body: JSON.stringify({ prompt, theme, features }),
+      })
+
+      if (!res.ok) {
+        const e = await res.json()
+        setLog([`ERROR: ${e.error ?? res.statusText}`])
+        setStatus('error')
+        return
+      }
+
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let buf = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += decoder.decode(value, { stream: true })
+        const lines = buf.split('\n')
+        buf = lines.pop() ?? ''
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          const payload = line.slice(6)
+          if (payload === '[DONE]') continue
+          try {
+            const msg = JSON.parse(payload)
+            if (msg.log)     setLog(prev => [...prev, msg.log])
+            if (msg.preview) setMapPreview(msg.preview)
+            if (msg.deploy)  setDeployCmd(msg.deploy)
+            if (msg.done)    setStatus('done')
+            if (msg.error)  { setLog(prev => [...prev, `ERROR: ${msg.error}`]); setStatus('error') }
+          } catch {}
+        }
+      }
+      if (status !== 'error') setStatus('done')
+    } catch (e: any) {
+      setLog(prev => [...prev, `ERROR: ${e.message}`])
+      setStatus('error')
+    }
+  }
+
+  async function deploy() {
+    setLog(prev => [...prev, 'Deploying to VPS…'])
+    const res = await fetch('/api/admin/arena/deploy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
+      body: JSON.stringify({ theme }),
+    })
+    const data = await res.json()
+    if (data.ok) setLog(prev => [...prev, '✓ Deployed! Game rebuilding on VPS (~3 min)'])
+    else         setLog(prev => [...prev, `Deploy error: ${data.error}`])
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-bold">Arena Builder</h2>
+        <p className="text-gray-500 text-sm mt-1">Generate a custom game map for any merchant theme</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Left: controls */}
+        <div className="space-y-4 bg-white/3 border border-white/8 rounded-xl p-5">
+
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">District vibe / prompt</label>
+            <textarea
+              value={prompt}
+              onChange={e => setPrompt(e.target.value)}
+              rows={3}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500 resize-none"
+              placeholder="e.g. tech hub, dark concrete, neon blue accents"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Theme name</label>
+            <select
+              value={theme}
+              onChange={e => setTheme(e.target.value as ArenaTheme)}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
+            >
+              {THEMES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <p className="text-xs text-gray-600 mt-1">Map file will be saved as <code>district_{'{theme}'}.json</code></p>
+          </div>
+
+          <div>
+            <label className="block text-xs text-gray-400 mb-2">Map features</label>
+            <div className="flex flex-wrap gap-2">
+              {FEATURES.map(f => (
+                <button
+                  key={f}
+                  onClick={() => toggleFeature(f)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                    features.includes(f)
+                      ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300'
+                      : 'bg-white/5 border-white/10 text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  {f === 'bridge'   && '🌉 '}
+                  {f === 'tunnel'   && '🕳 '}
+                  {f === 'portals'  && '🌀 '}
+                  {f === 'boss_room'&& '💀 '}
+                  {f === 'maze'     && '🧩 '}
+                  {f}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-600 mt-2">
+              <strong className="text-gray-500">bridge</strong> — overhead path players walk under &nbsp;
+              <strong className="text-gray-500">tunnel</strong> — dark corridor with ceiling &nbsp;
+              <strong className="text-gray-500">portals</strong> — N/S/E/W gateways to other districts
+            </p>
+          </div>
+
+          <button
+            onClick={generate}
+            disabled={status === 'generating' || !prompt}
+            className="w-full bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-white font-semibold py-3 rounded-xl text-sm transition flex items-center justify-center gap-2"
+          >
+            {status === 'generating'
+              ? <><span className="animate-spin">⚙</span> Generating map…</>
+              : '🗺 Generate Arena'}
+          </button>
+        </div>
+
+        {/* Right: map preview */}
+        <div className="bg-black/40 border border-white/8 rounded-xl p-4 font-mono text-[9px] leading-tight overflow-auto min-h-[300px]">
+          {mapPreview ? (
+            <>
+              <div className="text-gray-500 mb-2 text-[10px]">
+                █=wall · ░=plaza · ·=shop · -/▄=bridge · ▪/▄=tunnel · P=pillar · S=spawner · +=portal
+              </div>
+              <pre className="text-green-400 whitespace-pre">{mapPreview}</pre>
+            </>
+          ) : (
+            <div className="flex items-center justify-center h-full text-gray-700 text-xs">
+              {status === 'generating' ? 'Generating…' : 'Map preview will appear here'}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Log output */}
+      {log.length > 0 && (
+        <div className="bg-black/60 border border-white/8 rounded-xl p-4 font-mono text-xs space-y-0.5 max-h-48 overflow-y-auto">
+          {log.map((line, i) => (
+            <div key={i} className={
+              line.startsWith('ERROR') ? 'text-red-400' :
+              line.startsWith('✓') || line.startsWith('  ✓') ? 'text-green-400' :
+              line.startsWith('[') ? 'text-cyan-400' : 'text-gray-400'
+            }>{line}</div>
+          ))}
+        </div>
+      )}
+
+      {/* Deploy button */}
+      {status === 'done' && (
+        <div className="flex items-center gap-4 p-4 bg-green-500/10 border border-green-500/30 rounded-xl">
+          <div className="flex-1">
+            <p className="text-green-400 font-semibold text-sm">✓ Map generated successfully</p>
+            <p className="text-gray-500 text-xs mt-0.5">Deploy to VPS to make it live in the game</p>
+          </div>
+          <button
+            onClick={deploy}
+            className="bg-green-600 hover:bg-green-500 text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition"
+          >
+            🚀 Deploy to Game
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
