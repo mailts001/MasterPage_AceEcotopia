@@ -814,55 +814,39 @@ function ArenaTab({ secret }: { secret: string }) {
   const [prompt,   setPrompt]   = useState('boutique fashion district, warm marble, pink brand accents')
   const [theme,    setTheme]    = useState<ArenaTheme>('boutique')
   const [features, setFeatures] = useState<ArenaFeature[]>(['bridge', 'tunnel', 'portals'])
-  const [status,   setStatus]   = useState<'idle' | 'generating' | 'done' | 'error'>('idle')
-  const [log,      setLog]      = useState<string[]>([])
-  const [mapPreview, setMapPreview] = useState<string>('')
-  const [deployCmd,  setDeployCmd]  = useState<string>('')
+  const [copied,   setCopied]   = useState(false)
 
   function toggleFeature(f: ArenaFeature) {
     setFeatures(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f])
   }
 
+  const AGENT = '/Users/tslee/Documents/MasterPage_AceEcotopia/tilemap_agent.py'
+  const OVERRIDES = `/Users/tslee/Documents/MasterPage_AceEcotopia/tile_overrides/${theme}`
+  const cliCommand = [
+    `export GROQ_API_KEY=gsk_YOUR_KEY_HERE`,
+    `python3 ${AGENT} \\`,
+    `  --prompt "${prompt}" \\`,
+    `  --theme ${theme} \\`,
+    `  --features ${features.join(' ')} \\`,
+    `  --override-dir ${OVERRIDES} \\`,
+    `  --preview-only`,
+  ].join('\n')
+
+  const deployCmds = [
+    `scp /tmp/tilemap_agent/${theme}/dungeon_${theme}.png root@204.168.221.101:/root/x68-game/packages/client/src/game/assets/images/maps/dungeon_${theme}.png`,
+    `scp /tmp/tilemap_agent/${theme}/district_${theme}.json root@204.168.221.101:/root/x68-game/packages/common/src/maps/district_${theme}.json`,
+    `ssh root@204.168.221.101 "cd /root/x68-game && screen -dmS rebuild bash -c 'yarn build > /tmp/build_${theme}.log 2>&1; systemctl restart colyseus_game; echo DONE >> /tmp/build_${theme}.log'"`,
+  ].join('\n')
+
+  function copyCmd(text: string) {
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  // legacy generate (kept for local dev where python3 is available)
   async function generate() {
-    setStatus('generating')
-    setLog([])
-    setMapPreview('')
-    setDeployCmd('')
-
-    try {
-      const res = await fetch('/api/admin/arena/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
-        body: JSON.stringify({ prompt, theme, features }),
-      })
-
-      if (!res.ok) {
-        const e = await res.json()
-        setLog([`ERROR: ${e.error ?? res.statusText}`])
-        setStatus('error')
-        return
-      }
-
-      const reader = res.body!.getReader()
-      const decoder = new TextDecoder()
-      let buf = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buf += decoder.decode(value, { stream: true })
-        const lines = buf.split('\n')
-        buf = lines.pop() ?? ''
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          const payload = line.slice(6)
-          if (payload === '[DONE]') continue
-          try {
-            const msg = JSON.parse(payload)
-            if (msg.log)     setLog(prev => [...prev, msg.log])
-            if (msg.preview) setMapPreview(msg.preview)
-            if (msg.deploy)  setDeployCmd(msg.deploy)
-            if (msg.done)    setStatus('done')
+    // intentionally empty on Vercel — use CLI command below
             if (msg.error)  { setLog(prev => [...prev, `ERROR: ${msg.error}`]); setStatus('error') }
           } catch {}
         }
@@ -893,118 +877,92 @@ function ArenaTab({ secret }: { secret: string }) {
         <p className="text-gray-500 text-sm mt-1">Generate a custom game map for any merchant theme</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
         {/* Left: controls */}
         <div className="space-y-4 bg-white/3 border border-white/8 rounded-xl p-5">
-
           <div>
             <label className="block text-xs text-gray-400 mb-1">District vibe / prompt</label>
-            <textarea
-              value={prompt}
-              onChange={e => setPrompt(e.target.value)}
-              rows={3}
+            <textarea value={prompt} onChange={e => setPrompt(e.target.value)} rows={3}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500 resize-none"
-              placeholder="e.g. tech hub, dark concrete, neon blue accents"
-            />
+              placeholder="e.g. tech hub, dark concrete, neon blue accents" />
           </div>
 
           <div>
             <label className="block text-xs text-gray-400 mb-1">Theme name</label>
-            <select
-              value={theme}
-              onChange={e => setTheme(e.target.value as ArenaTheme)}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
-            >
+            <select value={theme} onChange={e => setTheme(e.target.value as ArenaTheme)}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500">
               {THEMES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
-            <p className="text-xs text-gray-600 mt-1">Map file will be saved as <code>district_{'{theme}'}.json</code></p>
+            <p className="text-xs text-gray-600 mt-1">Saved as <code className="text-cyan-700">district_{theme}.json</code> · set in Campaign → map_theme</p>
           </div>
 
           <div>
             <label className="block text-xs text-gray-400 mb-2">Map features</label>
             <div className="flex flex-wrap gap-2">
               {FEATURES.map(f => (
-                <button
-                  key={f}
-                  onClick={() => toggleFeature(f)}
+                <button key={f} onClick={() => toggleFeature(f)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
-                    features.includes(f)
-                      ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300'
-                      : 'bg-white/5 border-white/10 text-gray-500 hover:text-gray-300'
-                  }`}
-                >
-                  {f === 'bridge'   && '🌉 '}
-                  {f === 'tunnel'   && '🕳 '}
-                  {f === 'portals'  && '🌀 '}
-                  {f === 'boss_room'&& '💀 '}
-                  {f === 'maze'     && '🧩 '}
-                  {f}
+                    features.includes(f) ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300' : 'bg-white/5 border-white/10 text-gray-500 hover:text-gray-300'
+                  }`}>
+                  {f === 'bridge' ? '🌉 ' : f === 'tunnel' ? '🕳 ' : f === 'portals' ? '🌀 ' : f === 'boss_room' ? '💀 ' : '🧩 '}{f}
                 </button>
               ))}
             </div>
-            <p className="text-xs text-gray-600 mt-2">
-              <strong className="text-gray-500">bridge</strong> — overhead path players walk under &nbsp;
-              <strong className="text-gray-500">tunnel</strong> — dark corridor with ceiling &nbsp;
-              <strong className="text-gray-500">portals</strong> — N/S/E/W gateways to other districts
-            </p>
+            <p className="text-xs text-gray-600 mt-1.5">bridge=walk under it · tunnel=dark corridor · portals=teleport N/S/E/W</p>
           </div>
-
-          <button
-            onClick={generate}
-            disabled={status === 'generating' || !prompt}
-            className="w-full bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-white font-semibold py-3 rounded-xl text-sm transition flex items-center justify-center gap-2"
-          >
-            {status === 'generating'
-              ? <><span className="animate-spin">⚙</span> Generating map…</>
-              : '🗺 Generate Arena'}
-          </button>
         </div>
 
-        {/* Right: map preview */}
-        <div className="bg-black/40 border border-white/8 rounded-xl p-4 font-mono text-[9px] leading-tight overflow-auto min-h-[300px]">
-          {mapPreview ? (
-            <>
-              <div className="text-gray-500 mb-2 text-[10px]">
-                █=wall · ░=plaza · ·=shop · -/▄=bridge · ▪/▄=tunnel · P=pillar · S=spawner · +=portal
-              </div>
-              <pre className="text-green-400 whitespace-pre">{mapPreview}</pre>
-            </>
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-700 text-xs">
-              {status === 'generating' ? 'Generating…' : 'Map preview will appear here'}
+        {/* Right: step-by-step instructions */}
+        <div className="space-y-3">
+          {/* Step 1 */}
+          <div className="bg-white/3 border border-white/8 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs font-bold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full">STEP 1</span>
+              <span className="text-xs text-gray-300">Run in your Mac terminal to generate map</span>
             </div>
-          )}
+            <pre className="text-[10px] text-green-300 bg-black/40 rounded-lg p-3 whitespace-pre-wrap font-mono leading-relaxed overflow-x-auto">{cliCommand}</pre>
+            <button onClick={() => copyCmd(cliCommand)}
+              className="mt-2 text-xs text-gray-500 hover:text-white transition">
+              {copied ? '✓ Copied!' : '📋 Copy command'}
+            </button>
+            <p className="text-xs text-gray-600 mt-1">Get free GROQ_API_KEY at console.groq.com · Preview opens in /tmp/tilemap_agent/{theme}/</p>
+          </div>
+
+          {/* Step 2 */}
+          <div className="bg-white/3 border border-white/8 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">STEP 2</span>
+              <span className="text-xs text-gray-300">Check map in Tiled (optional) then deploy</span>
+            </div>
+            <pre className="text-[10px] text-amber-300 bg-black/40 rounded-lg p-3 whitespace-pre-wrap font-mono leading-relaxed overflow-x-auto">{deployCmds}</pre>
+            <button onClick={() => copyCmd(deployCmds)}
+              className="mt-2 text-xs text-gray-500 hover:text-white transition">
+              📋 Copy deploy commands
+            </button>
+          </div>
+
+          {/* Step 3 */}
+          <div className="bg-white/3 border border-white/8 rounded-xl p-4 text-xs text-gray-500 space-y-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs font-bold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-full">STEP 3</span>
+              <span className="text-xs text-gray-300">Activate in admin</span>
+            </div>
+            <p>Go to <strong className="text-gray-300">Campaigns</strong> tab → edit campaign → set <code className="text-cyan-700">map_theme = {theme}</code></p>
+            <p className="text-gray-600">Game rebuilds automatically after deploy (~3 min). Check: <code className="text-gray-600">ssh root@204.168.221.101 "tail -2 /tmp/build_{theme}.log"</code></p>
+          </div>
+
+          {/* Custom tiles tip */}
+          <div className="bg-white/3 border border-white/8 rounded-xl p-4 text-xs text-gray-600 space-y-1">
+            <p className="text-gray-400 font-medium mb-1">Want 3D / custom tiles?</p>
+            <p>1. Generate image in <strong className="text-gray-400">Google ImageFX</strong> (128×128px, top-down, flat style)</p>
+            <p>2. Convert at <strong className="text-gray-400">drububu.com</strong> → export .vox (voxel size 2, max height 8)</p>
+            <p>3. Render in <strong className="text-gray-400">MagicaVoxel</strong> ISO view 128×128 → save as <code>tile_0XX.png</code></p>
+            <p>4. Drop in <code className="text-cyan-800">tile_overrides/{theme}/tile_0XX.png</code> then re-run Step 1</p>
+            <p className="text-gray-700 mt-1">GIDs: 27=stone · 28=wood · 29=carpet · 38=dark · 40=light · 84=pillar · 94=portal · 100=wall</p>
+          </div>
         </div>
       </div>
-
-      {/* Log output */}
-      {log.length > 0 && (
-        <div className="bg-black/60 border border-white/8 rounded-xl p-4 font-mono text-xs space-y-0.5 max-h-48 overflow-y-auto">
-          {log.map((line, i) => (
-            <div key={i} className={
-              line.startsWith('ERROR') ? 'text-red-400' :
-              line.startsWith('✓') || line.startsWith('  ✓') ? 'text-green-400' :
-              line.startsWith('[') ? 'text-cyan-400' : 'text-gray-400'
-            }>{line}</div>
-          ))}
-        </div>
-      )}
-
-      {/* Deploy button */}
-      {status === 'done' && (
-        <div className="flex items-center gap-4 p-4 bg-green-500/10 border border-green-500/30 rounded-xl">
-          <div className="flex-1">
-            <p className="text-green-400 font-semibold text-sm">✓ Map generated successfully</p>
-            <p className="text-gray-500 text-xs mt-0.5">Deploy to VPS to make it live in the game</p>
-          </div>
-          <button
-            onClick={deploy}
-            className="bg-green-600 hover:bg-green-500 text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition"
-          >
-            🚀 Deploy to Game
-          </button>
-        </div>
-      )}
     </div>
   )
 }
