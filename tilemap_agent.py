@@ -36,8 +36,19 @@ from pathlib import Path
 
 try:
     import anthropic
+    HAS_ANTHROPIC = True
 except ImportError:
-    print("ERROR: pip3 install anthropic"); sys.exit(1)
+    HAS_ANTHROPIC = False
+
+try:
+    from groq import Groq
+    HAS_GROQ = True
+except ImportError:
+    HAS_GROQ = False
+
+if not HAS_ANTHROPIC and not HAS_GROQ:
+    print("ERROR: pip3 install groq   (free)  OR  pip3 install anthropic  (paid)")
+    sys.exit(1)
 
 try:
     from PIL import Image
@@ -122,10 +133,6 @@ Rules:
 Output ONLY the raw JSON object, no markdown, no explanation."""
 
 def generate_map_layout(prompt: str, features: list, photo_b64: str | None, theme: str) -> dict:
-    print("\n[1/4] Generating map layout via Claude...")
-
-    client = anthropic.Anthropic(api_key=os.environ['ANTHROPIC_API_KEY'])
-
     feature_desc = ', '.join(features) if features else 'open arena'
     user_prompt = f"""Create a 32x32 tile game map for this district:
 
@@ -144,28 +151,55 @@ Map requirements:
 
 Output the complete valid .tmj JSON now."""
 
-    messages = [{"role": "user", "content": []}]
+    raw = None
 
-    if photo_b64:
-        messages[0]["content"].append({
-            "type": "image",
-            "source": {"type": "base64", "media_type": "image/jpeg", "data": photo_b64}
-        })
-        messages[0]["content"].append({
-            "type": "text",
-            "text": f"Use this merchant photo as reference for the visual style and layout. {user_prompt}"
-        })
+    # Priority: Groq (free) → Anthropic (paid) → Google Gemini (free)
+    if HAS_GROQ and os.environ.get('GROQ_API_KEY'):
+        print("\n[1/4] Generating map layout via Groq (free)...")
+        client = Groq(api_key=os.environ['GROQ_API_KEY'])
+        response = client.chat.completions.create(
+            model="llama-3.1-70b-versatile",
+            messages=[
+                {"role": "system", "content": MAP_SYSTEM},
+                {"role": "user", "content": user_prompt},
+            ],
+            max_tokens=8000,
+            temperature=0.3,
+        )
+        raw = response.choices[0].message.content.strip()
+
+    elif HAS_ANTHROPIC and os.environ.get('ANTHROPIC_API_KEY'):
+        print("\n[1/4] Generating map layout via Claude (paid)...")
+        client = anthropic.Anthropic(api_key=os.environ['ANTHROPIC_API_KEY'])
+        messages = [{"role": "user", "content": []}]
+        if photo_b64:
+            messages[0]["content"].append({
+                "type": "image",
+                "source": {"type": "base64", "media_type": "image/jpeg", "data": photo_b64}
+            })
+            messages[0]["content"].append({"type": "text", "text": f"Use this photo as style reference. {user_prompt}"})
+        else:
+            messages[0]["content"].append({"type": "text", "text": user_prompt})
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=8000,
+            system=MAP_SYSTEM,
+            messages=messages,
+        )
+        raw = response.content[0].text.strip()
+
+    elif os.environ.get('GEMINI_API_KEY'):
+        print("\n[1/4] Generating map layout via Gemini (free)...")
+        r = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={os.environ['GEMINI_API_KEY']}",
+            json={"contents": [{"parts": [{"text": MAP_SYSTEM + "\n\n" + user_prompt}]}]},
+            timeout=60,
+        )
+        raw = r.json()['candidates'][0]['content']['parts'][0]['text'].strip()
+
     else:
-        messages[0]["content"].append({"type": "text", "text": user_prompt})
-
-    response = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=8000,
-        system=MAP_SYSTEM,
-        messages=messages,
-    )
-
-    raw = response.content[0].text.strip()
+        print("ERROR: Set one of: GROQ_API_KEY (free), ANTHROPIC_API_KEY, or GEMINI_API_KEY")
+        sys.exit(1)
     # Strip markdown fences if Claude added them
     if raw.startswith("```"):
         raw = raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
