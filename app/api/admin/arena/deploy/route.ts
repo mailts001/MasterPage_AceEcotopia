@@ -1,36 +1,74 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { exec } from 'child_process'
-import { promisify } from 'util'
+import { Client } from 'ssh2'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
 
-const execAsync = promisify(exec)
 const ADMIN_SECRET = process.env.ADMIN_SECRET ?? ''
 const VPS_HOST     = '204.168.221.101'
-const VPS_KEY      = path.join(os.homedir(), '.ssh/hetzner_trading')
+const VPS_KEY_PATH = path.join(os.homedir(), '.ssh/hetzner_trading')
 const GAME_ROOT    = '/root/x68-game'
+
+function sshExec(conn: Client, cmd: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    conn.exec(cmd, (err, stream) => {
+      if (err) return reject(err)
+      let out = ''
+      stream.on('data', (d: Buffer) => { out += d.toString() })
+      stream.stderr.on('data', (d: Buffer) => { out += d.toString() })
+      stream.on('close', () => resolve(out.trim()))
+    })
+  })
+}
+
+function sshPutFile(conn: Client, content: string, remotePath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    conn.sftp((err, sftp) => {
+      if (err) return reject(err)
+      const writeStream = sftp.createWriteStream(remotePath)
+      writeStream.on('close', resolve)
+      writeStream.on('error', reject)
+      writeStream.end(Buffer.from(content, 'utf8'))
+    })
+  })
+}
+
+function connectSSH(): Promise<Client> {
+  return new Promise((resolve, reject) => {
+    const conn = new Client()
+    const keyPath = VPS_KEY_PATH
+    if (!fs.existsSync(keyPath)) {
+      return reject(new Error(`SSH key not found at ${keyPath}`))
+    }
+    conn.on('ready', () => resolve(conn))
+    conn.on('error', reject)
+    conn.connect({
+      host: VPS_HOST,
+      port: 22,
+      username: 'root',
+      privateKey: fs.readFileSync(keyPath),
+    })
+  })
+}
 
 export async function POST(req: NextRequest) {
   if (req.headers.get('x-admin-secret') !== ADMIN_SECRET)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { theme, mapJson } = await req.json()
-  if (!theme) return NextResponse.json({ error: 'theme required' }, { status: 400 })
+  if (!theme || !mapJson) return NextResponse.json({ error: 'theme and mapJson required' }, { status: 400 })
 
-  const sshOpts = `-i ${VPS_KEY} -o StrictHostKeyChecking=no -o ConnectTimeout=10`
-
+  let conn: Client | null = null
   try {
-    // Write mapJson to a temp file for scp
-    const tmpMap = path.join(os.tmpdir(), `district_${theme}.json`)
-    fs.writeFileSync(tmpMap, JSON.stringify(mapJson, null, 2))
+    conn = await connectSSH()
 
-    // Upload map JSON to VPS
-    await execAsync(`scp ${sshOpts} ${tmpMap} root@${VPS_HOST}:${GAME_ROOT}/packages/common/src/maps/district_${theme}.json`)
-    fs.unlinkSync(tmpMap)
+    // Upload map JSON via SFTP
+    const mapContent = JSON.stringify(mapJson, null, 2)
+    const remotePath = `${GAME_ROOT}/packages/common/src/maps/district_${theme}.json`
+    await sshPutFile(conn, mapContent, remotePath)
 
-    // Register map in index.ts if needed, then rebuild
-    const cmd = `
+    // Register in index.ts if not already there
+    const regOut = await sshExec(conn, `
 name=district_${theme}
 file=${GAME_ROOT}/packages/common/src/maps/index.ts
 if ! grep -q "$name" "$file"; then
@@ -39,17 +77,15 @@ if ! grep -q "$name" "$file"; then
   echo "registered"
 else
   echo "already registered"
-fi
-screen -dmS rebuild_${theme} bash -c 'cd ${GAME_ROOT} && yarn build > /tmp/build_${theme}.log 2>&1; systemctl restart colyseus_game; echo DONE >> /tmp/build_${theme}.log'
-`.trim()
+fi`)
 
-    const { stdout } = await execAsync(`ssh ${sshOpts} root@${VPS_HOST} '${cmd.replace(/'/g, "'\\''")}'`)
+    // Trigger rebuild in background screen session
+    await sshExec(conn, `screen -dmS rebuild_${theme} bash -c 'cd ${GAME_ROOT} && yarn build > /tmp/build_${theme}.log 2>&1; systemctl restart colyseus_game; echo DONE >> /tmp/build_${theme}.log'`)
 
-    return NextResponse.json({
-      ok: true,
-      message: `Deployed district_${theme}. ${stdout.trim()}. Build started — check: tail -2 /tmp/build_${theme}.log`,
-    })
+    conn.end()
+    return NextResponse.json({ ok: true, message: `district_${theme} deployed. ${regOut}. Build started (~3 min).` })
   } catch (e: any) {
+    conn?.end()
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }
