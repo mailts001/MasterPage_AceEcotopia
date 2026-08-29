@@ -159,7 +159,7 @@ Output the complete valid .tmj JSON now."""
         messages[0]["content"].append({"type": "text", "text": user_prompt})
 
     response = client.messages.create(
-        model="claude-opus-4-8",
+        model="claude-haiku-4-5-20251001",
         max_tokens=8000,
         system=MAP_SYSTEM,
         messages=messages,
