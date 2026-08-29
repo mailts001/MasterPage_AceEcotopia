@@ -815,9 +815,30 @@ function ArenaTab({ secret }: { secret: string }) {
   const [theme,    setTheme]    = useState<ArenaTheme>('boutique')
   const [features, setFeatures] = useState<ArenaFeature[]>(['bridge', 'tunnel', 'portals'])
   const [copied,   setCopied]   = useState(false)
+  const [generating, setGenerating] = useState(false)
+  const [preview,  setPreview]  = useState('')
+  const [genError, setGenError] = useState('')
 
   function toggleFeature(f: ArenaFeature) {
     setFeatures(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f])
+  }
+
+  async function generate() {
+    setGenerating(true); setPreview(''); setGenError('')
+    try {
+      const res = await fetch('/api/admin/arena/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
+        body: JSON.stringify({ prompt, theme, features }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setGenError(data.error ?? 'Generation failed'); return }
+      setPreview(data.preview ?? '')
+    } catch (e: any) {
+      setGenError(e.message)
+    } finally {
+      setGenerating(false)
+    }
   }
 
   const AGENT = '/Users/tslee/Documents/MasterPage_AceEcotopia/tilemap_agent.py'
@@ -886,7 +907,28 @@ function ArenaTab({ secret }: { secret: string }) {
             </div>
             <p className="text-xs text-gray-600 mt-1.5">bridge=walk under it · tunnel=dark corridor · portals=teleport N/S/E/W</p>
           </div>
+
+          <button onClick={generate} disabled={generating || !prompt}
+            className="w-full bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-white font-semibold py-3 rounded-xl text-sm transition flex items-center justify-center gap-2">
+            {generating ? <><span className="animate-spin inline-block">⚙</span> Generating…</> : '🗺 Generate Arena Preview'}
+          </button>
+          {genError && <p className="text-red-400 text-xs">{genError}</p>}
         </div>
+
+        {/* Right: ASCII preview */}
+        <div className="bg-black/50 border border-white/8 rounded-xl p-4 font-mono text-[9px] leading-[11px] overflow-auto min-h-[340px] flex flex-col">
+          {preview ? (
+            <>
+              <p className="text-gray-600 text-[9px] mb-2">█=wall ░=plaza ·=shop -=bridge ▄=overhead ▪=tunnel P=pillar S=spawner +=portal</p>
+              <pre className="text-green-400 whitespace-pre flex-1">{preview}</pre>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-gray-700 text-xs">
+              {generating ? 'Generating map layout…' : 'Click Generate to preview map'}
+            </div>
+          )}
+        </div>
+      </div>
 
         {/* Right: step-by-step instructions */}
         <div className="space-y-3">
