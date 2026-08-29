@@ -493,7 +493,7 @@ function CampaignsTab({ secret }: { secret: string }) {
   const [campaigns, setCampaigns] = useState<any[]>([])
   const [merchants, setMerchants] = useState<any[]>([])
   const [loading, setLoading]     = useState(true)
-  const [form, setForm]           = useState({ merchant_id: '', name: '', objective: 'redemption', start_date: '', end_date: '', budget: '0', background_image_url: '' })
+  const [form, setForm]           = useState({ merchant_id: '', name: '', objective: 'redemption', start_date: '', end_date: '', budget: '0', background_image_url: '', map_theme: 'default' })
   const [saving, setSaving]       = useState(false)
   const [err, setErr]             = useState('')
 
@@ -526,7 +526,7 @@ function CampaignsTab({ secret }: { secret: string }) {
     })
     const j = await res.json()
     if (j.error) { setErr(j.error); setSaving(false); return }
-    setForm({ merchant_id: '', name: '', objective: 'redemption', start_date: '', end_date: '', budget: '0', background_image_url: '' })
+    setForm({ merchant_id: '', name: '', objective: 'redemption', start_date: '', end_date: '', budget: '0', background_image_url: '', map_theme: 'default' })
     setSaving(false)
     loadAll()
   }
@@ -547,6 +547,16 @@ function CampaignsTab({ secret }: { secret: string }) {
           <Input label="Campaign Name *" value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} required />
           <Input label="Start Date *" value={form.start_date} onChange={v => setForm(f => ({ ...f, start_date: v }))} placeholder="YYYY-MM-DD" required />
           <Input label="End Date *"   value={form.end_date}   onChange={v => setForm(f => ({ ...f, end_date: v }))}   placeholder="YYYY-MM-DD" required />
+          <div className="space-y-1">
+            <label className="text-xs text-gray-500">Arena Map Theme</label>
+            <select value={form.map_theme} onChange={e => setForm(f => ({ ...f, map_theme: e.target.value }))}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500">
+              <option value="default">🏰 Default (Dungeon)</option>
+              <option value="boutique">🛍️ Boutique (Coming soon)</option>
+              <option value="tech_hub">💻 Tech Hub (Coming soon)</option>
+              <option value="street_food">🍜 Street Food (Coming soon)</option>
+            </select>
+          </div>
           <div className="col-span-2 space-y-1">
             <label className="text-xs text-gray-500">Arena Background Image URL — paste direct Imgur link (i.imgur.com/xxx.jpg) of your shop/brand photo</label>
             <input type="url" value={form.background_image_url}
@@ -572,6 +582,7 @@ function CampaignsTab({ secret }: { secret: string }) {
               <th className="pb-2 pr-4">Campaign</th>
               <th className="pb-2 pr-4">Merchant</th>
               <th className="pb-2 pr-4">Dates</th>
+              <th className="pb-2 pr-4">Theme</th>
               <th className="pb-2 pr-4">Arena BG</th>
               <th className="pb-2 pr-4">Status</th>
               <th className="pb-2">Actions</th>
@@ -587,6 +598,7 @@ function CampaignsTab({ secret }: { secret: string }) {
                   <td className="py-3 pr-4 font-medium">{c.name}</td>
                   <td className="py-3 pr-4 text-gray-400">{merchant?.name ?? '—'}</td>
                   <td className="py-3 pr-4 text-gray-400 text-xs">{c.start_date} → {c.end_date}</td>
+                  <td className="py-3 pr-4 text-xs text-gray-400">{c.map_theme ?? 'default'}</td>
                   <td className="py-3 pr-4">
                     {c.background_image_url
                       ? <img src={c.background_image_url} alt="bg" className="w-10 h-7 object-cover rounded border border-white/10" />
