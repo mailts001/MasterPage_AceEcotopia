@@ -844,31 +844,6 @@ function ArenaTab({ secret }: { secret: string }) {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  // legacy generate (kept for local dev where python3 is available)
-  async function generate() {
-    // intentionally empty on Vercel — use CLI command below
-            if (msg.error)  { setLog(prev => [...prev, `ERROR: ${msg.error}`]); setStatus('error') }
-          } catch {}
-        }
-      }
-      if (status !== 'error') setStatus('done')
-    } catch (e: any) {
-      setLog(prev => [...prev, `ERROR: ${e.message}`])
-      setStatus('error')
-    }
-  }
-
-  async function deploy() {
-    setLog(prev => [...prev, 'Deploying to VPS…'])
-    const res = await fetch('/api/admin/arena/deploy', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
-      body: JSON.stringify({ theme }),
-    })
-    const data = await res.json()
-    if (data.ok) setLog(prev => [...prev, '✓ Deployed! Game rebuilding on VPS (~3 min)'])
-    else         setLog(prev => [...prev, `Deploy error: ${data.error}`])
-  }
 
   return (
     <div className="space-y-6">
