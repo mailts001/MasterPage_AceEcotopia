@@ -928,7 +928,6 @@ function ArenaTab({ secret }: { secret: string }) {
             </div>
           )}
         </div>
-      </div>
 
         {/* Right: step-by-step instructions */}
         <div className="space-y-3">
