@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   images: {
     domains: ['localhost'],
   },
+  serverExternalPackages: ['ssh2'],
 }
 
 export default nextConfig

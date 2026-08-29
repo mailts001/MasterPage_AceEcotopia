@@ -36,18 +36,20 @@ function sshPutFile(conn: Client, content: string, remotePath: string): Promise<
 function connectSSH(): Promise<Client> {
   return new Promise((resolve, reject) => {
     const conn = new Client()
-    const keyPath = VPS_KEY_PATH
-    if (!fs.existsSync(keyPath)) {
-      return reject(new Error(`SSH key not found at ${keyPath}`))
+
+    // Prefer env var (Vercel), fall back to local key file (dev)
+    let privateKey: Buffer | string
+    if (process.env.VPS_SSH_KEY_B64) {
+      privateKey = Buffer.from(process.env.VPS_SSH_KEY_B64, 'base64')
+    } else if (fs.existsSync(VPS_KEY_PATH)) {
+      privateKey = fs.readFileSync(VPS_KEY_PATH)
+    } else {
+      return reject(new Error('No SSH key: set VPS_SSH_KEY_B64 env var or place key at ~/.ssh/hetzner_trading'))
     }
+
     conn.on('ready', () => resolve(conn))
     conn.on('error', reject)
-    conn.connect({
-      host: VPS_HOST,
-      port: 22,
-      username: 'root',
-      privateKey: fs.readFileSync(keyPath),
-    })
+    conn.connect({ host: VPS_HOST, port: 22, username: 'root', privateKey })
   })
 }
 
