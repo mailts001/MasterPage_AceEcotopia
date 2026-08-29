@@ -189,7 +189,7 @@ Rules: floor_default matches theme (27=stone,28=wood,29=carpet,38=dark,40=light)
         { role: 'system', content: LAYOUT_SYSTEM },
         { role: 'user', content: userPrompt },
       ],
-      max_tokens: 600,
+      max_tokens: 1500,
       temperature: 0.3,
     }),
   })
@@ -213,7 +213,19 @@ Rules: floor_default matches theme (27=stone,28=wood,29=carpet,38=dark,40=light)
   try {
     spec = JSON.parse(raw)
   } catch {
-    return NextResponse.json({ error: `Invalid JSON from LLM: ${raw.slice(0, 200)}` }, { status: 500 })
+    // Try to close truncated JSON by counting braces/brackets
+    let fixed = raw
+    const opens = (fixed.match(/\[|\{/g) ?? []).length
+    const closes = (fixed.match(/\]|\}/g) ?? []).length
+    const diff = opens - closes
+    // strip trailing comma then close
+    fixed = fixed.replace(/,\s*$/, '')
+    for (let i = 0; i < diff; i++) fixed += (fixed.includes('[') ? ']' : '}')
+    try {
+      spec = JSON.parse(fixed)
+    } catch {
+      return NextResponse.json({ error: `Invalid JSON from LLM: ${raw.slice(0, 300)}` }, { status: 500 })
+    }
   }
 
   const mapData = buildTMJ(spec, features ?? [])
