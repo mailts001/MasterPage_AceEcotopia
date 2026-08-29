@@ -816,8 +816,11 @@ function ArenaTab({ secret }: { secret: string }) {
   const [features, setFeatures] = useState<ArenaFeature[]>(['bridge', 'tunnel', 'portals'])
   const [copied,   setCopied]   = useState(false)
   const [generating, setGenerating] = useState(false)
-  const [preview,  setPreview]  = useState('')
-  const [genError, setGenError] = useState('')
+  const [preview,    setPreview]    = useState('')
+  const [mapJson,    setMapJson]    = useState<object | null>(null)
+  const [genError,   setGenError]   = useState('')
+  const [deploying,  setDeploying]  = useState(false)
+  const [deployMsg,  setDeployMsg]  = useState('')
 
   function toggleFeature(f: ArenaFeature) {
     setFeatures(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f])
@@ -834,10 +837,30 @@ function ArenaTab({ secret }: { secret: string }) {
       const data = await res.json()
       if (!res.ok) { setGenError(data.error ?? 'Generation failed'); return }
       setPreview(data.preview ?? '')
+      setMapJson(data.mapJson ?? null)
+      setDeployMsg('')
     } catch (e: any) {
       setGenError(e.message)
     } finally {
       setGenerating(false)
+    }
+  }
+
+  async function deployLive() {
+    if (!mapJson) return
+    setDeploying(true); setDeployMsg('')
+    try {
+      const res = await fetch('/api/admin/arena/deploy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
+        body: JSON.stringify({ theme, mapJson }),
+      })
+      const data = await res.json()
+      setDeployMsg(data.ok ? '✓ Deployed! Game rebuilding (~3 min). Set map_theme in Campaign to activate.' : `Error: ${data.error}`)
+    } catch (e: any) {
+      setDeployMsg(`Error: ${e.message}`)
+    } finally {
+      setDeploying(false)
     }
   }
 
@@ -913,6 +936,19 @@ function ArenaTab({ secret }: { secret: string }) {
             {generating ? <><span className="animate-spin inline-block">⚙</span> Generating…</> : '🗺 Generate Arena Preview'}
           </button>
           {genError && <p className="text-red-400 text-xs">{genError}</p>}
+
+          {preview && (
+            <div className="pt-2 border-t border-white/8 space-y-2">
+              <button onClick={deployLive} disabled={deploying}
+                className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-40 text-white font-semibold py-3 rounded-xl text-sm transition flex items-center justify-center gap-2">
+                {deploying ? <><span className="animate-spin inline-block">⚙</span> Deploying…</> : '🚀 Deploy to Game'}
+              </button>
+              {deployMsg && (
+                <p className={`text-xs ${deployMsg.startsWith('✓') ? 'text-green-400' : 'text-red-400'}`}>{deployMsg}</p>
+              )}
+              <p className="text-xs text-gray-600">After deploy: go to Campaigns → set map_theme = <code className="text-cyan-800">{theme}</code></p>
+            </div>
+          )}
         </div>
 
         {/* Right: ASCII preview */}
