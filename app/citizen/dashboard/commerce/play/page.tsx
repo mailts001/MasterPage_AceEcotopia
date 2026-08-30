@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 // ─── Phase machine ─────────────────────────────────────────────────────────────
 type Phase = 'intro' | 'launch' | 'game'
 
-const GAME_BASE_URL = 'https://aceonology.duckdns.org:4443'
+const GAME_BASE_URL = 'http://204.168.221.101:2567'
 
 export default function CommercePlayPage() {
   const router = useRouter()
@@ -39,32 +39,17 @@ export default function CommercePlayPage() {
   }, [phase])
 
   function handlePlay() {
+    window.open(gameUrl, '_blank', 'noopener')
     setPhase('launch')
-    setTimeout(() => setPhase('game'), 1800)
+    setTimeout(() => setPhase('intro'), 2000)
   }
 
-  // ─── Game phase: full-screen iframe ──────────────────────────────────────────
   if (phase === 'game') {
     return (
-      <div className="fixed inset-0 bg-black flex flex-col">
-        <div className="flex items-center justify-between px-4 py-2 border-b border-white/10 shrink-0">
-          <button
-            onClick={() => router.back()}
-            className="text-gray-400 hover:text-white text-sm transition"
-          >
-            ← Exit
-          </button>
-          <span className="text-xs text-amber-400 font-mono tracking-widest uppercase">
-            E-Commerce District · Deal Hunt Arena
-          </span>
-          <span className="text-xs text-gray-700">Collect merchant items to win coupons</span>
-        </div>
-        <iframe
-          src={gameUrl}
-          className="flex-1 w-full border-0"
-          allow="fullscreen"
-          title="Deal Hunt Arena"
-        />
+      <div className="fixed inset-0 bg-black flex flex-col items-center justify-center gap-4">
+        <div className="text-4xl">🎮</div>
+        <p className="text-amber-300 font-semibold">Game opened in a new tab</p>
+        <button onClick={() => setPhase('intro')} className="text-gray-500 text-sm mt-4 hover:text-white transition">← Back</button>
       </div>
     )
   }
