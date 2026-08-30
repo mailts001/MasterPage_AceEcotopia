@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 // ─── Phase machine ─────────────────────────────────────────────────────────────
 type Phase = 'intro' | 'launch' | 'game'
 
-const GAME_BASE_URL = 'https://licenses-telephony-operates-entered.trycloudflare.com'
+const GAME_BASE_URL = 'http://204.168.221.101:2567'
 
 export default function CommercePlayPage() {
   const router = useRouter()
