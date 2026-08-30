@@ -113,14 +113,27 @@ function buildTMJ(spec: LayoutSpec, features: string[]) {
     { name:'ground',     type:'tilelayer', data:ground,     width:W, height:H, x:0, y:0, opacity:1, visible:true },
     { name:'walls',      type:'tilelayer', data:walls,      width:W, height:H, x:0, y:0, opacity:1, visible:true },
     { name:'decor',      type:'tilelayer', data:decor,      width:W, height:H, x:0, y:0, opacity:1, visible:true },
-    { name:'overhead',   type:'tilelayer', data:overhead,   width:W, height:H, x:0, y:0, opacity:1, visible:true },
     { name:'spawners',   type:'tilelayer', data:spawners,   width:W, height:H, x:0, y:0, opacity:1, visible:true },
     { name:'collisions', type:'tilelayer', data:collisions, width:W, height:H, x:0, y:0, opacity:1, visible:true },
-    ...(portalObjects.length ? [{ name:'portals', type:'objectgroup', objects:portalObjects, x:0, y:0, opacity:1, visible:true }] : []),
   ]
 
-  return { width:W, height:H, tilewidth:32, tileheight:32, orientation:'orthogonal', renderorder:'right-down',
-    tilesets:[{firstgid:1, source:'dungeon.tsj'}], layers, version:'1.10', type:'map', infinite:false }
+  // Inline tileset matching TOSIOS small.json format exactly (16px tiles, 176x176 dungeon.png)
+  const inlineTileset = {
+    columns: 11, firstgid: 1, image: 'dungeon.png', imageheight: 176, imagewidth: 176,
+    margin: 0, name: 'dungeon', spacing: 0, tilecount: 121, tileheight: 16, tilewidth: 16,
+    tiles: [
+      { animation: [{duration:200,tileid:0},{duration:200,tileid:1},{duration:200,tileid:2},{duration:200,tileid:3}], id:0 },
+      { animation: [{duration:200,tileid:4},{duration:200,tileid:5},{duration:200,tileid:6},{duration:200,tileid:7}], id:4 },
+      { animation: [{duration:200,tileid:8},{duration:200,tileid:9},{duration:200,tileid:10},{duration:200,tileid:11}], id:8 },
+      { animation: [{duration:200,tileid:12},{duration:200,tileid:13},{duration:200,tileid:14},{duration:200,tileid:15}], id:12 },
+      { animation: [{duration:200,tileid:16},{duration:200,tileid:17},{duration:200,tileid:18},{duration:200,tileid:19}], id:16 },
+      { id:99, type:'full' }, { id:100, type:'half' },
+    ],
+  }
+
+  return { width:W, height:H, tilewidth:16, tileheight:16, orientation:'orthogonal', renderorder:'right-down',
+    tilesets:[inlineTileset], layers, version:'1.10', type:'map', infinite:false,
+    nextlayerid: layers.length + 1, nextobjectid: 1, tiledversion:'1.10.1' }
 }
 
 function toAscii(mapData: ReturnType<typeof buildTMJ>): string {

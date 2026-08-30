@@ -600,7 +600,21 @@ function CampaignsTab({ secret }: { secret: string }) {
                   <td className="py-3 pr-4 font-medium">{c.name}</td>
                   <td className="py-3 pr-4 text-gray-400">{merchant?.name ?? '—'}</td>
                   <td className="py-3 pr-4 text-gray-400 text-xs">{c.start_date} → {c.end_date}</td>
-                  <td className="py-3 pr-4 text-xs text-gray-400">{c.map_theme ?? 'default'}</td>
+                  <td className="py-3 pr-4 text-xs">
+                    <select
+                      value={c.map_theme ?? 'default'}
+                      onChange={async e => {
+                        const theme = e.target.value
+                        await adminFetch(secret, '/api/admin/merchants', { method: 'POST', body: JSON.stringify({ table: 'campaigns', id: c.id, row: { map_theme: theme } }) })
+                        setCampaigns(cs => cs.map(x => x.id === c.id ? { ...x, map_theme: theme } : x))
+                      }}
+                      className="bg-white/5 border border-white/10 rounded px-1 py-0.5 text-gray-300"
+                    >
+                      <option value="default">default</option>
+                      <option value="boutique">boutique</option>
+                      <option value="dungeon">dungeon</option>
+                    </select>
+                  </td>
                   <td className="py-3 pr-4">
                     {c.background_image_url
                       ? <img src={c.background_image_url} alt="bg" className="w-10 h-7 object-cover rounded border border-white/10" />
