@@ -41,14 +41,17 @@ function buildTMJ(spec: LayoutSpec, features: string[]) {
         arr[idx(rx, ry)] = gid
   }
 
+  const WALL_GID = 51  // dark stone wall tile (visual)
+  const COLL_GID = 100 // collision marker (hidden in-game, shown in debug)
+
   // Outer border walls
   for (let x = 0; x < W; x++) {
-    walls[idx(x,0)] = walls[idx(x,H-1)] = 100
-    collisions[idx(x,0)] = collisions[idx(x,H-1)] = 100
+    walls[idx(x,0)] = walls[idx(x,H-1)] = WALL_GID
+    collisions[idx(x,0)] = collisions[idx(x,H-1)] = COLL_GID
   }
   for (let y = 0; y < H; y++) {
-    walls[idx(0,y)] = walls[idx(W-1,y)] = 100
-    collisions[idx(0,y)] = collisions[idx(W-1,y)] = 100
+    walls[idx(0,y)] = walls[idx(W-1,y)] = WALL_GID
+    collisions[idx(0,y)] = collisions[idx(W-1,y)] = COLL_GID
   }
 
   // Plaza
@@ -61,12 +64,12 @@ function buildTMJ(spec: LayoutSpec, features: string[]) {
   for (const room of spec.rooms ?? []) {
     fillRect(ground, room.x, room.y, room.w, room.h, room.floor ?? 29)
     for (let rx = room.x; rx < room.x + room.w; rx++) {
-      walls[idx(rx, room.y)] = 100; collisions[idx(rx, room.y)] = 100
-      walls[idx(rx, room.y+room.h-1)] = 100; collisions[idx(rx, room.y+room.h-1)] = 100
+      walls[idx(rx, room.y)] = WALL_GID; collisions[idx(rx, room.y)] = COLL_GID
+      walls[idx(rx, room.y+room.h-1)] = WALL_GID; collisions[idx(rx, room.y+room.h-1)] = COLL_GID
     }
     for (let ry = room.y; ry < room.y + room.h; ry++) {
-      walls[idx(room.x, ry)] = 100; collisions[idx(room.x, ry)] = 100
-      walls[idx(room.x+room.w-1, ry)] = 100; collisions[idx(room.x+room.w-1, ry)] = 100
+      walls[idx(room.x, ry)] = WALL_GID; collisions[idx(room.x, ry)] = COLL_GID
+      walls[idx(room.x+room.w-1, ry)] = WALL_GID; collisions[idx(room.x+room.w-1, ry)] = COLL_GID
     }
     // Door opening
     const dx = room.x + Math.floor(room.w / 2)
@@ -75,7 +78,7 @@ function buildTMJ(spec: LayoutSpec, features: string[]) {
   }
 
   // Extra wall rects
-  for (const wr of spec.walls ?? []) fillRect(walls, wr.x, wr.y, wr.w, wr.h, 100)
+  for (const wr of spec.walls ?? []) { fillRect(walls, wr.x, wr.y, wr.w, wr.h, WALL_GID); fillRect(collisions, wr.x, wr.y, wr.w, wr.h, COLL_GID) }
 
   // Pillars
   for (const p of spec.pillars ?? []) {
