@@ -65,7 +65,7 @@ const DISTRICTS = [
     borderCls:'border-amber-500/30',
     video:    '/districts/commerce.mp4',
     poster:   '/districts/commerce-poster.jpg',
-    href:     'http://204.168.221.101/',
+    href:     'http://204.168.221.101:2567/',
     joinHref: '/citizen/register?district=commerce',
     externalLabel: 'Explore Commerce OS →',
     desc:     'Multi-AI agents surface price gaps across Shopee, Lazada and Amazon. Net margin calculated after fees and shipping.',

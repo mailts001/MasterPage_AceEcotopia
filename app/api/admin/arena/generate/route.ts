@@ -200,7 +200,7 @@ Rules: floor_default matches theme (27=stone,28=wood,29=carpet,38=dark,40=light)
     method: 'POST',
     headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'qwen/qwen3.8-27b',
+      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
       messages: [
         { role: 'system', content: LAYOUT_SYSTEM },
         { role: 'user', content: userPrompt },
