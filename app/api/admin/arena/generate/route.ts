@@ -239,12 +239,12 @@ Customize the layout meaningfully for the concept "${prompt}". Use the example o
     method: 'POST',
     headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'openai/gpt-oss-120b',
+      model: 'qwen/qwen3.6-27b',
       messages: [
         { role: 'system', content: LAYOUT_SYSTEM },
         { role: 'user', content: userPrompt },
       ],
-      max_tokens: 1500,
+      max_tokens: 2000,
       temperature: 0.3,
     }),
   })
@@ -257,29 +257,33 @@ Customize the layout meaningfully for the concept "${prompt}". Use the example o
   const groqData = await groqRes.json()
   let raw = groqData.choices?.[0]?.message?.content?.trim() ?? ''
 
-  // Strip thinking tags and markdown fences
-  raw = raw.replace(/<think>[\s\S]*?<\/think>/g, '').trim()
+  // Strip thinking tags, markdown fences, and leading prose
+  raw = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
+  raw = raw.replace(/^[^{]*/s, '')  // drop anything before first {
   const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
   if (fenceMatch) raw = fenceMatch[1].trim()
   const objMatch = raw.match(/\{[\s\S]*\}/)
   if (objMatch) raw = objMatch[0]
 
+  const rawPreview = raw.slice(0, 400)
+
   let spec: LayoutSpec
   try {
     spec = JSON.parse(raw)
   } catch {
-    // Try to close truncated JSON by counting braces/brackets
-    let fixed = raw
-    const opens = (fixed.match(/\[|\{/g) ?? []).length
-    const closes = (fixed.match(/\]|\}/g) ?? []).length
-    const diff = opens - closes
-    // strip trailing comma then close
-    fixed = fixed.replace(/,\s*$/, '')
-    for (let i = 0; i < diff; i++) fixed += (fixed.includes('[') ? ']' : '}')
+    // Try to close truncated JSON: interleave closes in correct order
+    let fixed = raw.replace(/,\s*$/, '').replace(/,\s*([\]\}])/g, '$1')
+    const stack: string[] = []
+    for (const ch of fixed) {
+      if (ch === '{') stack.push('}')
+      else if (ch === '[') stack.push(']')
+      else if (ch === '}' || ch === ']') stack.pop()
+    }
+    fixed += stack.reverse().join('')
     try {
       spec = JSON.parse(fixed)
     } catch {
-      return NextResponse.json({ error: `Invalid JSON from LLM: ${raw.slice(0, 300)}` }, { status: 500 })
+      return NextResponse.json({ error: `Invalid JSON from LLM: ${rawPreview}` }, { status: 500 })
     }
   }
 
