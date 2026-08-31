@@ -215,7 +215,7 @@ LAYOUT REQUIREMENTS:
 5. pillars: 8–12 pillars for cover and visual rhythm — frame plaza corners, road midpoints, room interiors
 6. spawners: 8+ spawners spread across plaza AND road junctions AND inside rooms — never on walls or water
 ${hasPortals ? '7. portals: 4 portal exits at map edges (near row 1, row 30, col 1, col 30)\n' : ''}${hasBridge ? `7. bridge: a wooden bridge (floor=28) crossing a dark channel. Span at least 4 tiles wide. Example: {"row_start":14,"row_end":17,"col_start":10,"col_end":22}\n` : ''}${hasTunnel ? `8. tunnel: a dark underground passage (floor=38). Example: {"col_start":5,"col_end":9,"row_start":18,"row_end":24}\n` : ''}
-Output ONLY the JSON object below, customized for "${prompt}". No prose before or after:
+Output ONLY the JSON object below, customized for "${prompt}". No prose before or after. /no_think
 {"floor_default":27,"plaza":{"x":12,"y":12,"w":9,"h":9,"floor":40},"rooms":[{"x":1,"y":1,"w":8,"h":8,"floor":29},{"x":22,"y":1,"w":8,"h":8,"floor":28},{"x":1,"y":22,"w":8,"h":8,"floor":29},{"x":22,"y":22,"w":8,"h":8,"floor":38}],"pillars":[{"x":12,"y":12},{"x":19,"y":12},{"x":12,"y":19},{"x":19,"y":19},{"x":5,"y":11},{"x":26,"y":11},{"x":5,"y":20},{"x":26,"y":20}],"spawners":[{"x":16,"y":16},{"x":14,"y":14},{"x":18,"y":14},{"x":14,"y":18},{"x":18,"y":18},{"x":8,"y":5},{"x":24,"y":5},{"x":8,"y":26}]${hasPortals ? `,"portals":[{"x":16,"y":1,"name":"north"},{"x":16,"y":30,"name":"south"},{"x":30,"y":16,"name":"east"},{"x":1,"y":16,"name":"west"}]` : ''}${hasBridge ? `,"bridge":{"row_start":14,"row_end":17,"col_start":10,"col_end":22}` : ''}${hasTunnel ? `,"tunnel":{"col_start":5,"col_end":9,"row_start":18,"row_end":24}` : ''}}
 
 Change x/y/w/h/floor values to match the theme. Keep the same keys. rooms must have 4 entries.`
@@ -246,13 +246,20 @@ Change x/y/w/h/floor values to match the theme. Keep the same keys. rooms must h
   const groqData = await groqRes.json()
   let raw = groqData.choices?.[0]?.message?.content?.trim() ?? ''
 
-  // Strip thinking tags, markdown fences, and leading prose
+  // Strip thinking tags and markdown fences
   raw = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
-  const firstBrace = raw.indexOf('{'); if (firstBrace > 0) raw = raw.slice(firstBrace)
   const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
   if (fenceMatch) raw = fenceMatch[1].trim()
-  const objMatch = raw.match(/\{[\s\S]*\}/)
-  if (objMatch) raw = objMatch[0]
+  // Grab the LAST valid-looking JSON object (after any reasoning text)
+  // and reject placeholder JSONs that contain "..."
+  const allObjs = [...raw.matchAll(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g)]
+  const realObjs = allObjs.filter(m => !m[0].includes('...') && m[0].includes('floor_default'))
+  if (realObjs.length > 0) raw = realObjs[realObjs.length - 1][0]
+  else {
+    // Fallback: grab largest { } block
+    const objMatch = raw.match(/\{[\s\S]*\}/)
+    if (objMatch) raw = objMatch[0]
+  }
 
   const rawPreview = raw.slice(0, 400)
 
