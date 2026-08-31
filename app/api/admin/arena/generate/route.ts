@@ -3,9 +3,29 @@ import { NextRequest, NextResponse } from 'next/server'
 const ADMIN_SECRET = process.env.ADMIN_SECRET ?? ''
 const GROQ_API_KEY = process.env.GROQ_API_KEY ?? ''
 
-const LAYOUT_SYSTEM = `Game map layout designer. Output ONLY a compact JSON object, no markdown, no explanation.
-GIDs available: 27=stone,28=wood,29=carpet,38=dark,40=light,100=wall,84=pillar,94=portal,102=spawner.
-Describe a 32x32 map using rectangles and points. Do NOT output 1024-element arrays.`
+const LAYOUT_SYSTEM = `You are an expert game map designer for a dungeon-tile RPG. Output ONLY a valid JSON object — no markdown, no explanation, no trailing text.
+
+TILE PALETTE (GIDs from dungeon.png 11×11 grid, 16px tiles):
+- 27 = grey stone floor (roads, corridors, neutral areas)
+- 28 = warm wood floor (bridges, market stalls, taverns)
+- 29 = patterned carpet (shops, lounges, VIP rooms)
+- 38 = dark stone / water (canals, shadows, underground)
+- 40 = light polished stone (plazas, courtyards, grand halls)
+- 51 = dark wall tile (visual wall — use in walls layer)
+- 84 = stone pillar (decorative + collision)
+- 94 = glowing portal (exit gates)
+- 102 = spawn point (player start)
+
+DESIGN PRINCIPLES:
+- Create distinct zones with clear visual identity using different floor GIDs
+- Roads (GID 27) should form clear paths between zones
+- Plazas (GID 40) should be open central spaces
+- Use pillars (GID 84) to create cover and visual rhythm — at least 6
+- Place 6+ spawners spread across accessible floor areas (never on walls)
+- Shops/rooms (GID 29) feel cosy; use for corner buildings
+- Dark areas (GID 38) signal water, tunnels, or danger
+- Wood (GID 28) for bridges crossing dark areas
+- Mix at least 3 different floor GIDs for visual richness`
 
 interface Room  { x:number; y:number; w:number; h:number; floor?:number; name?:string }
 interface Point { x:number; y:number; name?:string }
@@ -179,18 +199,37 @@ export async function POST(req: NextRequest) {
   const hasTunnel  = features?.includes('tunnel')
   const hasPortals = features?.includes('portals')
 
-  const userPrompt = `Design a 32x32 game map for: ${prompt} (theme: ${theme}, features: ${(features??[]).join(', ')})
+  const featureList = (features ?? []).join(', ') || 'none'
+  const userPrompt = `Design a rich 32×32 game map for this concept: "${prompt}"
+Theme: ${theme} | Requested features: ${featureList}
 
-Return ONLY a JSON object:
+LAYOUT REQUIREMENTS:
+1. floor_default: pick the GID that best matches the theme (27=stone road, 28=wood, 29=carpet, 38=dark, 40=light plaza)
+2. plaza: a central open area (8×8 to 10×10), floor=40 (light stone) — the social hub
+3. rooms: 4 distinct buildings/zones in different quadrants, each 6×8 to 8×8, with thematic floor GIDs:
+   - Use 29 (carpet) for shops, lounges, VIP rooms
+   - Use 28 (wood) for market halls, taverns
+   - Use 38 (dark) for underground or shadow zones
+   - Mix GIDs so each room feels distinct
+4. walls: any extra internal dividing walls between zones (optional, 1–2 rects max)
+5. pillars: 8–12 pillars for cover and visual rhythm — frame plaza corners, road midpoints, room interiors
+6. spawners: 8+ spawners spread across plaza AND road junctions AND inside rooms — never on walls or water
+${hasPortals ? '7. portals: 4 portal exits at map edges (near row 1, row 30, col 1, col 30)\n' : ''}${hasBridge ? `7. bridge: a wooden bridge (floor=28) crossing a dark channel. Span at least 4 tiles wide. Example: {"row_start":14,"row_end":17,"col_start":10,"col_end":22}\n` : ''}${hasTunnel ? `8. tunnel: a dark underground passage (floor=38). Example: {"col_start":5,"col_end":9,"row_start":18,"row_end":24}\n` : ''}
+Return ONLY this JSON (no markdown, no comments):
 {
-  "floor_default": 29,
-  "plaza": {"x":12,"y":12,"w":8,"h":8,"floor":40},
-  "rooms": [{"x":1,"y":1,"w":8,"h":8,"floor":29},{"x":22,"y":22,"w":8,"h":8,"floor":29}],
-  "pillars": [{"x":5,"y":5},{"x":10,"y":8},{"x":20,"y":5},{"x":25,"y":8},{"x":5,"y":22},{"x":26,"y":22}],
-  "spawners": [{"x":8,"y":16},{"x":16,"y":8},{"x":24,"y":16},{"x":16,"y":24},{"x":12,"y":12},{"x":20,"y":20}]${hasPortals ? `,\n  "portals": [{"x":16,"y":1,"name":"north"},{"x":16,"y":30,"name":"south"},{"x":30,"y":16,"name":"east"},{"x":1,"y":16,"name":"west"}]` : ''}${hasBridge ? `,\n  "bridge": {"row_start":9,"row_end":12,"col_start":12,"col_end":20}` : ''}${hasTunnel ? `,\n  "tunnel": {"col_start":14,"col_end":18,"row_start":20,"row_end":25}` : ''}
+  "floor_default": 27,
+  "plaza": {"x":12,"y":12,"w":9,"h":9,"floor":40},
+  "rooms": [
+    {"x":1,"y":1,"w":8,"h":8,"floor":29,"name":"north-west shop"},
+    {"x":22,"y":1,"w":8,"h":8,"floor":29,"name":"north-east shop"},
+    {"x":1,"y":22,"w":8,"h":8,"floor":28,"name":"south-west market"},
+    {"x":22,"y":22,"w":8,"h":8,"floor":38,"name":"south-east vault"}
+  ],
+  "pillars": [{"x":12,"y":12},{"x":19,"y":12},{"x":12,"y":19},{"x":19,"y":19},{"x":5,"y":11},{"x":26,"y":11},{"x":5,"y":20},{"x":26,"y":20}],
+  "spawners": [{"x":16,"y":16},{"x":14,"y":14},{"x":18,"y":14},{"x":14,"y":18},{"x":18,"y":18},{"x":8,"y":5},{"x":24,"y":5},{"x":8,"y":26}]${hasPortals ? `,\n  "portals": [{"x":16,"y":1,"name":"north"},{"x":16,"y":30,"name":"south"},{"x":30,"y":16,"name":"east"},{"x":1,"y":16,"name":"west"}]` : ''}${hasBridge ? `,\n  "bridge": {"row_start":14,"row_end":17,"col_start":10,"col_end":22}` : ''}${hasTunnel ? `,\n  "tunnel": {"col_start":5,"col_end":9,"row_start":18,"row_end":24}` : ''}
 }
 
-Rules: floor_default matches theme (27=stone,28=wood,29=carpet,38=dark,40=light). Only use GIDs 27,28,29,38,40,84,94,100. 6+ spawners in open floor. 6+ pillars for cover.`
+Customize the layout meaningfully for the concept "${prompt}". Use the example only as structure — change positions, sizes, and floor GIDs to tell a spatial story.`
 
   if (!GROQ_API_KEY) {
     return NextResponse.json({ error: 'GROQ_API_KEY not set on server' }, { status: 500 })
