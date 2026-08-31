@@ -85,9 +85,11 @@ fi`)
     const buildScript = `
 const{build}=require('${GAME_ROOT}/node_modules/esbuild');
 const fs=require('fs'),cp=require('child_process');
+const _svgr=require('${GAME_ROOT}/node_modules/esbuild-plugin-svgr');
+const svgrPlugin=typeof _svgr==='function'?_svgr:(_svgr.default||_svgr);
 async function main(){
   await build({entryPoints:['${GAME_ROOT}/packages/server/src/index.ts'],outfile:'${GAME_ROOT}/packages/server/dist/index.js',define:{'process.env.NODE_ENV':JSON.stringify('production')},external:['express','hiredis','default-gateway','cors'],platform:'node',target:'node14.15.5',bundle:true,minify:false,sourcemap:false});
-  await build({entryPoints:['${GAME_ROOT}/packages/client/src/index.tsx'],outfile:'${GAME_ROOT}/packages/client/public/script.js',define:{'process.env.NODE_ENV':JSON.stringify('production')},loader:{'.png':'file','.ogg':'file','.svg':'file','.ico':'file'},assetNames:'assets/[name]-[hash]',bundle:true,minify:false,sourcemap:false,plugins:[require('${GAME_ROOT}/node_modules/esbuild-plugin-svgr').default()]});
+  await build({entryPoints:['${GAME_ROOT}/packages/client/src/index.tsx'],outfile:'${GAME_ROOT}/packages/client/public/script.js',define:{'process.env.NODE_ENV':JSON.stringify('production')},loader:{'.png':'file','.ogg':'file','.svg':'file','.ico':'file'},assetNames:'assets/[name]-[hash]',bundle:true,minify:false,sourcemap:false,plugins:[svgrPlugin()]});
   cp.execSync('systemctl restart colyseus_game');
   fs.writeFileSync('/tmp/build_${theme}.log','DONE');
 }
