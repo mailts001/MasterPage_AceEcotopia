@@ -228,7 +228,7 @@ Change x/y/w/h/floor values to match the theme. Keep the same keys. rooms must h
     method: 'POST',
     headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'qwen/qwen3.6-27b',
+      model: 'groq/compound-mini',
       messages: [
         { role: 'system', content: LAYOUT_SYSTEM },
         { role: 'user', content: userPrompt },
@@ -250,16 +250,19 @@ Change x/y/w/h/floor values to match the theme. Keep the same keys. rooms must h
   raw = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
   const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
   if (fenceMatch) raw = fenceMatch[1].trim()
-  // Grab the LAST valid-looking JSON object (after any reasoning text)
-  // and reject placeholder JSONs that contain "..."
-  const allObjs = [...raw.matchAll(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g)]
-  const realObjs = allObjs.filter(m => !m[0].includes('...') && m[0].includes('floor_default'))
-  if (realObjs.length > 0) raw = realObjs[realObjs.length - 1][0]
-  else {
-    // Fallback: grab largest { } block
-    const objMatch = raw.match(/\{[\s\S]*\}/)
-    if (objMatch) raw = objMatch[0]
+
+  // Depth-tracking extractor: find every top-level {...} block, pick largest with floor_default
+  function extractJsonBlocks(text: string): string[] {
+    const blocks: string[] = []
+    let depth = 0, start = -1
+    for (let i = 0; i < text.length; i++) {
+      if (text[i] === '{') { if (depth === 0) start = i; depth++ }
+      else if (text[i] === '}') { depth--; if (depth === 0 && start >= 0) { blocks.push(text.slice(start, i + 1)); start = -1 } }
+    }
+    return blocks
   }
+  const blocks = extractJsonBlocks(raw).filter(b => b.includes('floor_default') && !b.includes('...'))
+  if (blocks.length > 0) raw = blocks.reduce((a, b) => a.length >= b.length ? a : b)
 
   const rawPreview = raw.slice(0, 400)
 
