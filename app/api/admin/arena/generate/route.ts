@@ -228,13 +228,14 @@ Change x/y/w/h/floor values to match the theme. Keep the same keys. rooms must h
     method: 'POST',
     headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'groq/compound-mini',
+      model: 'groq/compound',
       messages: [
         { role: 'system', content: LAYOUT_SYSTEM },
         { role: 'user', content: userPrompt },
       ],
-      max_tokens: 3000,
-      temperature: 0.3,
+      max_tokens: 4096,
+      max_completion_tokens: 4096,
+      temperature: 0.2,
     }),
   })
 
