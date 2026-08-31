@@ -215,21 +215,10 @@ LAYOUT REQUIREMENTS:
 5. pillars: 8–12 pillars for cover and visual rhythm — frame plaza corners, road midpoints, room interiors
 6. spawners: 8+ spawners spread across plaza AND road junctions AND inside rooms — never on walls or water
 ${hasPortals ? '7. portals: 4 portal exits at map edges (near row 1, row 30, col 1, col 30)\n' : ''}${hasBridge ? `7. bridge: a wooden bridge (floor=28) crossing a dark channel. Span at least 4 tiles wide. Example: {"row_start":14,"row_end":17,"col_start":10,"col_end":22}\n` : ''}${hasTunnel ? `8. tunnel: a dark underground passage (floor=38). Example: {"col_start":5,"col_end":9,"row_start":18,"row_end":24}\n` : ''}
-Return ONLY this JSON (no markdown, no comments):
-{
-  "floor_default": 27,
-  "plaza": {"x":12,"y":12,"w":9,"h":9,"floor":40},
-  "rooms": [
-    {"x":1,"y":1,"w":8,"h":8,"floor":29,"name":"north-west shop"},
-    {"x":22,"y":1,"w":8,"h":8,"floor":29,"name":"north-east shop"},
-    {"x":1,"y":22,"w":8,"h":8,"floor":28,"name":"south-west market"},
-    {"x":22,"y":22,"w":8,"h":8,"floor":38,"name":"south-east vault"}
-  ],
-  "pillars": [{"x":12,"y":12},{"x":19,"y":12},{"x":12,"y":19},{"x":19,"y":19},{"x":5,"y":11},{"x":26,"y":11},{"x":5,"y":20},{"x":26,"y":20}],
-  "spawners": [{"x":16,"y":16},{"x":14,"y":14},{"x":18,"y":14},{"x":14,"y":18},{"x":18,"y":18},{"x":8,"y":5},{"x":24,"y":5},{"x":8,"y":26}]${hasPortals ? `,\n  "portals": [{"x":16,"y":1,"name":"north"},{"x":16,"y":30,"name":"south"},{"x":30,"y":16,"name":"east"},{"x":1,"y":16,"name":"west"}]` : ''}${hasBridge ? `,\n  "bridge": {"row_start":14,"row_end":17,"col_start":10,"col_end":22}` : ''}${hasTunnel ? `,\n  "tunnel": {"col_start":5,"col_end":9,"row_start":18,"row_end":24}` : ''}
-}
+Output ONLY the JSON object below, customized for "${prompt}". No prose before or after:
+{"floor_default":27,"plaza":{"x":12,"y":12,"w":9,"h":9,"floor":40},"rooms":[{"x":1,"y":1,"w":8,"h":8,"floor":29},{"x":22,"y":1,"w":8,"h":8,"floor":28},{"x":1,"y":22,"w":8,"h":8,"floor":29},{"x":22,"y":22,"w":8,"h":8,"floor":38}],"pillars":[{"x":12,"y":12},{"x":19,"y":12},{"x":12,"y":19},{"x":19,"y":19},{"x":5,"y":11},{"x":26,"y":11},{"x":5,"y":20},{"x":26,"y":20}],"spawners":[{"x":16,"y":16},{"x":14,"y":14},{"x":18,"y":14},{"x":14,"y":18},{"x":18,"y":18},{"x":8,"y":5},{"x":24,"y":5},{"x":8,"y":26}]${hasPortals ? `,"portals":[{"x":16,"y":1,"name":"north"},{"x":16,"y":30,"name":"south"},{"x":30,"y":16,"name":"east"},{"x":1,"y":16,"name":"west"}]` : ''}${hasBridge ? `,"bridge":{"row_start":14,"row_end":17,"col_start":10,"col_end":22}` : ''}${hasTunnel ? `,"tunnel":{"col_start":5,"col_end":9,"row_start":18,"row_end":24}` : ''}}
 
-Customize the layout meaningfully for the concept "${prompt}". Use the example only as structure — change positions, sizes, and floor GIDs to tell a spatial story.`
+Change x/y/w/h/floor values to match the theme. Keep the same keys. rooms must have 4 entries.`
 
   if (!GROQ_API_KEY) {
     return NextResponse.json({ error: 'GROQ_API_KEY not set on server' }, { status: 500 })
@@ -244,7 +233,7 @@ Customize the layout meaningfully for the concept "${prompt}". Use the example o
         { role: 'system', content: LAYOUT_SYSTEM },
         { role: 'user', content: userPrompt },
       ],
-      max_tokens: 2000,
+      max_tokens: 3000,
       temperature: 0.3,
     }),
   })
