@@ -244,7 +244,9 @@ Change x/y/w/h/floor values to match the theme. Keep the same keys. rooms must h
   }
 
   const groqData = await groqRes.json()
-  let raw = groqData.choices?.[0]?.message?.content?.trim() ?? ''
+  const choice = groqData.choices?.[0]
+  let raw = choice?.message?.content?.trim() ?? ''
+  const truncated = choice?.finish_reason === 'length'
 
   // Strip thinking tags and markdown fences
   raw = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
@@ -270,15 +272,28 @@ Change x/y/w/h/floor values to match the theme. Keep the same keys. rooms must h
   try {
     spec = JSON.parse(raw)
   } catch {
-    // Try to close truncated JSON: interleave closes in correct order
-    let fixed = raw.replace(/,\s*$/, '').replace(/,\s*([\]\}])/g, '$1')
+    // 1. Strip back to last complete JSON value (handles truncated strings/keys)
+    let fixed = raw
+    fixed = fixed.replace(/,?\s*"[^"]*$/, '')      // drop trailing incomplete string
+    fixed = fixed.replace(/,?\s*\w+\s*:\s*[^,\}\]]*$/, '') // drop trailing incomplete kv
+    fixed = fixed.replace(/,\s*$/, '')              // drop trailing comma
+    fixed = fixed.replace(/,\s*([\]\}])/g, '$1')   // drop comma-before-close
+
+    // 2. Close unclosed brackets in correct order using a stack
     const stack: string[] = []
+    let inStr = false, escape = false
     for (const ch of fixed) {
-      if (ch === '{') stack.push('}')
-      else if (ch === '[') stack.push(']')
-      else if (ch === '}' || ch === ']') stack.pop()
+      if (escape) { escape = false; continue }
+      if (ch === '\\' && inStr) { escape = true; continue }
+      if (ch === '"') { inStr = !inStr; continue }
+      if (!inStr) {
+        if (ch === '{') stack.push('}')
+        else if (ch === '[') stack.push(']')
+        else if (ch === '}' || ch === ']') stack.pop()
+      }
     }
     fixed += stack.reverse().join('')
+
     try {
       spec = JSON.parse(fixed)
     } catch {
@@ -287,6 +302,7 @@ Change x/y/w/h/floor values to match the theme. Keep the same keys. rooms must h
   }
 
   const mapData = buildTMJ(spec, features ?? [])
+  if (truncated) console.warn('[arena/generate] LLM output was truncated (finish_reason=length) — map may be missing spawners/portals')
   const preview = toAscii(mapData)
 
   return NextResponse.json({ preview, mapJson: mapData })
