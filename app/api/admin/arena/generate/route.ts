@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 const ADMIN_SECRET = process.env.ADMIN_SECRET ?? ''
 const GROQ_API_KEY = process.env.GROQ_API_KEY ?? ''
 
-const LAYOUT_SYSTEM = `Game map designer. Output ONLY valid JSON, no prose.
+const LAYOUT_SYSTEM = `/no_think Game map designer. Output ONLY a JSON object, no prose, no markdown.
 GIDs: 27=stone 28=wood 29=carpet 38=dark 40=light 84=pillar 94=portal 102=spawner
 Rules: 4 rooms in quadrants, 8+ spawners on open floor, 6+ pillars, mix 3+ floor GIDs.`
 
@@ -191,14 +191,15 @@ Return ONLY this JSON with values changed to fit the concept:
     method: 'POST',
     headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'groq/compound',
+      model: 'qwen/qwen3.8-27b',
       messages: [
         { role: 'system', content: LAYOUT_SYSTEM },
         { role: 'user', content: userPrompt },
       ],
-      max_tokens: 4096,
-      max_completion_tokens: 4096,
+      max_tokens: 2048,
       temperature: 0.2,
+      // @ts-ignore — Groq Qwen3 extension to disable chain-of-thought
+      enable_thinking: false,
     }),
   })
 
