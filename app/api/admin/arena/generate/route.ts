@@ -198,8 +198,6 @@ Return ONLY this JSON with values changed to fit the concept:
       ],
       max_tokens: 2048,
       temperature: 0.2,
-      // @ts-ignore — Groq Qwen3 extension to disable chain-of-thought
-      enable_thinking: false,
     }),
   })
 
