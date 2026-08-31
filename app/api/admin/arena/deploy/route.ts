@@ -81,11 +81,18 @@ else
   echo "already registered"
 fi`)
 
-    // Trigger rebuild in background screen session
-    await sshExec(conn, `screen -dmS rebuild_${theme} bash -c 'cd ${GAME_ROOT} && yarn build > /tmp/build_${theme}.log 2>&1; systemctl restart colyseus_game; echo DONE >> /tmp/build_${theme}.log'`)
+    // Write lightweight server-only esbuild script (avoids yarn build RAM spike)
+    const buildScript = `
+const{build}=require('${GAME_ROOT}/node_modules/esbuild');
+build({entryPoints:['${GAME_ROOT}/packages/server/src/index.ts'],outfile:'${GAME_ROOT}/packages/server/dist/index.js',define:{'process.env.NODE_ENV':JSON.stringify('production')},external:['express','hiredis','default-gateway','cors'],platform:'node',target:'node14.15.5',bundle:true,minify:false,sourcemap:false})
+.then(()=>{require('child_process').execSync('systemctl restart colyseus_game');require('fs').writeFileSync('/tmp/build_${theme}.log','DONE');})
+.catch(e=>{require('fs').writeFileSync('/tmp/build_${theme}.log','ERROR: '+e.message);});`
+
+    await sshPutFile(conn, buildScript, `/tmp/build_${theme}.js`)
+    await sshExec(conn, `screen -dmS rebuild_${theme} bash -c 'NODE_OPTIONS="--max-old-space-size=1500" node /tmp/build_${theme}.js'`)
 
     conn.end()
-    return NextResponse.json({ ok: true, message: `district_${theme} deployed. ${regOut}. Build started (~3 min).` })
+    return NextResponse.json({ ok: true, message: `district_${theme} deployed. ${regOut}. Server rebuilding (~30 sec) — refresh the game after.` })
   } catch (e: any) {
     conn?.end()
     return NextResponse.json({ error: e.message }, { status: 500 })
