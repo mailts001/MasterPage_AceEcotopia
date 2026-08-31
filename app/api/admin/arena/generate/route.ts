@@ -259,7 +259,7 @@ Customize the layout meaningfully for the concept "${prompt}". Use the example o
 
   // Strip thinking tags, markdown fences, and leading prose
   raw = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
-  raw = raw.replace(/^[^{]*/s, '')  // drop anything before first {
+  const firstBrace = raw.indexOf('{'); if (firstBrace > 0) raw = raw.slice(firstBrace)
   const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
   if (fenceMatch) raw = fenceMatch[1].trim()
   const objMatch = raw.match(/\{[\s\S]*\}/)
