@@ -81,6 +81,11 @@ else
   echo "already registered"
 fi`)
 
+    // Patch player speed and desktop zoom for better playability
+    await sshExec(conn, `
+sed -i 's/^export const PLAYER_SPEED = [0-9.]*/export const PLAYER_SPEED = 2/' ${GAME_ROOT}/packages/common/src/constants.ts
+sed -i "s/this\\.viewport\\.zoomPercent(utils\\.isMobile\\.any ? 0\\.25 : 1\\.0)/this.viewport.zoomPercent(utils.isMobile.any ? 0.5 : 2.0)/" ${GAME_ROOT}/packages/client/src/game/Game.ts`)
+
     // Build both server AND client — client uses Maps.List[mapName] from its own bundle
     const buildScript = `
 const{build}=require('${GAME_ROOT}/node_modules/esbuild');
