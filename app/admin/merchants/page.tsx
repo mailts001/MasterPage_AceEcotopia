@@ -833,8 +833,31 @@ function ArenaTab({ secret }: { secret: string }) {
   const [preview,    setPreview]    = useState('')
   const [mapJson,    setMapJson]    = useState<object | null>(null)
   const [genError,   setGenError]   = useState('')
-  const [deploying,  setDeploying]  = useState(false)
-  const [deployMsg,  setDeployMsg]  = useState('')
+  const [deploying,   setDeploying]   = useState(false)
+  const [deployMsg,   setDeployMsg]   = useState('')
+  const [plazaLogo,   setPlazaLogo]   = useState<string>('')
+  const [uploading,   setUploading]   = useState(false)
+  const [uploadErr,   setUploadErr]   = useState('')
+
+  async function uploadLogo(file: File) {
+    setUploading(true); setUploadErr('')
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/admin/arena/upload-logo', {
+        method: 'POST',
+        headers: { 'x-admin-secret': secret },
+        body: fd,
+      })
+      const data = await res.json()
+      if (!res.ok) { setUploadErr(data.error ?? 'Upload failed'); return }
+      setPlazaLogo(data.url)
+    } catch (e: any) {
+      setUploadErr(e.message)
+    } finally {
+      setUploading(false)
+    }
+  }
 
   function toggleFeature(f: ArenaFeature) {
     setFeatures(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f])
@@ -867,7 +890,7 @@ function ArenaTab({ secret }: { secret: string }) {
       const res = await fetch('/api/admin/arena/deploy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
-        body: JSON.stringify({ theme, mapJson }),
+        body: JSON.stringify({ theme, mapJson, plazaLogoUrl: plazaLogo || null }),
       })
       const data = await res.json()
       setDeployMsg(data.ok ? '✓ Deployed! Game rebuilding (~3 min). Set map_theme in Campaign to activate.' : `Error: ${data.error}`)
@@ -952,7 +975,30 @@ function ArenaTab({ secret }: { secret: string }) {
           {genError && <p className="text-red-400 text-xs">{genError}</p>}
 
           {preview && (
-            <div className="pt-2 border-t border-white/8 space-y-2">
+            <div className="pt-2 border-t border-white/8 space-y-3">
+
+              {/* Plaza logo upload */}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Plaza logo / watermark <span className="text-gray-600">(optional — shown in center plaza)</span></label>
+                <div className="flex items-center gap-2">
+                  <label className="flex-1 cursor-pointer bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-gray-400 hover:border-white/20 transition text-center">
+                    {uploading ? '⏳ Uploading…' : plazaLogo ? '✓ Logo uploaded — click to replace' : '📁 Click to upload image (PNG/JPG/SVG)'}
+                    <input type="file" accept="image/*" className="hidden"
+                      onChange={e => { const f = e.target.files?.[0]; if (f) uploadLogo(f) }} />
+                  </label>
+                  {plazaLogo && (
+                    <button onClick={() => setPlazaLogo('')} className="text-xs text-red-400 hover:text-red-300 px-2">✕</button>
+                  )}
+                </div>
+                {plazaLogo && (
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <img src={plazaLogo} alt="plaza logo preview" className="h-10 w-10 object-contain rounded border border-white/10 bg-black/40" />
+                    <span className="text-[10px] text-gray-600 truncate">{plazaLogo}</span>
+                  </div>
+                )}
+                {uploadErr && <p className="text-red-400 text-xs mt-1">{uploadErr}</p>}
+              </div>
+
               <button onClick={deployLive} disabled={deploying}
                 className="w-full bg-green-600 hover:bg-green-500 disabled:opacity-40 text-white font-semibold py-3 rounded-xl text-sm transition flex items-center justify-center gap-2">
                 {deploying ? <><span className="animate-spin inline-block">⚙</span> Deploying…</> : '🚀 Deploy to Game'}

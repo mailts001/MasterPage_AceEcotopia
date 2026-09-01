@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
   if (req.headers.get('x-admin-secret') !== ADMIN_SECRET)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { theme, mapJson } = await req.json()
+  const { theme, mapJson, plazaLogoUrl } = await req.json()
   if (!theme || !mapJson) return NextResponse.json({ error: 'theme and mapJson required' }, { status: 400 })
 
   let conn: Client | null = null
@@ -80,6 +80,31 @@ if ! grep -q "$name" "$file"; then
 else
   echo "already registered"
 fi`)
+
+    // Write plaza logo config to game's static public dir
+    const plazaConfig = JSON.stringify({ logoUrl: plazaLogoUrl || null })
+    await sshPutFile(conn, plazaConfig, `${GAME_ROOT}/packages/client/public/plaza-config.json`)
+
+    // One-time patch: inject plaza logo overlay renderer into Game.ts
+    const patchScript = `python3 - <<'PYEOF'
+import sys
+f = '${GAME_ROOT}/packages/client/src/game/Game.ts'
+c = open(f).read()
+if 'plaza-config.json' in c:
+    sys.exit(0)
+marker = 'this.viewport.addChild(container);\\n    };'
+if marker not in c:
+    print('marker not found, skipping')
+    sys.exit(0)
+insert = """this.viewport.addChild(container);
+        const _selfPl=this;
+        fetch('/plaza-config.json').then((r:any)=>r.json()).then((cfg:any)=>{if(cfg&&cfg.logoUrl){const ll=new Loader();ll.add('plaza_logo',cfg.logoUrl);ll.load((_:any,res:any)=>{const tex=res['plaza_logo']?.texture;if(tex){const sp=new Sprite(tex);const ps=10*Constants.TILE_SIZE;sp.width=ps*0.8;sp.height=ps*0.8;sp.x=11*Constants.TILE_SIZE+ps*0.1;sp.y=11*Constants.TILE_SIZE+ps*0.1;sp.alpha=0.7;sp.zIndex=ZINDEXES.GROUND+1;_selfPl.viewport.addChild(sp);}});}}).catch(()=>{});
+    };"""
+c = c.replace(marker, insert, 1)
+open(f, 'w').write(c)
+print('Game.ts plaza logo patched')
+PYEOF`
+    await sshExec(conn, patchScript)
 
     // Patch player speed and desktop zoom for better playability
     await sshExec(conn, `
