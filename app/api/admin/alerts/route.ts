@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   const db = adminDb()
   const { data, error } = await db
     .from('alert_events')
-    .select('id, district, message, sent_at')
+    .select('id, citizen_id, district, alert_type, payload, sent_at')
     .order('sent_at', { ascending: false })
     .limit(100)
 

@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
   const ids = merchants.map(m => m.id)
   const { data: products } = ids.length
-    ? await db.from('products').select('id, merchant_id, name, price, image_url, featured').in('merchant_id', ids)
+    ? await db.from('products').select('id, merchant_id, name, price, image_url, active').in('merchant_id', ids)
     : { data: [] }
 
   const result = merchants.map((m, i) => ({

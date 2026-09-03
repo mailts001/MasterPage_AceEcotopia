@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   const db = adminDb()
   const { data, error } = await db
     .from('subscriptions')
-    .select('id, citizen_id, status, plan_name, current_period_end')
+    .select('*')
     .order('created_at', { ascending: false })
     .limit(200)
 

@@ -631,7 +631,7 @@ function EcotopiaPanel({ secret }: { secret: string }) {
   const [editM, setEditM] = useState<string|null>(null)
 
   // Product form
-  const [pForm, setPForm] = useState({ merchant_id:'', name:'', price:'', image_url:'', districts:'', featured:false })
+  const [pForm, setPForm] = useState({ merchant_id:'', name:'', price:'', image_url:'', active:true })
   const [editP, setEditP] = useState<string|null>(null)
 
   const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(''), 3000) }
@@ -678,11 +678,11 @@ function EcotopiaPanel({ secret }: { secret: string }) {
 
   async function saveProduct() {
     setLoading(true)
-    const row = { ...pForm, price: parseFloat(pForm.price) || 0, districts: pForm.districts.split(',').map(s=>s.trim()).filter(Boolean) }
+    const row = { ...pForm, price: parseFloat(pForm.price) || 0 }
     const body = { table:'products', row, ...(editP ? { id: editP } : {}) }
     const r = await fetch('/api/admin/merchants', { method:'POST', headers:{ 'content-type':'application/json','x-admin-key':secret }, body: JSON.stringify(body) })
     setLoading(false)
-    if (r.ok) { flash(editP ? 'Product updated' : 'Product added'); setPForm({ merchant_id:'', name:'', price:'', image_url:'', districts:'', featured:false }); setEditP(null); fetchProducts() }
+    if (r.ok) { flash(editP ? 'Product updated' : 'Product added'); setPForm({ merchant_id:'', name:'', price:'', image_url:'', active:true }); setEditP(null); fetchProducts() }
     else flash('Error saving product')
   }
 
@@ -818,11 +818,9 @@ function EcotopiaPanel({ secret }: { secret: string }) {
                 placeholder="Price (e.g. 29.90)" type="number" className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-purple-500" />
               <input value={pForm.image_url} onChange={e=>setPForm(f=>({...f,image_url:e.target.value}))}
                 placeholder="Product image URL" className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-purple-500" />
-              <input value={pForm.districts} onChange={e=>setPForm(f=>({...f,districts:e.target.value}))}
-                placeholder="Districts (hub,neon,castle)" className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-purple-500" />
               <label className="col-span-2 flex items-center gap-2 text-sm text-slate-400 cursor-pointer">
-                <input type="checkbox" checked={pForm.featured} onChange={e=>setPForm(f=>({...f,featured:e.target.checked}))} className="rounded" />
-                Featured product (shown first in district NPC shop)
+                <input type="checkbox" checked={pForm.active} onChange={e=>setPForm(f=>({...f,active:e.target.checked}))} className="rounded" />
+                Active (visible in NPC shop)
               </label>
             </div>
             <div className="flex gap-2">
@@ -830,7 +828,7 @@ function EcotopiaPanel({ secret }: { secret: string }) {
                 className="px-4 py-2 text-xs rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-medium transition">
                 {loading ? 'Saving…' : editP ? 'Update' : 'Add Product'}
               </button>
-              {editP && <button onClick={()=>{setEditP(null);setPForm({merchant_id:'',name:'',price:'',image_url:'',districts:'',featured:false})}} className="px-4 py-2 text-xs rounded-lg bg-white/5 text-slate-400 hover:text-white transition">Cancel</button>}
+              {editP && <button onClick={()=>{setEditP(null);setPForm({merchant_id:'',name:'',price:'',image_url:'',active:true})}} className="px-4 py-2 text-xs rounded-lg bg-white/5 text-slate-400 hover:text-white transition">Cancel</button>}
             </div>
           </div>
 
@@ -844,15 +842,14 @@ function EcotopiaPanel({ secret }: { secret: string }) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-white">{p.name}</span>
-                      {p.featured && <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-400">★ Featured</span>}
+                      {!p.active && <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-700 text-slate-400">Hidden</span>}
                     </div>
                     <div className="text-[11px] text-slate-500 space-x-2">
                       {m && <span>{m.name}</span>}
                       {p.price && <span>· ${p.price}</span>}
-                      {p.districts?.length > 0 && <span>· {p.districts.join(', ')}</span>}
                     </div>
                   </div>
-                  <button onClick={()=>{setEditP(p.id);setPForm({merchant_id:p.merchant_id,name:p.name,price:String(p.price??''),image_url:p.image_url??'',districts:(p.districts??[]).join(','),featured:p.featured??false})}} className="text-xs text-slate-500 hover:text-white px-2">Edit</button>
+                  <button onClick={()=>{setEditP(p.id);setPForm({merchant_id:p.merchant_id,name:p.name,price:String(p.price??''),image_url:p.image_url??'',active:p.active??true})}} className="text-xs text-slate-500 hover:text-white px-2">Edit</button>
                   <button onClick={()=>deleteProduct(p.id)} className="text-xs text-slate-600 hover:text-red-400 px-2">🗑</button>
                 </div>
               )

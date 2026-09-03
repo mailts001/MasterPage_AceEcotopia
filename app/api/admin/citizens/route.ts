@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   const db = adminDb()
   const { data, error } = await db
     .from('citizens')
-    .select('id, email, full_name, nexus_credits, created_at, tier')
+    .select('id, display_name, nexus_credits, created_at, tier, login_streak')
     .order('created_at', { ascending: false })
     .limit(200)
 
