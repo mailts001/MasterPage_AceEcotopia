@@ -596,7 +596,7 @@ export default function AdminPage() {
           </div>
         )}
         {/* ─── ECOTOPIA GAME ADMIN ─── */}
-        {tab === 'ecotopia' && <EcotopiaPanel secret={password} />}
+        {tab === 'ecotopia' && <EcotopiaPanel secret={authKey} />}
 
       </div>
     </div>
@@ -606,7 +606,6 @@ export default function AdminPage() {
 // ─── Ecotopia Game Admin Panel ────────────────────────────────────────────────
 function EcotopiaPanel({ secret }: { secret: string }) {
   const VPS = 'https://204.168.221.101:8444'
-  const ZONE_API = 'http://204.168.221.101:3099'
 
   const DISTRICTS = [
     { id:'hub',      name:'Nexus Hub',        color:'#7C3AED', genre:'Social Lobby'        },
@@ -639,18 +638,18 @@ function EcotopiaPanel({ secret }: { secret: string }) {
 
   const fetchZones = useCallback(async () => {
     try {
-      const r = await fetch(`${ZONE_API}/districts`)
+      const r = await fetch('/api/districts')
       if (r.ok) setZones(await r.json())
     } catch { setZones([]) }
   }, [])
 
   const fetchMerchants = useCallback(async () => {
-    const r = await fetch('/api/admin/merchants?table=merchants', { headers: { 'x-admin-secret': secret } })
+    const r = await fetch('/api/admin/merchants?table=merchants', { headers: { 'x-admin-key': secret } })
     if (r.ok) { const j = await r.json(); setMerchants(j.data ?? []) }
   }, [secret])
 
   const fetchProducts = useCallback(async () => {
-    const r = await fetch('/api/admin/merchants?table=products', { headers: { 'x-admin-secret': secret } })
+    const r = await fetch('/api/admin/merchants?table=products', { headers: { 'x-admin-key': secret } })
     if (r.ok) { const j = await r.json(); setProducts(j.data ?? []) }
   }, [secret])
 
