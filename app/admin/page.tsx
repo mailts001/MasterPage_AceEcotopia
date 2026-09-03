@@ -29,7 +29,7 @@ const PROVIDERS = [
   { id: 'claude-opus',   label: 'Claude Opus 4.8',    tier: 'Paid',  cost: '~$5/1M'  },
 ]
 
-type Tab = 'overview' | 'districts' | 'citizens' | 'alerts' | 'ai' | 'invites'
+type Tab = 'overview' | 'districts' | 'citizens' | 'alerts' | 'ai' | 'invites' | 'ecotopia'
 
 export default function AdminPage() {
   const [password, setPassword] = useState('')
@@ -213,6 +213,7 @@ export default function AdminPage() {
     { id: 'alerts',    label: 'Alerts',    icon: '🔔' },
     { id: 'ai',        label: 'AI Model',  icon: '🤖' },
     { id: 'invites',   label: 'Invites',   icon: '🎟️' },
+    { id: 'ecotopia',  label: 'Ecotopia',  icon: '🌍' },
   ]
 
   const tierColor = (t: string) =>
@@ -594,7 +595,273 @@ export default function AdminPage() {
             </div>
           </div>
         )}
+        {/* ─── ECOTOPIA GAME ADMIN ─── */}
+        {tab === 'ecotopia' && <EcotopiaPanel secret={password} />}
+
       </div>
+    </div>
+  )
+}
+
+// ─── Ecotopia Game Admin Panel ────────────────────────────────────────────────
+function EcotopiaPanel({ secret }: { secret: string }) {
+  const VPS = 'https://204.168.221.101:8444'
+  const ZONE_API = 'http://204.168.221.101:3099'
+
+  const DISTRICTS = [
+    { id:'hub',      name:'Nexus Hub',        color:'#7C3AED', genre:'Social Lobby'        },
+    { id:'boutique', name:'Boutique District', color:'#EC4899', genre:'Social Plaza'        },
+    { id:'harvest',  name:'Harvest Fields',    color:'#84CC16', genre:'Farming Sim'         },
+    { id:'aqua',     name:'Aqua Zone',         color:'#06B6D4', genre:'Platformer'          },
+    { id:'grove',    name:'Whispering Grove',  color:'#10B981', genre:'Open World'          },
+    { id:'castle',   name:'Castle Ramparts',   color:'#F59E0B', genre:'RPG Raid'            },
+    { id:'neon',     name:'Neon City',         color:'#EF4444', genre:'Top-down Shooter'    },
+    { id:'carnival', name:'Carnival Square',   color:'#F97316', genre:'Party Games'         },
+    { id:'glacier',  name:'Glacier Peak',      color:'#3B82F6', genre:'Ice Physics Puzzler' },
+  ]
+
+  const [zones, setZones]       = useState<any[]>([])
+  const [merchants, setMerchants] = useState<any[]>([])
+  const [products, setProducts]  = useState<any[]>([])
+  const [ecoTab, setEcoTab]     = useState<'live'|'merchants'|'products'>('live')
+  const [loading, setLoading]   = useState(false)
+  const [msg, setMsg]           = useState('')
+
+  // Merchant form
+  const [mForm, setMForm] = useState({ name:'', district:'hub', logo_url:'', qr_url:'', website:'' })
+  const [editM, setEditM] = useState<string|null>(null)
+
+  // Product form
+  const [pForm, setPForm] = useState({ merchant_id:'', name:'', price:'', image_url:'', districts:'', featured:false })
+  const [editP, setEditP] = useState<string|null>(null)
+
+  const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(''), 3000) }
+
+  const fetchZones = useCallback(async () => {
+    try {
+      const r = await fetch(`${ZONE_API}/districts`)
+      if (r.ok) setZones(await r.json())
+    } catch { setZones([]) }
+  }, [])
+
+  const fetchMerchants = useCallback(async () => {
+    const r = await fetch('/api/admin/merchants?table=merchants', { headers: { 'x-admin-secret': secret } })
+    if (r.ok) { const j = await r.json(); setMerchants(j.data ?? []) }
+  }, [secret])
+
+  const fetchProducts = useCallback(async () => {
+    const r = await fetch('/api/admin/merchants?table=products', { headers: { 'x-admin-secret': secret } })
+    if (r.ok) { const j = await r.json(); setProducts(j.data ?? []) }
+  }, [secret])
+
+  useEffect(() => {
+    fetchZones()
+    fetchMerchants()
+    fetchProducts()
+    const t = setInterval(fetchZones, 15000)
+    return () => clearInterval(t)
+  }, [fetchZones, fetchMerchants, fetchProducts])
+
+  async function saveMerchant() {
+    setLoading(true)
+    const body = { table: 'merchants', row: mForm, ...(editM ? { id: editM } : {}) }
+    const r = await fetch('/api/admin/merchants', { method:'POST', headers:{ 'content-type':'application/json','x-admin-secret':secret }, body: JSON.stringify(body) })
+    setLoading(false)
+    if (r.ok) { flash(editM ? 'Merchant updated' : 'Merchant added'); setMForm({ name:'', district:'hub', logo_url:'', qr_url:'', website:'' }); setEditM(null); fetchMerchants() }
+    else flash('Error saving merchant')
+  }
+
+  async function deleteMerchant(id: string) {
+    if (!confirm('Delete merchant?')) return
+    await fetch('/api/admin/merchants', { method:'DELETE', headers:{ 'content-type':'application/json','x-admin-secret':secret }, body: JSON.stringify({ table:'merchants', id }) })
+    fetchMerchants()
+  }
+
+  async function saveProduct() {
+    setLoading(true)
+    const row = { ...pForm, price: parseFloat(pForm.price) || 0, districts: pForm.districts.split(',').map(s=>s.trim()).filter(Boolean) }
+    const body = { table:'products', row, ...(editP ? { id: editP } : {}) }
+    const r = await fetch('/api/admin/merchants', { method:'POST', headers:{ 'content-type':'application/json','x-admin-secret':secret }, body: JSON.stringify(body) })
+    setLoading(false)
+    if (r.ok) { flash(editP ? 'Product updated' : 'Product added'); setPForm({ merchant_id:'', name:'', price:'', image_url:'', districts:'', featured:false }); setEditP(null); fetchProducts() }
+    else flash('Error saving product')
+  }
+
+  async function deleteProduct(id: string) {
+    if (!confirm('Delete product?')) return
+    await fetch('/api/admin/merchants', { method:'DELETE', headers:{ 'content-type':'application/json','x-admin-secret':secret }, body: JSON.stringify({ table:'products', id }) })
+    fetchProducts()
+  }
+
+  const zoneList = Array.isArray(zones) ? zones : (zones as any)?.districts ?? []
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-white">🌍 Ecotopia Game Admin</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Manage districts, merchants and featured products</p>
+        </div>
+        <a href={`${VPS}/game/`} target="_blank" rel="noopener noreferrer"
+          className="text-xs px-3 py-1.5 rounded-lg bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 transition">
+          Open Game ↗
+        </a>
+      </div>
+
+      {msg && <div className="text-xs px-3 py-2 rounded-lg bg-green-500/20 text-green-300">{msg}</div>}
+
+      {/* Sub-tabs */}
+      <div className="flex gap-2 border-b border-white/10 pb-2">
+        {(['live','merchants','products'] as const).map(t => (
+          <button key={t} onClick={() => setEcoTab(t)}
+            className={`px-3 py-1.5 text-xs rounded-lg font-medium transition capitalize ${ecoTab===t ? 'bg-white/10 text-white' : 'text-slate-500 hover:text-white'}`}>
+            {t === 'live' ? '📡 Live Zones' : t === 'merchants' ? '🏪 Merchants' : '📦 Products'}
+          </button>
+        ))}
+      </div>
+
+      {/* LIVE ZONES */}
+      {ecoTab === 'live' && (
+        <div className="grid grid-cols-3 gap-3">
+          {DISTRICTS.map(d => {
+            const z = zoneList.find((z: any) => z.id === d.id)
+            const active = z?.active ?? false
+            const players = z?.players ?? 0
+            return (
+              <div key={d.id} className="rounded-xl border border-white/10 p-4 space-y-2" style={{ borderLeftColor: d.color, borderLeftWidth: 3 }}>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-white">{d.name}</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${active ? 'bg-green-500/20 text-green-400' : 'bg-white/5 text-slate-600'}`}>
+                    {active ? 'LIVE' : 'IDLE'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500">{d.genre}</p>
+                <div className="flex items-center gap-1 text-xs text-slate-400">
+                  <span>👥</span>
+                  <span>{players} player{players !== 1 ? 's' : ''}</span>
+                  {z?.port && <span className="ml-auto text-slate-600">:{z.port}</span>}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* MERCHANTS */}
+      {ecoTab === 'merchants' && (
+        <div className="space-y-6">
+          {/* Form */}
+          <div className="rounded-xl border border-white/10 p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-white">{editM ? 'Edit Merchant' : 'Add Merchant'}</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <input value={mForm.name} onChange={e=>setMForm(f=>({...f,name:e.target.value}))}
+                placeholder="Merchant name" className="col-span-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-purple-500" />
+              <select value={mForm.district} onChange={e=>setMForm(f=>({...f,district:e.target.value}))}
+                className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500">
+                {DISTRICTS.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+              <input value={mForm.website} onChange={e=>setMForm(f=>({...f,website:e.target.value}))}
+                placeholder="Website URL" className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-purple-500" />
+              <input value={mForm.logo_url} onChange={e=>setMForm(f=>({...f,logo_url:e.target.value}))}
+                placeholder="Logo image URL" className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-purple-500" />
+              <input value={mForm.qr_url} onChange={e=>setMForm(f=>({...f,qr_url:e.target.value}))}
+                placeholder="QR code image URL" className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-purple-500" />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={saveMerchant} disabled={loading || !mForm.name}
+                className="px-4 py-2 text-xs rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-medium transition">
+                {loading ? 'Saving…' : editM ? 'Update' : 'Add Merchant'}
+              </button>
+              {editM && <button onClick={()=>{setEditM(null);setMForm({name:'',district:'hub',logo_url:'',qr_url:'',website:''})}} className="px-4 py-2 text-xs rounded-lg bg-white/5 text-slate-400 hover:text-white transition">Cancel</button>}
+            </div>
+          </div>
+
+          {/* List */}
+          <div className="space-y-2">
+            {merchants.map((m: any) => {
+              const d = DISTRICTS.find(d => d.id === m.district)
+              return (
+                <div key={m.id} className="flex items-center gap-3 rounded-xl border border-white/10 p-3">
+                  {m.logo_url && <img src={m.logo_url} alt="" className="w-10 h-10 rounded-lg object-cover" />}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-white">{m.name}</span>
+                      {d && <span className="text-[10px] px-2 py-0.5 rounded-full text-white" style={{background: d.color+'33', color: d.color}}>{d.name}</span>}
+                    </div>
+                    {m.website && <a href={m.website} target="_blank" rel="noopener noreferrer" className="text-[11px] text-purple-400 hover:underline">{m.website}</a>}
+                    {m.qr_url && <span className="ml-2 text-[11px] text-green-400">QR ✓</span>}
+                  </div>
+                  <button onClick={()=>{setEditM(m.id);setMForm({name:m.name,district:m.district,logo_url:m.logo_url??'',qr_url:m.qr_url??'',website:m.website??''})}} className="text-xs text-slate-500 hover:text-white px-2">Edit</button>
+                  <button onClick={()=>deleteMerchant(m.id)} className="text-xs text-slate-600 hover:text-red-400 px-2">🗑</button>
+                </div>
+              )
+            })}
+            {merchants.length === 0 && <p className="text-xs text-slate-600 text-center py-4">No merchants yet</p>}
+          </div>
+        </div>
+      )}
+
+      {/* PRODUCTS */}
+      {ecoTab === 'products' && (
+        <div className="space-y-6">
+          {/* Form */}
+          <div className="rounded-xl border border-white/10 p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-white">{editP ? 'Edit Product' : 'Add Product'}</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <select value={pForm.merchant_id} onChange={e=>setPForm(f=>({...f,merchant_id:e.target.value}))}
+                className="col-span-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500">
+                <option value="">Select merchant…</option>
+                {merchants.map((m:any) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+              <input value={pForm.name} onChange={e=>setPForm(f=>({...f,name:e.target.value}))}
+                placeholder="Product name" className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-purple-500" />
+              <input value={pForm.price} onChange={e=>setPForm(f=>({...f,price:e.target.value}))}
+                placeholder="Price (e.g. 29.90)" type="number" className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-purple-500" />
+              <input value={pForm.image_url} onChange={e=>setPForm(f=>({...f,image_url:e.target.value}))}
+                placeholder="Product image URL" className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-purple-500" />
+              <input value={pForm.districts} onChange={e=>setPForm(f=>({...f,districts:e.target.value}))}
+                placeholder="Districts (hub,neon,castle)" className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-purple-500" />
+              <label className="col-span-2 flex items-center gap-2 text-sm text-slate-400 cursor-pointer">
+                <input type="checkbox" checked={pForm.featured} onChange={e=>setPForm(f=>({...f,featured:e.target.checked}))} className="rounded" />
+                Featured product (shown first in district NPC shop)
+              </label>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={saveProduct} disabled={loading || !pForm.name || !pForm.merchant_id}
+                className="px-4 py-2 text-xs rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-medium transition">
+                {loading ? 'Saving…' : editP ? 'Update' : 'Add Product'}
+              </button>
+              {editP && <button onClick={()=>{setEditP(null);setPForm({merchant_id:'',name:'',price:'',image_url:'',districts:'',featured:false})}} className="px-4 py-2 text-xs rounded-lg bg-white/5 text-slate-400 hover:text-white transition">Cancel</button>}
+            </div>
+          </div>
+
+          {/* List */}
+          <div className="space-y-2">
+            {products.map((p: any) => {
+              const m = merchants.find((m:any) => m.id === p.merchant_id)
+              return (
+                <div key={p.id} className="flex items-center gap-3 rounded-xl border border-white/10 p-3">
+                  {p.image_url && <img src={p.image_url} alt="" className="w-10 h-10 rounded-lg object-cover" />}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-white">{p.name}</span>
+                      {p.featured && <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-400">★ Featured</span>}
+                    </div>
+                    <div className="text-[11px] text-slate-500 space-x-2">
+                      {m && <span>{m.name}</span>}
+                      {p.price && <span>· ${p.price}</span>}
+                      {p.districts?.length > 0 && <span>· {p.districts.join(', ')}</span>}
+                    </div>
+                  </div>
+                  <button onClick={()=>{setEditP(p.id);setPForm({merchant_id:p.merchant_id,name:p.name,price:String(p.price??''),image_url:p.image_url??'',districts:(p.districts??[]).join(','),featured:p.featured??false})}} className="text-xs text-slate-500 hover:text-white px-2">Edit</button>
+                  <button onClick={()=>deleteProduct(p.id)} className="text-xs text-slate-600 hover:text-red-400 px-2">🗑</button>
+                </div>
+              )
+            })}
+            {products.length === 0 && <p className="text-xs text-slate-600 text-center py-4">No products yet</p>}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
