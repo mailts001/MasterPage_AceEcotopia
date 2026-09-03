@@ -664,7 +664,7 @@ function EcotopiaPanel({ secret }: { secret: string }) {
   async function saveMerchant() {
     setLoading(true)
     const body = { table: 'merchants', row: mForm, ...(editM ? { id: editM } : {}) }
-    const r = await fetch('/api/admin/merchants', { method:'POST', headers:{ 'content-type':'application/json','x-admin-secret':secret }, body: JSON.stringify(body) })
+    const r = await fetch('/api/admin/merchants', { method:'POST', headers:{ 'content-type':'application/json','x-admin-key':secret }, body: JSON.stringify(body) })
     setLoading(false)
     if (r.ok) { flash(editM ? 'Merchant updated' : 'Merchant added'); setMForm({ name:'', district:'hub', logo_url:'', qr_url:'', website:'' }); setEditM(null); fetchMerchants() }
     else flash('Error saving merchant')
@@ -672,7 +672,7 @@ function EcotopiaPanel({ secret }: { secret: string }) {
 
   async function deleteMerchant(id: string) {
     if (!confirm('Delete merchant?')) return
-    await fetch('/api/admin/merchants', { method:'DELETE', headers:{ 'content-type':'application/json','x-admin-secret':secret }, body: JSON.stringify({ table:'merchants', id }) })
+    await fetch('/api/admin/merchants', { method:'DELETE', headers:{ 'content-type':'application/json','x-admin-key':secret }, body: JSON.stringify({ table:'merchants', id }) })
     fetchMerchants()
   }
 
@@ -680,7 +680,7 @@ function EcotopiaPanel({ secret }: { secret: string }) {
     setLoading(true)
     const row = { ...pForm, price: parseFloat(pForm.price) || 0, districts: pForm.districts.split(',').map(s=>s.trim()).filter(Boolean) }
     const body = { table:'products', row, ...(editP ? { id: editP } : {}) }
-    const r = await fetch('/api/admin/merchants', { method:'POST', headers:{ 'content-type':'application/json','x-admin-secret':secret }, body: JSON.stringify(body) })
+    const r = await fetch('/api/admin/merchants', { method:'POST', headers:{ 'content-type':'application/json','x-admin-key':secret }, body: JSON.stringify(body) })
     setLoading(false)
     if (r.ok) { flash(editP ? 'Product updated' : 'Product added'); setPForm({ merchant_id:'', name:'', price:'', image_url:'', districts:'', featured:false }); setEditP(null); fetchProducts() }
     else flash('Error saving product')
@@ -688,7 +688,7 @@ function EcotopiaPanel({ secret }: { secret: string }) {
 
   async function deleteProduct(id: string) {
     if (!confirm('Delete product?')) return
-    await fetch('/api/admin/merchants', { method:'DELETE', headers:{ 'content-type':'application/json','x-admin-secret':secret }, body: JSON.stringify({ table:'products', id }) })
+    await fetch('/api/admin/merchants', { method:'DELETE', headers:{ 'content-type':'application/json','x-admin-key':secret }, body: JSON.stringify({ table:'products', id }) })
     fetchProducts()
   }
 
