@@ -768,6 +768,15 @@ function PlacementsTab({ secret }: { secret: string }) {
             </select>
           </div>
           <div className="space-y-1">
+            <label className="text-xs text-gray-500">District (which zone to spawn in)</label>
+            <select value={form.district_id} onChange={e => setForm(f => ({ ...f, district_id: e.target.value }))}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500">
+              <option value="hub">🏙️ Hub (main square)</option>
+              <option value="ecommerce">🛒 Nexus (ecommerce)</option>
+              <option value="boutique">🛍️ Boutique</option>
+            </select>
+          </div>
+          <div className="space-y-1">
             <label className="text-xs text-gray-500">Spawn Count (marketing budget = items per game)</label>
             <input type="number" min="1" max="20" value={form.spawn_count}
               onChange={e => setForm(f => ({ ...f, spawn_count: e.target.value }))}
