@@ -771,9 +771,15 @@ function PlacementsTab({ secret }: { secret: string }) {
             <label className="text-xs text-gray-500">District (which zone to spawn in)</label>
             <select value={form.district_id} onChange={e => setForm(f => ({ ...f, district_id: e.target.value }))}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500">
-              <option value="hub">🏙️ Hub (main square)</option>
-              <option value="ecommerce">🛒 Nexus (ecommerce)</option>
-              <option value="boutique">🛍️ Boutique</option>
+              <option value="hub">🏙️ Nexus Hub (main zone)</option>
+              <option value="boutique">🛍️ Boutique District</option>
+              <option value="harvest">🌾 Harvest Fields</option>
+              <option value="aqua">💧 Aqua Zone</option>
+              <option value="grove">🌿 Whispering Grove</option>
+              <option value="castle">🏰 Castle Ramparts</option>
+              <option value="neon">🌆 Neon City</option>
+              <option value="carnival">🎡 Carnival Square</option>
+              <option value="glacier">🧊 Glacier Peak</option>
             </select>
           </div>
           <div className="space-y-1">
