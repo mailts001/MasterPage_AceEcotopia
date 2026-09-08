@@ -13,8 +13,9 @@ function unauthorized() {
 
 // Simple admin secret check (set ADMIN_SECRET in Vercel env vars)
 function checkAuth(req: NextRequest) {
-  const secret = req.headers.get('x-admin-key')
-  return secret === process.env.ADMIN_SECRET_KEY
+  const secret = req.headers.get('x-admin-secret')
+  const valid = process.env.ADMIN_SECRET || process.env.ADMIN_SECRET_KEY || process.env.ADMIN_PASSWORD
+  return !!valid && secret === valid
 }
 
 export async function GET(req: NextRequest) {

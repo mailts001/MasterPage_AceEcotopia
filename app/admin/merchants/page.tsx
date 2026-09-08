@@ -123,9 +123,10 @@ export default function AdminMerchantsPage() {
             { key: 'arena',      label: '🗺 Arena Builder' },
           ] as { key: Tab; label: string }[]).map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
+              disabled={t.key === 'arena'}
               className={`px-4 py-2 text-sm whitespace-nowrap border-b-2 transition ${
                 tab === t.key ? 'border-cyan-500 text-white' : 'border-transparent text-gray-500 hover:text-white'
-              }`}>
+              } ${t.key === 'arena' ? 'opacity-30 cursor-not-allowed' : ''}`}>
               {t.label}
             </button>
           ))}
@@ -136,7 +137,13 @@ export default function AdminMerchantsPage() {
         {tab === 'coupons'    && <CouponsTab    secret={secret} />}
         {tab === 'campaigns'  && <CampaignsTab  secret={secret} />}
         {tab === 'placements' && <PlacementsTab secret={secret} />}
-        {tab === 'arena'      && <ArenaTab      secret={secret} />}
+        {tab === 'arena'      && (
+          <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+            <span className="text-4xl opacity-40">🗺</span>
+            <p className="text-gray-400 font-semibold">Arena Builder — not available</p>
+            <p className="text-gray-600 text-sm max-w-sm">This tool generated maps for the old top-down game format. The hub now uses an isometric YATI tileset rendered in Canvas and cannot be edited here.</p>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -248,7 +255,7 @@ function ProductsTab({ secret }: { secret: string }) {
   const [products, setProducts]   = useState<any[]>([])
   const [merchants, setMerchants] = useState<any[]>([])
   const [loading, setLoading]     = useState(true)
-  const [form, setForm]           = useState({ merchant_id: '', name: '', image_url: '', price: '0', currency: 'SGD', category: 'general', description: '' })
+  const [form, setForm]           = useState({ merchant_id: '', name: '', image_url: '', qr_url: '', price: '0', currency: 'SGD', category: 'general', description: '' })
   const [saving, setSaving]       = useState(false)
   const [err, setErr]             = useState('')
 
@@ -273,7 +280,7 @@ function ProductsTab({ secret }: { secret: string }) {
     })
     const j = await res.json()
     if (j.error) { setErr(j.error); setSaving(false); return }
-    setForm({ merchant_id: form.merchant_id, name: '', image_url: '', price: '0', currency: 'SGD', category: 'general', description: '' })
+    setForm({ merchant_id: form.merchant_id, name: '', image_url: '', qr_url: '', price: '0', currency: 'SGD', category: 'general', description: '' })
     setSaving(false)
     loadAll()
   }
@@ -307,15 +314,28 @@ function ProductsTab({ secret }: { secret: string }) {
               value={form.image_url} onChange={v => setForm(f => ({ ...f, image_url: v }))} required
               placeholder="https://i.imgur.com/xxx.png" />
           </div>
+          <div className="col-span-2">
+            <Input label="QR Code URL (optional — shown to player after collecting this product)"
+              value={form.qr_url} onChange={v => setForm(f => ({ ...f, qr_url: v }))}
+              placeholder="https://i.imgur.com/qrcode.png" />
+          </div>
           <Input label="Category"          value={form.category}    onChange={v => setForm(f => ({ ...f, category: v }))}     placeholder="fashion / electronics / food" />
           <Input label="Description"       value={form.description} onChange={v => setForm(f => ({ ...f, description: v }))} />
         </div>
-        {form.image_url && (
-          <div className="flex items-center gap-3 bg-black/30 rounded-lg p-3">
-            <img src={form.image_url} alt="preview" className="w-12 h-12 rounded object-cover border border-white/10" />
-            <span className="text-xs text-gray-500">Image preview — this is what appears in the game</span>
-          </div>
-        )}
+        <div className="flex items-start gap-4">
+          {form.image_url && (
+            <div className="flex items-center gap-3 bg-black/30 rounded-lg p-3 flex-1">
+              <img src={form.image_url} alt="preview" className="w-12 h-12 rounded object-cover border border-white/10" />
+              <span className="text-xs text-gray-500">Product image — shown in game</span>
+            </div>
+          )}
+          {form.qr_url && (
+            <div className="flex items-center gap-3 bg-black/30 rounded-lg p-3 flex-1">
+              <img src={form.qr_url} alt="QR preview" className="w-12 h-12 rounded object-cover border border-white/10" />
+              <span className="text-xs text-gray-500">QR code preview</span>
+            </div>
+          )}
+        </div>
         {err && <p className="text-red-400 text-xs">{err}</p>}
         <button type="submit" disabled={saving}
           className="px-5 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-sm font-medium disabled:opacity-50 transition">
@@ -331,6 +351,7 @@ function ProductsTab({ secret }: { secret: string }) {
               <th className="pb-2 pr-4">Merchant</th>
               <th className="pb-2 pr-4">Price</th>
               <th className="pb-2 pr-4">Category</th>
+              <th className="pb-2 pr-4">QR</th>
               <th className="pb-2">Actions</th>
             </tr>
           </thead>
@@ -352,6 +373,11 @@ function ProductsTab({ secret }: { secret: string }) {
                   <td className="py-3 pr-4 text-gray-400">{merchant?.name ?? '—'}</td>
                   <td className="py-3 pr-4 text-gray-400">${p.price} {p.currency}</td>
                   <td className="py-3 pr-4 text-gray-400">{p.category}</td>
+                  <td className="py-3 pr-4">
+                    {p.qr_url
+                      ? <img src={p.qr_url} alt="QR" className="w-8 h-8 rounded border border-white/10" title={p.qr_url} />
+                      : <span className="text-gray-600 text-xs">—</span>}
+                  </td>
                   <td className="py-3">
                     <button onClick={() => del(p.id)} className="text-xs text-red-400 hover:text-red-300 transition">Delete</button>
                   </td>
@@ -371,7 +397,7 @@ function CouponsTab({ secret }: { secret: string }) {
   const [coupons, setCoupons]   = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading]   = useState(true)
-  const [form, setForm]         = useState({ product_id: '', reward_type: 'coupon_pct', value: '10', code: '', inventory: '100' })
+  const [form, setForm]         = useState({ product_id: '', reward_type: 'coupon_pct', value: '10', code: '', inventory: '100', qr_url: '' })
   const [saving, setSaving]     = useState(false)
   const [err, setErr]           = useState('')
 
@@ -398,11 +424,12 @@ function CouponsTab({ secret }: { secret: string }) {
         value: Number(form.value),
         code: form.code || null,
         inventory: Number(form.inventory),
+        qr_url: form.qr_url || null,
       }}),
     })
     const j = await res.json()
     if (j.error) { setErr(j.error); setSaving(false); return }
-    setForm(f => ({ ...f, value: '10', code: '', inventory: '100' }))
+    setForm(f => ({ ...f, value: '10', code: '', inventory: '100', qr_url: '' }))
     setSaving(false)
     loadAll()
   }
@@ -442,7 +469,18 @@ function CouponsTab({ secret }: { secret: string }) {
           <Input label="Value (% or $)" value={form.value} onChange={v => setForm(f => ({ ...f, value: v }))} placeholder="20" required />
           <Input label="Coupon Code (optional)" value={form.code} onChange={v => setForm(f => ({ ...f, code: v }))} placeholder="DEALHUNT20" />
           <Input label="Inventory (max redemptions)" value={form.inventory} onChange={v => setForm(f => ({ ...f, inventory: v }))} placeholder="100" />
+          <div className="col-span-2">
+            <Input label="QR Code URL (optional — player scans this after collecting)"
+              value={form.qr_url} onChange={v => setForm(f => ({ ...f, qr_url: v }))}
+              placeholder="https://i.imgur.com/qrcode.png" />
+          </div>
         </div>
+        {form.qr_url && (
+          <div className="flex items-center gap-3 bg-black/30 rounded-lg p-3">
+            <img src={form.qr_url} alt="QR preview" className="w-12 h-12 rounded border border-white/10" />
+            <span className="text-xs text-gray-500">QR code preview</span>
+          </div>
+        )}
         {err && <p className="text-red-400 text-xs">{err}</p>}
         <button type="submit" disabled={saving}
           className="px-5 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-sm font-medium disabled:opacity-50 transition">
@@ -459,6 +497,7 @@ function CouponsTab({ secret }: { secret: string }) {
               <th className="pb-2 pr-4">Value</th>
               <th className="pb-2 pr-4">Code</th>
               <th className="pb-2 pr-4">Inventory</th>
+              <th className="pb-2 pr-4">QR</th>
               <th className="pb-2">Actions</th>
             </tr>
           </thead>
@@ -476,6 +515,11 @@ function CouponsTab({ secret }: { secret: string }) {
                   <td className="py-3 pr-4 text-amber-400 font-mono">{c.reward_type === 'coupon_pct' ? `${c.value}%` : `$${c.value}`}</td>
                   <td className="py-3 pr-4 text-gray-400 font-mono text-xs">{c.code ?? '—'}</td>
                   <td className="py-3 pr-4 text-gray-400">{c.redeemed_count}/{c.inventory}</td>
+                  <td className="py-3 pr-4">
+                    {c.qr_url
+                      ? <img src={c.qr_url} alt="QR" className="w-8 h-8 rounded border border-white/10" title={c.qr_url} />
+                      : <span className="text-gray-600 text-xs">—</span>}
+                  </td>
                   <td className="py-3">
                     <button onClick={() => del(c.id)} className="text-xs text-red-400 hover:text-red-300 transition">Delete</button>
                   </td>
