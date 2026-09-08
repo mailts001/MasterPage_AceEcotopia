@@ -6,6 +6,12 @@ const db = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
+const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET,OPTIONS' }
+
+export async function OPTIONS() {
+  return new Response(null, { status: 204, headers: CORS })
+}
+
 // Public read-only endpoint — game fetches active campaign placements for a district
 // GET /api/game/campaigns?district=hub
 export async function GET(req: NextRequest) {
@@ -18,7 +24,7 @@ export async function GET(req: NextRequest) {
     .eq('active', true)
     .eq('district_id', district)
 
-  if (error || !placements?.length) return NextResponse.json({ placements: [] })
+  if (error || !placements?.length) return NextResponse.json({ placements: [] }, { headers: CORS })
 
   // Get products for these placements
   const productIds = [...new Set(placements.map(p => p.product_id).filter(Boolean))]
@@ -44,5 +50,5 @@ export async function GET(req: NextRequest) {
       qr_url: productMap[pl.product_id]?.qr_url ?? null,
     }))
 
-  return NextResponse.json({ placements: result })
+  return NextResponse.json({ placements: result }, { headers: CORS })
 }
