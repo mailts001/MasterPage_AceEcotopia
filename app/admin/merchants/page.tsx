@@ -691,6 +691,7 @@ function PlacementsTab({ secret }: { secret: string }) {
   const [form, setForm]         = useState({ campaign_id: '', product_id: '', coupon_id: '', game_id: 'tosios', district_id: 'ecommerce', game_role: 'collectible', priority: '5', spawn_count: '3' })
   const [saving, setSaving]     = useState(false)
   const [err, setErr]           = useState('')
+  const [relaunchCounts, setRelaunchCounts] = useState<Record<string, string>>({})
 
   const loadAll = useCallback(async () => {
     const [pr, cr, prod, coup] = await Promise.all([
@@ -719,6 +720,16 @@ function PlacementsTab({ secret }: { secret: string }) {
     if (j.error) { setErr(j.error); setSaving(false); return }
     setForm(f => ({ ...f, campaign_id: '', product_id: '', coupon_id: '' }))
     setSaving(false)
+    loadAll()
+  }
+
+  const relaunch = async (id: string, currentCount: number) => {
+    const newCount = parseInt(relaunchCounts[id] ?? String(currentCount), 10) || currentCount
+    await adminFetch(secret, '/api/admin/merchants', {
+      method: 'POST',
+      body: JSON.stringify({ table: 'campaign_placements', id, row: { spawn_count: newCount, active: true } }),
+    })
+    setRelaunchCounts(c => ({ ...c, [id]: '' }))
     loadAll()
   }
 
@@ -826,6 +837,21 @@ function PlacementsTab({ secret }: { secret: string }) {
                   <td className="py-3 pr-4 text-gray-400 text-xs">{r.game_id} / {r.district_id}</td>
                   <td className="py-3 pr-4"><RoleBadge role={r.game_role} /></td>
                   <td className="py-3 pr-4 text-gray-400 text-xs">{r.spawn_count ?? 3}x</td>
+                  <td className="py-3 pr-4">
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number" min="1" max="20"
+                        placeholder={String(r.spawn_count ?? 3)}
+                        value={relaunchCounts[r.id] ?? ''}
+                        onChange={e => setRelaunchCounts(c => ({ ...c, [r.id]: e.target.value }))}
+                        className="w-12 bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-xs text-white text-center"
+                      />
+                      <button onClick={() => relaunch(r.id, r.spawn_count ?? 3)}
+                        className="text-xs bg-violet-700 hover:bg-violet-600 text-white rounded px-2 py-0.5 transition whitespace-nowrap">
+                        ↺ Re-launch
+                      </button>
+                    </div>
+                  </td>
                   <td className="py-3">
                     <button onClick={() => del(r.id)} className="text-xs text-red-400 hover:text-red-300 transition">Remove</button>
                   </td>
