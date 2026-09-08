@@ -17,38 +17,56 @@ export async function OPTIONS() {
 export async function GET(req: NextRequest) {
   const district = new URL(req.url).searchParams.get('district') ?? 'hub'
 
-  // Get active placements for this district with live campaigns
+  // Get active placements for this district
   const { data: placements, error } = await db
     .from('campaign_placements')
-    .select('id, campaign_id, product_id, spawn_count, active, game_role')
+    .select('id, campaign_id, product_id, coupon_id, spawn_count, active, game_role')
     .eq('active', true)
     .eq('district_id', district)
 
   if (error || !placements?.length) return NextResponse.json({ placements: [] }, { headers: CORS })
 
-  // Get products for these placements
-  const productIds = [...new Set(placements.map(p => p.product_id).filter(Boolean))]
-  const { data: products } = productIds.length
-    ? await db.from('products').select('id, name, image_url, qr_url').in('id', productIds)
-    : { data: [] }
-
-  // Get live campaigns to filter by status
+  // Filter to live campaigns only
   const campaignIds = [...new Set(placements.map(p => p.campaign_id).filter(Boolean))]
   const { data: campaigns } = campaignIds.length
     ? await db.from('campaigns').select('id, status').in('id', campaignIds).eq('status', 'live')
     : { data: [] }
   const liveCampaignIds = new Set((campaigns ?? []).map(c => c.id))
 
+  // Fetch product details (name, image, qr, price, currency, description)
+  const productIds = [...new Set(placements.map(p => p.product_id).filter(Boolean))]
+  const { data: products } = productIds.length
+    ? await db.from('products').select('id, name, image_url, qr_url, price, currency, description').in('id', productIds)
+    : { data: [] }
+
+  // Fetch coupon details (reward_type, value, code)
+  const couponIds = [...new Set(placements.map(p => p.coupon_id).filter(Boolean))]
+  const { data: coupons } = couponIds.length
+    ? await db.from('coupons').select('id, reward_type, value, code, qr_url').in('id', couponIds)
+    : { data: [] }
+
   const productMap = Object.fromEntries((products ?? []).map(p => [p.id, p]))
+  const couponMap  = Object.fromEntries((coupons  ?? []).map(c => [c.id, c]))
 
   const result = placements
     .filter(pl => liveCampaignIds.has(pl.campaign_id))
-    .map(pl => ({
-      ...pl,
-      product_name: productMap[pl.product_id]?.name ?? null,
-      image_url: productMap[pl.product_id]?.image_url ?? null,
-      qr_url: productMap[pl.product_id]?.qr_url ?? null,
-    }))
+    .map(pl => {
+      const prod   = productMap[pl.product_id] ?? {}
+      const coupon = couponMap[pl.coupon_id]   ?? {}
+      return {
+        ...pl,
+        product_name:  prod.name        ?? null,
+        image_url:     prod.image_url   ?? null,
+        qr_url:        prod.qr_url      ?? coupon.qr_url ?? null,
+        price:         prod.price       ?? null,
+        currency:      prod.currency    ?? 'SGD',
+        description:   prod.description ?? null,
+        reward_type:   coupon.reward_type ?? null,
+        coupon_value:  coupon.value       ?? null,
+        coupon_code:   coupon.code        ?? null,
+        coupon_qr_url: coupon.qr_url      ?? null,
+      }
+    })
 
   return NextResponse.json({ placements: result }, { headers: CORS })
 }
