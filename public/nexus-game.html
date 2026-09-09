@@ -259,7 +259,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#070810;color:#c8c4e
   <div style="font-size:2.5rem">📱</div>
   <div style="font-family:'Orbitron',sans-serif;font-size:.8rem;letter-spacing:.15em;color:#a78bfa;text-align:center">ROTATE FOR BEST EXPERIENCE</div>
   <div style="font-size:.65rem;color:#4a4870;text-align:center;max-width:240px;line-height:1.7">Or open the full game for joystick controls</div>
-  <a id="fullscreen-link" href="https://204.168.221.101:8444/game/" target="_blank" rel="noopener"
+  <a id="fullscreen-link" href="https://aceonology.duckdns.org:8444/game/" target="_blank" rel="noopener"
     style="background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;font-family:'Orbitron',sans-serif;font-size:.7rem;letter-spacing:.1em;padding:10px 24px;border-radius:7px;text-decoration:none">
     Open Full Game ↗
   </a>
@@ -267,7 +267,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#070810;color:#c8c4e
 </div>
 <!-- Fullscreen corner button (embed mobile landscape) -->
 <div id="embed-fullscreen-btn" style="position:fixed;top:8px;right:48px;z-index:12;display:none">
-  <a id="fullscreen-link2" href="https://204.168.221.101:8444/game/" target="_blank" rel="noopener"
+  <a id="fullscreen-link2" href="https://aceonology.duckdns.org:8444/game/" target="_blank" rel="noopener"
     style="display:flex;align-items:center;gap:5px;background:rgba(7,8,16,.8);border:1px solid #2e2b50;color:#a78bfa;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;padding:5px 10px;border-radius:5px;text-decoration:none;white-space:nowrap">⊞ Full Game</a>
 </div>
 <!-- Mobile controls -->
@@ -1790,7 +1790,7 @@ if(EMBED_MODE){
   if(_isMob){
     document.getElementById('embed-zoom-strip').classList.remove('hidden');
     document.getElementById('embed-fullscreen-btn').style.display='block';
-    const _fsUrl='https://204.168.221.101:8444/game/?name='+encodeURIComponent(EMBED_PREFILL_NAME||'Traveller')+'&avatar='+EMBED_PREFILL_AVATAR;
+    const _fsUrl='https://aceonology.duckdns.org:8444/game/?name='+encodeURIComponent(EMBED_PREFILL_NAME||'Traveller')+'&avatar='+EMBED_PREFILL_AVATAR;
     const _fl=document.getElementById('fullscreen-link');if(_fl)_fl.href=_fsUrl;
     const _fl2=document.getElementById('fullscreen-link2');if(_fl2)_fl2.href=_fsUrl;
     function _chkOri(){
