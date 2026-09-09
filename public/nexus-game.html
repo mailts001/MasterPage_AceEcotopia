@@ -103,7 +103,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#070810;color:#c8c4e
 <canvas id="gc"></canvas>
 
 <!-- District loading screen (shown until WS welcome received) -->
-<div id="district-loading" style="position:fixed;inset:0;z-index:50;background:#07080e;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;pointer-events:none">
+<div id="district-loading" style="position:fixed;inset:0;z-index:50;background:#07080e;display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;pointer-events:none">
   <div style="position:relative;width:72px;height:72px">
     <div style="position:absolute;inset:0;border-radius:50%;border:2px solid #7c3aed33;animation:dl-ring 2s linear infinite"></div>
     <div style="position:absolute;inset:6px;border-radius:50%;border:2px solid #a78bfa55;animation:dl-ring 1.4s linear infinite reverse"></div>
@@ -1486,7 +1486,9 @@ function showLobby(){
 
 function selectDistrict(did){
   username=document.getElementById('name-input').value.trim()||'Traveller';
-  districtId=did;gstate='connecting';setConnMsg(`Waking ${did} zone…`);connectZone(did);
+  districtId=did;gstate='connecting';setConnMsg(`Waking ${did} zone…`);
+  const _dls=document.getElementById('district-loading');if(_dls)_dls.style.display='flex';
+  connectZone(did);
 }
 
 function travelTo(did){
@@ -1496,6 +1498,7 @@ function travelTo(did){
   if(ws){ws.close();ws=null;}
   gstate='connecting';
   document.getElementById('hud-district').textContent=DISTRICTS.find(d=>d.id===did)?.name||did;
+  const _dlt=document.getElementById('district-loading');if(_dlt)_dlt.style.display='flex';
   connectZone(did);
 }
 
@@ -1821,6 +1824,9 @@ if(EMBED_MODE){
       _dc=(_dc+1)%4;d.textContent='.'.repeat(_dc);
     },500);
   })();
+  // Show loading screen while connecting
+  const _dli=document.getElementById('district-loading');
+  if(_dli)_dli.style.display='flex';
   connectZone(districtId);
   // sp-join-btn handler
   document.getElementById('sp-join-btn').onclick=()=>{
