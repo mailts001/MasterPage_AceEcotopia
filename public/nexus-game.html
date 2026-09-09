@@ -1499,6 +1499,7 @@ function travelTo(did){
   gstate='connecting';
   document.getElementById('hud-district').textContent=DISTRICTS.find(d=>d.id===did)?.name||did;
   const _dlt=document.getElementById('district-loading');if(_dlt)_dlt.style.display='flex';
+  if(window._updateFsUrl)window._updateFsUrl();
   connectZone(did);
 }
 
@@ -1793,9 +1794,14 @@ if(EMBED_MODE){
   if(_isMob){
     document.getElementById('embed-zoom-strip').classList.remove('hidden');
     document.getElementById('embed-fullscreen-btn').style.display='block';
-    const _fsUrl='https://aceconology.duckdns.org:8444/game/?name='+encodeURIComponent(EMBED_PREFILL_NAME||'Traveller')+'&avatar='+EMBED_PREFILL_AVATAR;
-    const _fl=document.getElementById('fullscreen-link');if(_fl)_fl.href=_fsUrl;
-    const _fl2=document.getElementById('fullscreen-link2');if(_fl2)_fl2.href=_fsUrl;
+    function _updateFsUrl(){
+      const u='https://aceconology.duckdns.org:8444/game/?name='+encodeURIComponent(EMBED_PREFILL_NAME||'Traveller')+'&avatar='+EMBED_PREFILL_AVATAR+'&district='+(districtId||EMBED_DISTRICT);
+      const _fl=document.getElementById('fullscreen-link');if(_fl)_fl.href=u;
+      const _fl2=document.getElementById('fullscreen-link2');if(_fl2)_fl2.href=u;
+    }
+    _updateFsUrl();
+    // Keep URL current as player travels between districts
+    window._updateFsUrl=_updateFsUrl;
     function _chkOri(){
       const pp=document.getElementById('portrait-prompt');if(!pp)return;
       const isP=window.innerHeight>window.innerWidth&&window.innerWidth<500;
@@ -1853,6 +1859,17 @@ if(EMBED_MODE){
   buildCards('travel-grid','travel');
   buildAvatarGrid();
   fetchCounts();
+  // Auto-join when coming from fullscreen link (has name + district in URL)
+  const _autoName=_up.get('name');
+  const _autoDist=_up.get('district');
+  const _autoAvatar=parseInt(_up.get('avatar')||'0',10)||0;
+  if(_autoName&&_autoDist&&_autoDist!=='hub'){
+    const ni=document.getElementById('name-input');if(ni)ni.value=_autoName;
+    myAvatar=_autoAvatar;
+    // Highlight correct avatar tile
+    document.querySelectorAll('.avatar-tile').forEach((t,i)=>t.classList.toggle('selected',i===_autoAvatar));
+    selectDistrict(_autoDist);
+  }
 }
 requestAnimationFrame(t=>{lastT=t;requestAnimationFrame(tick);});
 </script>
