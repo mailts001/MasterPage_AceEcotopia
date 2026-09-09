@@ -688,10 +688,12 @@ function PlacementsTab({ secret }: { secret: string }) {
   const [products, setProducts] = useState<any[]>([])
   const [coupons, setCoupons]   = useState<any[]>([])
   const [loading, setLoading]   = useState(true)
-  const [form, setForm]         = useState({ campaign_id: '', product_id: '', coupon_id: '', game_id: 'tosios', district_id: 'ecommerce', game_role: 'collectible', priority: '5', spawn_count: '3' })
+  const [form, setForm]         = useState({ campaign_id: '', product_id: '', coupon_id: '', game_id: 'tosios', district_id: 'ecommerce', game_role: 'collectible', priority: '5', spawn_count: '3', spawn_start_at: '', spawn_interval_hours: '0' })
   const [saving, setSaving]     = useState(false)
   const [err, setErr]           = useState('')
   const [relaunchCounts, setRelaunchCounts] = useState<Record<string, string>>({})
+  const [scheduleEdits, setScheduleEdits] = useState<Record<string, { spawn_start_at: string; spawn_interval_hours: string }>>({})
+  const [scheduleSaving, setScheduleSaving] = useState<Record<string, boolean>>({})
 
   const loadAll = useCallback(async () => {
     const [pr, cr, prod, coup] = await Promise.all([
@@ -714,11 +716,16 @@ function PlacementsTab({ secret }: { secret: string }) {
     setSaving(true); setErr('')
     const res = await adminFetch(secret, '/api/admin/merchants', {
       method: 'POST',
-      body: JSON.stringify({ table: 'campaign_placements', row: { ...form, priority: Number(form.priority) } }),
+      body: JSON.stringify({ table: 'campaign_placements', row: {
+        ...form,
+        priority: Number(form.priority),
+        spawn_interval_hours: Number(form.spawn_interval_hours),
+        spawn_start_at: form.spawn_start_at ? new Date(form.spawn_start_at).toISOString() : null,
+      }}),
     })
     const j = await res.json()
     if (j.error) { setErr(j.error); setSaving(false); return }
-    setForm(f => ({ ...f, campaign_id: '', product_id: '', coupon_id: '' }))
+    setForm(f => ({ ...f, campaign_id: '', product_id: '', coupon_id: '', spawn_start_at: '', spawn_interval_hours: '0' }))
     setSaving(false)
     loadAll()
   }
@@ -730,6 +737,22 @@ function PlacementsTab({ secret }: { secret: string }) {
       body: JSON.stringify({ table: 'campaign_placements', id, row: { spawn_count: newCount, active: true } }),
     })
     setRelaunchCounts(c => ({ ...c, [id]: '' }))
+    loadAll()
+  }
+
+  const saveSchedule = async (id: string) => {
+    const ed = scheduleEdits[id]
+    if (!ed) return
+    setScheduleSaving(s => ({ ...s, [id]: true }))
+    await adminFetch(secret, '/api/admin/merchants', {
+      method: 'POST',
+      body: JSON.stringify({ table: 'campaign_placements', id, row: {
+        spawn_start_at: ed.spawn_start_at ? new Date(ed.spawn_start_at).toISOString() : null,
+        spawn_interval_hours: Number(ed.spawn_interval_hours) || 0,
+      }}),
+    })
+    setScheduleSaving(s => ({ ...s, [id]: false }))
+    setScheduleEdits(e => { const n = { ...e }; delete n[id]; return n })
     loadAll()
   }
 
@@ -794,9 +817,22 @@ function PlacementsTab({ secret }: { secret: string }) {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-gray-500">Spawn Count (marketing budget = items per game)</label>
+            <label className="text-xs text-gray-500">Spawn Count (items per game session)</label>
             <input type="number" min="1" max="20" value={form.spawn_count}
               onChange={e => setForm(f => ({ ...f, spawn_count: e.target.value }))}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-gray-500">First Spawn Date &amp; Time</label>
+            <input type="datetime-local" value={form.spawn_start_at}
+              onChange={e => setForm(f => ({ ...f, spawn_start_at: e.target.value }))}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500 [color-scheme:dark]" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-gray-500">Auto-respawn every (hours) — 0 = manual only</label>
+            <input type="number" min="0" step="0.5" value={form.spawn_interval_hours}
+              onChange={e => setForm(f => ({ ...f, spawn_interval_hours: e.target.value }))}
+              placeholder="e.g. 24 = daily, 0 = manual"
               className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-cyan-500" />
           </div>
         </div>
@@ -813,9 +849,10 @@ function PlacementsTab({ secret }: { secret: string }) {
             <tr className="text-left text-gray-500 border-b border-white/10">
               <th className="pb-2 pr-4">Product</th>
               <th className="pb-2 pr-4">Campaign</th>
-              <th className="pb-2 pr-4">Game / District</th>
+              <th className="pb-2 pr-4">District</th>
               <th className="pb-2 pr-4">Role</th>
               <th className="pb-2 pr-4">Spawns</th>
+              <th className="pb-2 pr-4">Schedule</th>
               <th className="pb-2">Actions</th>
             </tr>
           </thead>
@@ -834,23 +871,55 @@ function PlacementsTab({ secret }: { secret: string }) {
                     </div>
                   </td>
                   <td className="py-3 pr-4 text-gray-400">{camp?.name ?? '—'}</td>
-                  <td className="py-3 pr-4 text-gray-400 text-xs">{r.game_id} / {r.district_id}</td>
+                  <td className="py-3 pr-4 text-gray-400 text-xs">{r.district_id}</td>
                   <td className="py-3 pr-4"><RoleBadge role={r.game_role} /></td>
-                  <td className="py-3 pr-4 text-gray-400 text-xs">{r.spawn_count ?? 3}x</td>
                   <td className="py-3 pr-4">
                     <div className="flex items-center gap-1">
+                      <span className="text-gray-400 text-xs">{r.spawn_count ?? 3}x</span>
                       <input
                         type="number" min="1" max="20"
-                        placeholder={String(r.spawn_count ?? 3)}
+                        placeholder="new #"
                         value={relaunchCounts[r.id] ?? ''}
                         onChange={e => setRelaunchCounts(c => ({ ...c, [r.id]: e.target.value }))}
                         className="w-12 bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-xs text-white text-center"
                       />
                       <button onClick={() => relaunch(r.id, r.spawn_count ?? 3)}
                         className="text-xs bg-violet-700 hover:bg-violet-600 text-white rounded px-2 py-0.5 transition whitespace-nowrap">
-                        ↺ Re-launch
+                        ↺
                       </button>
                     </div>
+                  </td>
+                  <td className="py-3 pr-4">
+                    {(() => {
+                      const ed = scheduleEdits[r.id]
+                      const startVal = ed ? ed.spawn_start_at : (r.spawn_start_at ? r.spawn_start_at.slice(0,16) : '')
+                      const intVal   = ed ? ed.spawn_interval_hours : String(r.spawn_interval_hours ?? 0)
+                      const hasSchedule = r.spawn_start_at || r.spawn_interval_hours > 0
+                      return (
+                        <div className="space-y-1 min-w-[180px]">
+                          <input type="datetime-local" value={startVal}
+                            onChange={e => setScheduleEdits(s => ({ ...s, [r.id]: { spawn_start_at: e.target.value, spawn_interval_hours: intVal } }))}
+                            className="w-full bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-xs text-white [color-scheme:dark]" />
+                          <div className="flex items-center gap-1">
+                            <input type="number" min="0" step="0.5" value={intVal}
+                              onChange={e => setScheduleEdits(s => ({ ...s, [r.id]: { spawn_start_at: startVal, spawn_interval_hours: e.target.value } }))}
+                              className="w-14 bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-xs text-white text-center" />
+                            <span className="text-gray-600 text-xs">h interval</span>
+                            {ed && (
+                              <button onClick={() => saveSchedule(r.id)} disabled={scheduleSaving[r.id]}
+                                className="text-xs bg-cyan-700 hover:bg-cyan-600 text-white rounded px-1.5 py-0.5 transition ml-1">
+                                {scheduleSaving[r.id] ? '…' : '✓'}
+                              </button>
+                            )}
+                          </div>
+                          {!ed && hasSchedule && (
+                            <p className="text-[10px] text-cyan-600">
+                              {r.spawn_interval_hours > 0 ? `every ${r.spawn_interval_hours}h` : 'one-time'}
+                            </p>
+                          )}
+                        </div>
+                      )
+                    })()}
                   </td>
                   <td className="py-3">
                     <button onClick={() => del(r.id)} className="text-xs text-red-400 hover:text-red-300 transition">Remove</button>
