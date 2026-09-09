@@ -60,6 +60,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#070810;color:#c8c4e
 #travel-close:hover{border-color:#7c3aed;color:#a78bfa}
 #shop{position:fixed;inset:0;background:rgba(7,8,16,.96);z-index:20;overflow-y:auto;padding:18px 12px}
 #shop.hidden{display:none}
+#portal-confirm.hidden{display:none!important}
 #collect-modal{display:flex}
 #collect-modal.hidden{display:none}
 #inv-modal{display:flex}
@@ -1295,6 +1296,7 @@ function activateNearPortal(){
 
 function showPortalConfirm(ep){
   const card=document.getElementById('portal-confirm');
+  card.style.display='flex';
   document.getElementById('pc-icon').textContent=ep.icon;
   document.getElementById('pc-label').textContent=ep.label;
   document.getElementById('pc-tagline').textContent=ep.tagline||'';
@@ -1321,7 +1323,9 @@ function showPortalConfirm(ep){
 
 function dismissPortalConfirm(){
   clearInterval(_portalCountdown);
-  document.getElementById('portal-confirm').classList.add('hidden');
+  const _pc=document.getElementById('portal-confirm');
+  _pc.classList.add('hidden');
+  _pc.style.display='none';
   portalCd=5; // cool-down so it doesn't re-trigger immediately
 }
 
