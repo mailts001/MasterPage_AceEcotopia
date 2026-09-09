@@ -63,11 +63,12 @@ const DISTRICTS = [
     accent:   '#F59E0B',
     accentCls:'text-amber-400',
     borderCls:'border-amber-500/30',
-    video:    '/districts/commerce.mp4',
+    video:    null,
+    liveGame: '/nexus-game.html?embed=1&district=hub',
     poster:   '/districts/commerce-poster.jpg',
-    href:     'http://204.168.221.101:2567/',
+    href:     '/citizen/dashboard/commerce/play',
     joinHref: '/citizen/register?district=commerce',
-    externalLabel: 'Explore Commerce OS →',
+    externalLabel: 'Enter Nexus Hub →',
     desc:     'Multi-AI agents surface price gaps across Shopee, Lazada and Amazon. Net margin calculated after fees and shipping.',
     features: ['🔍 Cross-platform arbitrage gaps','📦 Demand & supply gap analysis','💰 Net margin after all fees','🤖 Multi-agent price scanning','🔒 Citizen tier — direct value'],
     stat: { value: '74%', label: 'Best margin found today' },
@@ -228,7 +229,7 @@ export default function DistrictShowcase() {
           ))}
         </div>
 
-        {/* ── Video — full width, 16:9 ── */}
+        {/* ── Video / Live Game — full width, 16:9 ── */}
         <div className="relative w-full rounded-2xl overflow-hidden mb-8"
           style={{
             boxShadow: `0 0 80px ${d.accent}25, 0 40px 100px rgba(0,0,0,0.7)`,
@@ -243,33 +244,53 @@ export default function DistrictShowcase() {
               transition: 'background 0.5s',
             }} />
 
-          {/* Only render the active video — avoids downloading all 8 MP4s on load */}
-          {DISTRICTS.map((dist, i) => (
-            i === active ? (
-              <video
-                key={dist.id}
-                ref={el => { videoRefs.current[i] = el }}
-                src={dist.video}
-                poster={dist.poster}
-                muted
-                autoPlay
-                playsInline
-                preload="auto"
-                onEnded={() => handleEnded(i)}
-                className="w-full block"
-                style={{ aspectRatio: '16/9', objectFit: 'cover' }}
+          {/* Live game iframe for districts that have a game, video for others */}
+          {d.liveGame ? (
+            <>
+              <iframe
+                key={d.id}
+                src={d.liveGame}
+                className="w-full block border-0"
+                style={{ aspectRatio: '16/9', display: 'block' }}
+                allow="autoplay"
+                title={`${d.name} Live Game`}
               />
-            ) : (
-              // Keep a poster-only placeholder for inactive slots so layout doesn't shift
-              <img
-                key={dist.id}
-                src={dist.poster}
-                alt=""
-                className="w-full block"
-                style={{ display: 'none', aspectRatio: '16/9', objectFit: 'cover' }}
-              />
-            )
-          ))}
+              {/* Live badge overlay */}
+              <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5
+                text-[10px] font-mono bg-amber-500/20 border border-amber-500/40
+                backdrop-blur-sm px-3 py-1 rounded-full pointer-events-none">
+                <span className="w-1 h-1 rounded-full animate-pulse bg-amber-400" />
+                <span className="text-amber-300">LIVE GAME</span>
+              </div>
+            </>
+          ) : (
+            /* Only render the active video — avoids downloading all 8 MP4s on load */
+            DISTRICTS.map((dist, i) => (
+              i === active ? (
+                <video
+                  key={dist.id}
+                  ref={el => { videoRefs.current[i] = el }}
+                  src={dist.video ?? undefined}
+                  poster={dist.poster}
+                  muted
+                  autoPlay
+                  playsInline
+                  preload="auto"
+                  onEnded={() => handleEnded(i)}
+                  className="w-full block"
+                  style={{ aspectRatio: '16/9', objectFit: 'cover' }}
+                />
+              ) : (
+                <img
+                  key={dist.id}
+                  src={dist.poster}
+                  alt=""
+                  className="w-full block"
+                  style={{ display: 'none', aspectRatio: '16/9', objectFit: 'cover' }}
+                />
+              )
+            ))
+          )}
 
           {/* Corner marks */}
           {['top-3 left-3 border-t border-l','top-3 right-3 border-t border-r',
