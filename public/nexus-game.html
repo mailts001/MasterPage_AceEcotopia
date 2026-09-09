@@ -148,6 +148,20 @@ html,body{width:100%;height:100%;overflow:hidden;background:#070810;color:#c8c4e
 </div>
 
 
+
+<!-- ═══ Portal confirmation overlay ═══ -->
+<div id="portal-confirm" class="hidden" style="position:fixed;inset:0;z-index:25;display:flex;align-items:flex-end;justify-content:center;padding-bottom:80px;pointer-events:none">
+  <div id="portal-confirm-card" style="pointer-events:all;background:rgba(7,8,16,.96);border:1px solid #2e2b50;border-radius:14px;padding:18px 22px;max-width:320px;width:90%;text-align:center;box-shadow:0 0 40px rgba(0,0,0,.7)">
+    <div id="pc-icon" style="font-size:2rem;margin-bottom:6px">✈️</div>
+    <div id="pc-label" style="font-family:'Orbitron',sans-serif;font-size:.75rem;font-weight:700;letter-spacing:.1em;color:#e0ddf8;margin-bottom:2px">NexusTravel District</div>
+    <div id="pc-tagline" style="font-size:.62rem;color:#6b6894;letter-spacing:.08em;margin-bottom:14px">Travel Intelligence</div>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button id="pc-stay" style="background:none;border:1px solid #2e2b50;color:#6b6894;font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.1em;padding:6px 18px;border-radius:5px;cursor:pointer">Stay</button>
+      <button id="pc-go" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);border:none;color:#fff;font-family:'Orbitron',sans-serif;font-size:.65rem;letter-spacing:.08em;padding:6px 18px;border-radius:5px;cursor:pointer">Travel There →</button>
+    </div>
+    <div id="pc-timer" style="font-size:.55rem;color:#3a3860;margin-top:8px;letter-spacing:.06em">Auto-dismiss in <span id="pc-countdown">8</span>s</div>
+  </div>
+</div>
 <!-- ═══ Embed / Spectate overlay (shown in ?embed=1 mode) ═══ -->
 <div id="spectate-overlay" class="hidden" style="position:fixed;inset:0;z-index:10;pointer-events:none;display:flex;flex-direction:column;justify-content:flex-end">
   <!-- top badge -->
@@ -207,6 +221,12 @@ html,body{width:100%;height:100%;overflow:hidden;background:#070810;color:#c8c4e
   </div>
 </div>
 
+
+<!-- Mobile zoom strip (embed mode only) -->
+<div id="embed-zoom-strip" class="hidden" style="position:fixed;top:50%;right:8px;transform:translateY(-50%);z-index:12;display:flex;flex-direction:column;gap:4px">
+  <button onclick="mobileZoom=Math.min(3,mobileZoom*1.2)" style="width:32px;height:32px;background:rgba(7,8,16,.8);border:1px solid #2e2b50;color:#a78bfa;font-size:1.1rem;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>
+  <button onclick="mobileZoom=Math.max(0.4,mobileZoom/1.2)" style="width:32px;height:32px;background:rgba(7,8,16,.8);border:1px solid #2e2b50;color:#a78bfa;font-size:1.1rem;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center">−</button>
+</div>
 <!-- Mobile controls -->
 <div id="mobile-ctrl">
   <div id="joystick-zone">
@@ -253,23 +273,35 @@ const DISTRICTS=[
 
 // External district portals — draw glowing beacons on hub map, navigate out on touch
 const EXTERNAL_PORTALS=[
+  // Extreme NORTH edge (topmost walkable tiles gx=38-39, gy=31)
   {label:'Financial District', icon:'💹', color:'#22c55e',
-   tiles:[{gx:25,gy:33},{gx:26,gy:33}],
+   tagline:'Investment Intelligence',
+   tiles:[{gx:38,gy:31},{gx:39,gy:31}],
    url:'https://master-page-ace-ecotopia.vercel.app/citizen/dashboard/financial'},
-  {label:'PropOS District',    icon:'🏙️',color:'#3b82f6',
-   tiles:[{gx:42,gy:32},{gx:43,gy:32}],
+  // Extreme NE edge (top-right: gx=42-43, gy=35)
+  {label:'PropOS District',    icon:'🏙️', color:'#3b82f6',
+   tagline:'Property Intelligence',
+   tiles:[{gx:42,gy:35},{gx:43,gy:35}],
    url:'https://master-page-ace-ecotopia.vercel.app'},
-  {label:'NexusTravel District',icon:'✈️',color:'#a855f7',
-   tiles:[{gx:37,gy:32},{gx:38,gy:32}],
+  // Extreme EAST edge (rightmost cluster: gx=42-44, gy=42-43)
+  {label:'NexusTravel District',icon:'✈️', color:'#a855f7',
+   tagline:'Travel Intelligence',
+   tiles:[{gx:43,gy:42},{gx:44,gy:42}],
    url:'https://nexus-travel-seven.vercel.app'},
-  {label:'SerenityOS District', icon:'🌿',color:'#10b981',
-   tiles:[{gx:29,gy:44},{gx:30,gy:44}],
+  // Extreme SOUTH edge (gx=35-36, gy=47 — southernmost walkable)
+  {label:'SerenityOS District', icon:'🌿', color:'#10b981',
+   tagline:'Wellness Intelligence',
+   tiles:[{gx:35,gy:47},{gx:36,gy:47}],
    url:'https://master-page-ace-ecotopia.vercel.app/citizen/dashboard/wellness'},
-  {label:'CareerGenome District',icon:'🧬',color:'#6366f1',
-   tiles:[{gx:34,gy:44},{gx:35,gy:44}],
+  // Extreme SW edge (gx=29-30, gy=45-46)
+  {label:'CareerGenome District',icon:'🧬', color:'#6366f1',
+   tagline:'Career Intelligence',
+   tiles:[{gx:29,gy:45},{gx:30,gy:45}],
    url:'https://career-genome.vercel.app'},
-  {label:'DeepQi District',    icon:'☯', color:'#f97316',
-   tiles:[{gx:32,gy:38},{gx:33,gy:38}],
+  // Extreme WEST edge (leftmost walkable: gx=24-25, gy=41-42)
+  {label:'DeepQi District',    icon:'☯',  color:'#f97316',
+   tagline:'TCM Wellness',
+   tiles:[{gx:24,gy:41},{gx:25,gy:41}],
    url:'https://deep-qi-web.vercel.app'},
 ];
 let nearPortal=null, portalPromptCd=0;
@@ -1246,6 +1278,7 @@ function drawExternalPortals(){
 
 function checkExternalPortals(){
   if(!map||map.type!=='hub'||gstate!=='game')return;
+  if(!document.getElementById('portal-confirm').classList.contains('hidden'))return;
   const {gx,gy}=map.toTile(localPos.x,localPos.y);
   nearPortal=null;
   for(const ep of EXTERNAL_PORTALS){
@@ -1254,10 +1287,46 @@ function checkExternalPortals(){
   }
 }
 
+let _portalCountdown=null;
 function activateNearPortal(){
   if(!nearPortal)return;
-  const url=nearPortal.url+'?name='+encodeURIComponent(username)+'&avatar='+myAvatar;
-  // If inside iframe, message parent; otherwise navigate
+  showPortalConfirm(nearPortal);
+}
+
+function showPortalConfirm(ep){
+  const card=document.getElementById('portal-confirm');
+  document.getElementById('pc-icon').textContent=ep.icon;
+  document.getElementById('pc-label').textContent=ep.label;
+  document.getElementById('pc-tagline').textContent=ep.tagline||'';
+  card.classList.remove('hidden');
+  // Style the Go button with district color
+  document.getElementById('pc-go').style.background=`linear-gradient(135deg,${ep.color},${ep.color}99)`;
+  // Countdown auto-dismiss
+  let secs=8;
+  document.getElementById('pc-countdown').textContent=secs;
+  clearInterval(_portalCountdown);
+  _portalCountdown=setInterval(()=>{
+    secs--;
+    const el=document.getElementById('pc-countdown');
+    if(el)el.textContent=secs;
+    if(secs<=0){clearInterval(_portalCountdown);dismissPortalConfirm();}
+  },1000);
+  // Buttons
+  document.getElementById('pc-stay').onclick=()=>dismissPortalConfirm();
+  document.getElementById('pc-go').onclick=()=>{
+    dismissPortalConfirm();
+    travelExternal(ep);
+  };
+}
+
+function dismissPortalConfirm(){
+  clearInterval(_portalCountdown);
+  document.getElementById('portal-confirm').classList.add('hidden');
+  portalCd=5; // cool-down so it doesn't re-trigger immediately
+}
+
+function travelExternal(ep){
+  const url=ep.url+'?name='+encodeURIComponent(username)+'&avatar='+myAvatar;
   if(window.parent!==window){
     window.parent.postMessage({type:'x68-district-travel',url},'*');
   }else{
@@ -1557,13 +1626,13 @@ document.addEventListener('keyup',e=>{
 // Mouse pan: right-click drag or middle-mouse drag
 const _gc=document.getElementById('gc');
 _gc.addEventListener('mousedown',e=>{
-  if(gstate!=='game')return;
+  if(gstate!=='game'&&gstate!=='spectate')return;
   if(e.button===1||e.button===2){panDrag=true;panDragLast={x:e.clientX,y:e.clientY};e.preventDefault();}
 });
 _gc.addEventListener('contextmenu',e=>e.preventDefault());
 // Scroll wheel zoom (desktop)
 _gc.addEventListener('wheel',e=>{
-  if(gstate!=='game')return;
+  if(gstate!=='game'&&gstate!=='spectate')return;
   e.preventDefault();
   const factor=e.deltaY<0?1.1:0.91;
   mobileZoom=Math.max(0.4,Math.min(3,mobileZoom*factor));
@@ -1641,6 +1710,8 @@ if(EMBED_MODE){
   document.getElementById('lobby').classList.add('hidden');
   document.getElementById('spectate-overlay').classList.remove('hidden');
   buildEmbedAvatarRow();
+  const _isMob=('ontouchstart' in window)||window.matchMedia('(pointer:coarse)').matches;
+  if(_isMob)document.getElementById('embed-zoom-strip').classList.remove('hidden');
   if(EMBED_PREFILL_NAME){const ni=document.getElementById('sp-name');if(ni)ni.value=EMBED_PREFILL_NAME;}
   connectZone(districtId);
   // sp-join-btn handler
