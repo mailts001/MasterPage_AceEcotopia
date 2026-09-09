@@ -61,6 +61,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:#070810;color:#c8c4e
 #shop{position:fixed;inset:0;background:rgba(7,8,16,.96);z-index:20;overflow-y:auto;padding:18px 12px}
 #shop.hidden{display:none}
 #portal-confirm.hidden{display:none!important}
+#embed-fullscreen-btn.hidden{display:none}
+#portrait-prompt.hidden{display:none}
+#district-loading.hidden{display:none}
 #collect-modal{display:flex}
 #collect-modal.hidden{display:none}
 #inv-modal{display:flex}
@@ -98,6 +101,28 @@ html,body{width:100%;height:100%;overflow:hidden;background:#070810;color:#c8c4e
 <body>
 
 <canvas id="gc"></canvas>
+
+<!-- District loading screen (shown until WS welcome received) -->
+<div id="district-loading" style="position:fixed;inset:0;z-index:50;background:#07080e;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;pointer-events:none">
+  <div style="position:relative;width:72px;height:72px">
+    <div style="position:absolute;inset:0;border-radius:50%;border:2px solid #7c3aed33;animation:dl-ring 2s linear infinite"></div>
+    <div style="position:absolute;inset:6px;border-radius:50%;border:2px solid #a78bfa55;animation:dl-ring 1.4s linear infinite reverse"></div>
+    <div style="position:absolute;inset:16px;border-radius:50%;background:radial-gradient(circle,#7c3aed44,transparent)"></div>
+    <div id="dl-icon" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.5rem">🌐</div>
+  </div>
+  <div>
+    <div id="dl-label" style="font-family:'Orbitron',sans-serif;font-size:.72rem;letter-spacing:.2em;color:#a78bfa;text-align:center">LOADING DISTRICT</div>
+    <div id="dl-sub" style="font-family:'JetBrains Mono',monospace;font-size:.58rem;color:#4a4870;text-align:center;margin-top:5px;letter-spacing:.1em">Connecting<span id="dl-dots"></span></div>
+  </div>
+  <div style="width:160px;height:2px;background:#1a1730;border-radius:1px;overflow:hidden">
+    <div id="dl-bar" style="height:100%;width:20%;background:linear-gradient(90deg,#7c3aed,#a78bfa);border-radius:1px;animation:dl-scan 1.8s ease-in-out infinite"></div>
+  </div>
+</div>
+<style>
+@keyframes dl-ring{to{transform:rotate(360deg)}}
+@keyframes dl-scan{0%{transform:translateX(-100%)}50%{transform:translateX(400%)}100%{transform:translateX(400%)}}
+</style>
+
 
 <div id="hud" class="hidden">
   <span id="hud-status"></span>
@@ -227,6 +252,23 @@ html,body{width:100%;height:100%;overflow:hidden;background:#070810;color:#c8c4e
 <div id="embed-zoom-strip" class="hidden" style="position:fixed;top:50%;right:8px;transform:translateY(-50%);z-index:12;display:flex;flex-direction:column;gap:4px">
   <button onclick="mobileZoom=Math.min(3,mobileZoom*1.2)" style="width:32px;height:32px;background:rgba(7,8,16,.8);border:1px solid #2e2b50;color:#a78bfa;font-size:1.1rem;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>
   <button onclick="mobileZoom=Math.max(0.4,mobileZoom/1.2)" style="width:32px;height:32px;background:rgba(7,8,16,.8);border:1px solid #2e2b50;color:#a78bfa;font-size:1.1rem;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center">−</button>
+</div>
+
+<!-- Mobile portrait prompt -->
+<div id="portrait-prompt" class="hidden" style="position:fixed;inset:0;z-index:30;background:rgba(7,8,16,.92);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;pointer-events:all">
+  <div style="font-size:2.5rem">📱</div>
+  <div style="font-family:'Orbitron',sans-serif;font-size:.8rem;letter-spacing:.15em;color:#a78bfa;text-align:center">ROTATE FOR BEST EXPERIENCE</div>
+  <div style="font-size:.65rem;color:#4a4870;text-align:center;max-width:240px;line-height:1.7">Or open the full game for joystick controls</div>
+  <a id="fullscreen-link" href="http://204.168.221.101" target="_blank" rel="noopener"
+    style="background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;font-family:'Orbitron',sans-serif;font-size:.7rem;letter-spacing:.1em;padding:10px 24px;border-radius:7px;text-decoration:none">
+    Open Full Game ↗
+  </a>
+  <button onclick="document.getElementById('portrait-prompt').style.display='none'" style="background:none;border:1px solid #2e2b50;color:#4a4870;font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:6px 16px;border-radius:5px;cursor:pointer">Dismiss</button>
+</div>
+<!-- Fullscreen corner button (embed mobile landscape) -->
+<div id="embed-fullscreen-btn" style="position:fixed;top:8px;right:48px;z-index:12;display:none">
+  <a id="fullscreen-link2" href="http://204.168.221.101" target="_blank" rel="noopener"
+    style="display:flex;align-items:center;gap:5px;background:rgba(7,8,16,.8);border:1px solid #2e2b50;color:#a78bfa;font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.08em;padding:5px 10px;border-radius:5px;text-decoration:none;white-space:nowrap">⊞ Full Game</a>
 </div>
 <!-- Mobile controls -->
 <div id="mobile-ctrl">
@@ -1209,7 +1251,7 @@ function enterSpectateMode(welcome){
   const sp=map.spawn();
   localPos={...sp};camX=sp.x;camY=sp.y;
   updateSpectateCount();
-  // Keep overlay visible, canvas starts rendering
+  const _dl=document.getElementById('district-loading');if(_dl)_dl.style.display='none';
 }
 
 function updateSpectateCount(){
@@ -1254,26 +1296,28 @@ function drawExternalPortals(){
   const hw=map.hw,hh=map.hh;
   const now=performance.now()/1000;
   EXTERNAL_PORTALS.forEach(ep=>{
-    ep.tiles.forEach(({gx,gy})=>{
-      const sc=iso(gx,gy,hw,hh);
-      const pulse=.6+.4*Math.sin(now*2.2);
-      // Glow ring
-      ctx.save();
-      ctx.globalAlpha=pulse*0.55;
-      ctx.beginPath();ctx.ellipse(sc.x,sc.y,hw*.9,hh*.9,0,0,Math.PI*2);
-      ctx.fillStyle=ep.color+'55';ctx.fill();
-      ctx.strokeStyle=ep.color;ctx.lineWidth=1.5;ctx.stroke();
-      ctx.globalAlpha=1;
-      // Icon above
-      ctx.font=`${14+pulse*2}px serif`;
-      ctx.textAlign='center';ctx.textBaseline='bottom';
-      ctx.fillText(ep.icon,sc.x,sc.y-8);
-      // Label
-      ctx.font='500 7.5px "JetBrains Mono",monospace';
-      ctx.fillStyle=ep.color;ctx.textBaseline='top';
-      ctx.fillText(ep.label,sc.x,sc.y+2);
-      ctx.restore();
-    });
+    // Single centroid — no duplicate beacons per portal
+    const cgx=ep.tiles.reduce((s,t)=>s+t.gx,0)/ep.tiles.length;
+    const cgy=ep.tiles.reduce((s,t)=>s+t.gy,0)/ep.tiles.length;
+    const sc=iso(cgx,cgy,hw,hh);
+    const pulse=.6+.4*Math.sin(now*2.2);
+    ctx.save();
+    ctx.globalAlpha=pulse*0.45;
+    ctx.beginPath();ctx.ellipse(sc.x,sc.y,hw*1.1,hh*1.1,0,0,Math.PI*2);
+    ctx.fillStyle=ep.color+'44';ctx.fill();
+    ctx.strokeStyle=ep.color;ctx.lineWidth=1.5;ctx.stroke();
+    const ir=.35+.25*Math.sin(now*3.5+1);
+    ctx.globalAlpha=ir;
+    ctx.beginPath();ctx.ellipse(sc.x,sc.y,hw*.6,hh*.6,0,0,Math.PI*2);
+    ctx.strokeStyle=ep.color;ctx.lineWidth=1;ctx.stroke();
+    ctx.globalAlpha=1;
+    ctx.font=`${13+pulse*1.5}px serif`;
+    ctx.textAlign='center';ctx.textBaseline='bottom';
+    ctx.fillText(ep.icon,sc.x,sc.y-10);
+    ctx.font='500 7px "JetBrains Mono",monospace';
+    ctx.fillStyle=ep.color;ctx.textBaseline='top';
+    ctx.fillText(ep.label,sc.x,sc.y+3);
+    ctx.restore();
   });
 }
 
@@ -1384,6 +1428,7 @@ function onMsg({t,d}){
 // ═══════════════ GAME ENTRY ═══════════════
 function enterGame(welcome){
   gstate='game';
+  const _dlg=document.getElementById('district-loading');if(_dlg)_dlg.style.display='none';
   map=districtId==='hub'?buildHubMap():buildProcMap(districtId);
   remotePlayers={};
   (welcome.players||[]).forEach(p=>{if(p.id!==myId)remotePlayers[p.id]={x:p.x||0,y:p.y||0,name:p.username||'?',avatar:p.avatar??0,facing:1};});
@@ -1662,6 +1707,33 @@ document.getElementById('travel-btn').onclick=openTravelOverlay;
 document.getElementById('travel-close').onclick=closeTravelOverlay;
 document.getElementById('shop-close').onclick=closeShop;
 
+
+// Two-finger touch pan in spectate/embed (before joining)
+(function(){
+  const _tc=document.getElementById('gc');
+  let _t2=null;
+  _tc.addEventListener('touchstart',function(e){
+    if(e.touches.length===2){
+      _t2={x0:e.touches[0].clientX,y0:e.touches[0].clientY,
+           x1:e.touches[1].clientX,y1:e.touches[1].clientY};
+    }
+  },{passive:true});
+  _tc.addEventListener('touchmove',function(e){
+    if(e.touches.length===2&&_t2&&map&&(gstate==='spectate'||gstate==='connecting')){
+      const x0=e.touches[0].clientX,y0=e.touches[0].clientY;
+      const x1=e.touches[1].clientX,y1=e.touches[1].clientY;
+      const mx=(x0+x1)/2,my=(y0+y1)/2;
+      const lmx=(_t2.x0+_t2.x1)/2,lmy=(_t2.y0+_t2.y1)/2;
+      const ez=(map.type==='hub'?2.5:1)*mobileZoom;
+      panOffset.x-=(mx-lmx)/ez;panOffset.y-=(my-lmy)/ez;panIdleTimer=3;
+      const dist=Math.hypot(x1-x0,y1-y0);
+      const ldist=Math.hypot(_t2.x1-_t2.x0,_t2.y1-_t2.y0);
+      if(ldist>0)mobileZoom=Math.max(0.4,Math.min(3,mobileZoom*(dist/ldist)));
+      _t2={x0,y0,x1,y1};
+    }
+  },{passive:true});
+  _tc.addEventListener('touchend',function(e){if(e.touches.length<2)_t2=null;},{passive:true});
+})();
 // ═══════════════ RESIZE ═══════════════
 function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight;}
 window.addEventListener('resize',resize);resize();
@@ -1715,8 +1787,40 @@ if(EMBED_MODE){
   document.getElementById('spectate-overlay').classList.remove('hidden');
   buildEmbedAvatarRow();
   const _isMob=('ontouchstart' in window)||window.matchMedia('(pointer:coarse)').matches;
-  if(_isMob)document.getElementById('embed-zoom-strip').classList.remove('hidden');
+  if(_isMob){
+    document.getElementById('embed-zoom-strip').classList.remove('hidden');
+    document.getElementById('embed-fullscreen-btn').style.display='block';
+    const _fsUrl='http://204.168.221.101?name='+encodeURIComponent(EMBED_PREFILL_NAME||'Traveller')+'&avatar='+EMBED_PREFILL_AVATAR;
+    const _fl=document.getElementById('fullscreen-link');if(_fl)_fl.href=_fsUrl;
+    const _fl2=document.getElementById('fullscreen-link2');if(_fl2)_fl2.href=_fsUrl;
+    function _chkOri(){
+      const pp=document.getElementById('portrait-prompt');if(!pp)return;
+      const isP=window.innerHeight>window.innerWidth&&window.innerWidth<500;
+      pp.style.display=isP?'flex':'none';
+    }
+    _chkOri();
+    window.addEventListener('resize',_chkOri);
+    window.addEventListener('orientationchange',()=>setTimeout(_chkOri,300));
+  }
   if(EMBED_PREFILL_NAME){const ni=document.getElementById('sp-name');if(ni)ni.value=EMBED_PREFILL_NAME;}
+  // Update loading screen label for this district
+  (function(){
+    const names={'hub':'Nexus Hub','financial':'Financial District','propos':'PropOS District',
+      'nexustravel':'NexusTravel District','serenity':'SerenityOS District',
+      'careergenome':'CareerGenome District','deepqi':'DeepQi District'};
+    const dn=names[districtId]||districtId;
+    const lbl=document.getElementById('dl-label');if(lbl)lbl.textContent='LOADING '+dn.toUpperCase();
+    const icons={'hub':'🌐','financial':'💹','propos':'🏙️','nexustravel':'✈️',
+      'serenity':'🌿','careergenome':'🧬','deepqi':'☯'};
+    const ico=document.getElementById('dl-icon');if(ico)ico.textContent=icons[districtId]||'🌐';
+    // Animated dots
+    let _dc=0;
+    const _di=setInterval(()=>{
+      const d=document.getElementById('dl-dots');
+      if(!d){clearInterval(_di);return;}
+      _dc=(_dc+1)%4;d.textContent='.'.repeat(_dc);
+    },500);
+  })();
   connectZone(districtId);
   // sp-join-btn handler
   document.getElementById('sp-join-btn').onclick=()=>{
