@@ -298,7 +298,7 @@ const EMBED_PREFILL_NAME=_up.get('name')||'';
 const EMBED_PREFILL_AVATAR=parseInt(_up.get('avatar')||'0',10)||0;
 let embedAvatarIdx=EMBED_PREFILL_AVATAR;
 // ═══════════════ CONSTANTS ═══════════════
-const ZONE='https://204.168.221.101:8444';
+const ZONE='https://aceonology.duckdns.org:8444';
 const SEND_RATE=0.05;
 const SHEET_COLS=6, TILE_PX=32;
 
@@ -1394,7 +1394,7 @@ function connectZone(did){
     .then(data=>{
       if(seq!==_connectSeq)return; // a newer attempt already took over
       if(!data.port)throw new Error('no port');
-      ws=new WebSocket(`wss://204.168.221.101:8444/ws/${data.port}`);
+      ws=new WebSocket(`wss://aceonology.duckdns.org:8444/ws/${data.port}`);
       ws.onopen=()=>wsSend('name',{name:username,avatar:myAvatar});
       ws.onmessage=e=>{try{onMsg(JSON.parse(e.data));}catch(_){}};
       ws.onclose=()=>{if(gstate==='game')showLobby();};
