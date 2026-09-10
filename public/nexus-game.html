@@ -500,8 +500,12 @@ function buildHubMap(){
   lwtm.forEach((t,k)=>{ if(!l0m.has(k)) l0m.set(k,t); });
   const waterOnlyKeys=new Set([...lwtm.keys()].filter(k=>!l0tKeys.has(k)));
 
-  // Walkable = L0 tiles not under L2 and not water-only
-  const walkable=new Set([...l0m.keys()].filter(k=>!l2m.has(k)&&!waterOnlyKeys.has(k)));
+  // Only obstacle-tier tile IDs (rows 6-8 of spritesheet, IDs 37-54) should block movement
+  const OBSTACLE_IDS=new Set([37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54]);
+  const l2BlockKeys=new Set([...l2m.entries()].filter(([,t])=>OBSTACLE_IDS.has(t)).map(([k])=>k));
+
+  // Walkable = L0 tiles not under obstacle-tier L2 tiles and not water-only
+  const walkable=new Set([...l0m.keys()].filter(k=>!l2BlockKeys.has(k)&&!waterOnlyKeys.has(k)));
   // l1FlatKeys used only for visual elevation (playerElevPx), not for movement
   const l1FlatKeys=new Set([...l1m.entries()].filter(([,t])=>L1_FLAT_IDS.has(t)).map(([k])=>k));
 
@@ -513,13 +517,13 @@ function buildHubMap(){
   cells.sort((a,b)=>a.depth-b.depth);
 
   // Spawn: walkable cell nearest centroid (prefer L0 tiles)
-  const wa=[...l0m.keys()].filter(k=>!l2m.has(k)&&!waterOnlyKeys.has(k)).map(k=>k.split(',').map(Number));
+  const wa=[...l0m.keys()].filter(k=>!l2BlockKeys.has(k)&&!waterOnlyKeys.has(k)).map(k=>k.split(',').map(Number));
   const cx2=wa.reduce((s,c)=>s+c[0],0)/wa.length, cy2=wa.reduce((s,c)=>s+c[1],0)/wa.length;
   let sp=wa[0],sd=Infinity;
   wa.forEach(([x,y])=>{const d=(x-cx2)**2+(y-cy2)**2;if(d<sd){sd=d;sp=[x,y];}});
   const spSc=iso(sp[0],sp[1],hw,hh);
 
-  return{type:'hub',hw,hh,cells,walkable,l1FlatKeys,l1m,l2m,
+  return{type:'hub',hw,hh,cells,walkable,l1FlatKeys,l1m,l2m,l2BlockKeys,
     spawn(){return{...spSc};},
     isWalkable(gx,gy){return walkable.has(`${Math.round(gx)},${Math.round(gy)}`);},
     toTile(sx,sy){return toTile(sx,sy,hw,hh);}
@@ -879,7 +883,7 @@ function toggleBuildMode(){
       const[x,y]=k.split(',').map(Number);
       dirs.forEach(([dx,dy])=>{
         const nk=`${x+dx},${y+dy}`;
-        if(!map.walkable.has(nk)&&!map.l2m.has(nk)){
+        if(!map.walkable.has(nk)&&!(map.l2BlockKeys&&map.l2BlockKeys.has(nk))){
           const sc=iso(x+dx,y+dy,map.hw,map.hh);
           if(!bridgeSlots.find(s=>s.gx===x+dx&&s.gy===y+dy))
             bridgeSlots.push({gx:x+dx,gy:y+dy,sx:sc.x,sy:sc.y});
@@ -994,7 +998,7 @@ function render(){
       const hs=iso(hgx,hgy,hw,hh);
       const isValid=bridgeSlots.some(s=>s.gx===hgx&&s.gy===hgy);
       const isBuilt=map.walkable.has(`${hgx},${hgy}`);
-      const isBlocked=map.l2m&&map.l2m.has(`${hgx},${hgy}`);
+      const isBlocked=map.l2BlockKeys&&map.l2BlockKeys.has(`${hgx},${hgy}`);
       let fillC,strokeC,label;
       if(isBuilt){fillC='rgba(100,220,100,0.15)';strokeC='rgba(100,220,100,0.7)';label='already walkable';}
       else if(isBlocked){fillC='rgba(239,68,68,0.3)';strokeC='rgba(239,68,68,1)';label='blocked';}
