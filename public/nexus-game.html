@@ -2186,12 +2186,14 @@ document.addEventListener('keydown',e=>{
     else ci.focus();
   }
   if(chatFocused)return; // let chat input receive all keys unmodified
+  if(!e.key)return;
   keys[e.key.length===1?e.key.toLowerCase():e.key]=true;
   if(e.key==='e'&&gstate==='game'&&nearNpc&&document.getElementById('shop').classList.contains('hidden'))openShop(nearNpc);
   if(e.key==='Escape'&&gstate==='game'){closeShop();closeTravelOverlay();}
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();
 });
 document.addEventListener('keyup',e=>{
+  if(!e.key)return;
   if(document.activeElement===document.getElementById('chat-input'))return;
   keys[e.key.length===1?e.key.toLowerCase():e.key]=false;
 });
