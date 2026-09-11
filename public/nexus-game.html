@@ -512,29 +512,29 @@ function buildParallaxMap(){
     {name:'clouds',scale:0.6, ref:PLX_CLOUDS, yShift:0},
     {name:'trees', scale:0.7, ref:PLX_TREES,  yShift:0.10},
     {name:'cake',  scale:0.9, ref:PLX_CAKE,   yShift:0.19},
-    {name:'ground',scale:1.5, ref:PLX_GROUND, yShift:0},
+    {name:'ground',scale:1.5, ref:PLX_GROUND, yShift:-0.06, drawH:1.06},
   ];
-  // Floating platforms with oscillation: baseWY=rest height, amplitude=travel range, speed=Hz, phase=offset
-  const PLATFORMS=[
-    {wx:300,  baseWY:350, w:160, h:18, color:'#f9a8d4', amplitude:40,  speed:0.6, phase:0},
-    {wx:650,  baseWY:270, w:130, h:18, color:'#c084fc', amplitude:55,  speed:0.8, phase:1.0},
-    {wx:1000, baseWY:200, w:180, h:18, color:'#fb923c', amplitude:70,  speed:0.5, phase:2.1},
-    {wx:1350, baseWY:300, w:140, h:18, color:'#f9a8d4', amplitude:45,  speed:0.9, phase:0.5},
-    {wx:1680, baseWY:170, w:200, h:18, color:'#4ade80', amplitude:80,  speed:0.4, phase:1.8},
-    {wx:2050, baseWY:250, w:150, h:18, color:'#c084fc', amplitude:50,  speed:0.7, phase:3.0},
-    {wx:2400, baseWY:190, w:160, h:18, color:'#fb923c', amplitude:65,  speed:0.6, phase:0.8},
-    {wx:2750, baseWY:320, w:180, h:18, color:'#f9a8d4', amplitude:35,  speed:1.0, phase:2.5},
-    {wx:-450, baseWY:300, w:140, h:18, color:'#c084fc', amplitude:50,  speed:0.7, phase:1.3},
-    {wx:-850, baseWY:210, w:180, h:18, color:'#4ade80', amplitude:75,  speed:0.5, phase:0.3},
-    {wx:-1250,baseWY:160, w:160, h:18, color:'#fb923c', amplitude:85,  speed:0.6, phase:1.7},
-    {wx:-1650,baseWY:280, w:150, h:18, color:'#f9a8d4', amplitude:40,  speed:0.8, phase:2.9},
-    // Horizontal slider platforms (fixed wy, oscillate wx)
-    {baseWX:450,  wx:450,  baseWY:390, w:130, h:18, color:'#34d399', amplitudeX:180, speedX:0.5, phaseX:0,   amplitude:0, speed:0.5, phase:0},
-    {baseWX:900,  wx:900,  baseWY:360, w:120, h:18, color:'#f59e0b', amplitudeX:200, speedX:0.7, phaseX:1.2, amplitude:0, speed:0.7, phase:1.2},
-    {baseWX:-500, wx:-500, baseWY:400, w:140, h:18, color:'#34d399', amplitudeX:160, speedX:0.6, phaseX:2.0, amplitude:0, speed:0.6, phase:2.0},
-    {baseWX:-950, wx:-950, baseWY:370, w:130, h:18, color:'#f59e0b', amplitudeX:190, speedX:0.4, phaseX:0.8, amplitude:0, speed:0.4, phase:0.8},
-    {baseWX:1600, wx:1600, baseWY:380, w:120, h:18, color:'#34d399', amplitudeX:170, speedX:0.6, phaseX:1.5, amplitude:0, speed:0.6, phase:1.5},
-  ].map(p=>({...p, wy:p.baseWY})); // wy updated each frame in tick
+  // Generate platforms procedurally across a wide world range
+  const _PC=['#f9a8d4','#c084fc','#fb923c','#4ade80','#fbbf24'];
+  const _ps=i=>Math.abs(Math.sin(i*2.718+1.414)); // deterministic 0-1
+  const PLATFORMS=[];
+  // Vertical bouncers every ~360 units from -5400 to +5400
+  for(let i=-15;i<=15;i++){
+    if(i===0)continue;
+    const wx=i*360, s=_ps(i);
+    const baseWY=160+Math.floor(s*240);
+    PLATFORMS.push({wx,baseWY,w:Math.floor(120+_ps(i+7)*80),h:18,color:_PC[Math.abs(i)%5],
+      amplitude:30+Math.floor(_ps(i+3)*65),speed:0.4+_ps(i+5)*0.7,phase:_ps(i+9)*6.28,wy:baseWY});
+  }
+  // Horizontal sliders every ~700 units from -4900 to +4900
+  for(let i=-7;i<=7;i++){
+    if(i===0)continue;
+    const baseWX=i*700+150, s=_ps(i+20);
+    const baseWY=360+Math.floor(s*70);
+    PLATFORMS.push({wx:baseWX,baseWX,baseWY,w:130,h:18,color:s>0.5?'#34d399':'#f59e0b',
+      amplitudeX:140+Math.floor(_ps(i+25)*120),speedX:0.35+_ps(i+30)*0.45,phaseX:_ps(i+35)*6.28,
+      amplitude:0,speed:0.5,phase:0,wy:baseWY});
+  }
 
   // Candy collectibles: one emoji above each platform (jump-power boost)
   const COLLECTIBLES=PLATFORMS.map((p,i)=>({
@@ -562,7 +562,7 @@ function buildParallaxMap(){
   const LETTERS=[];
   let lid=0;
   // Distribute word sets across x-axis so players explore both directions
-  const xSteps=[-1800,-1400,-1000,-600,-200,200,600,1000,1400,1800,2200,2600];
+  const xSteps=[-5200,-4200,-3200,-2400,-1500,-600,600,1500,2400,3200,4200,5200];
   WORD_SETS.forEach((ws,wi)=>{
     const baseX=xSteps[wi]||wi*500;
     const isHard=wi>=8; // FUN, TOP, HIGH, WORD — placed higher
@@ -1119,7 +1119,7 @@ function render(){
     ctx.save();
     ctx.imageSmoothingEnabled=true;
     const pH=H, pW=W;
-    const groundScreenY=pH*0.82;
+    const groundScreenY=pH*0.87;
     const imgW=map.W_PX, imgH=1080;
     const scaledW=imgW*(pH/imgH);
     // Helper: world-Y → screen-Y (ground=groundScreenY, higher worldY=lower on screen)
@@ -1132,8 +1132,9 @@ function render(){
       const rawOff=-camX*layer.scale;
       const startX=Math.floor(((rawOff%tileW)+tileW)%tileW)-tileW;
       const yOff=(layer.yShift||0)*pH;
+      const drawH=(layer.drawH||1)*pH;
       for(let dx=startX;dx<pW+tileW;dx+=tileW){
-        ctx.drawImage(img,Math.floor(dx),yOff,tileW,pH);
+        ctx.drawImage(img,Math.floor(dx),yOff,tileW,drawH);
       }
     });
     // ── Platforms ──
@@ -1262,9 +1263,21 @@ function render(){
         const match=map.WORD_SETS.find(ws=>[...ws.word].every(ch=>inv.includes(ch)));
         if(match) hintText=`✨ Spell "${match.word}"! Press E`;
       }
-      ctx.font='10px "JetBrains Mono",monospace';
-      ctx.fillStyle='#a78bfa99'; ctx.textAlign='center'; ctx.textBaseline='top';
+      // Pulsing hint — bigger, bold, gold when letters collected
+      const pulse=0.55+0.45*Math.sin(t*4);
+      ctx.save();
+      ctx.globalAlpha=letterInventory.length>0?pulse:0.45;
+      ctx.font=`bold ${letterInventory.length>0?17:13}px "JetBrains Mono",monospace`;
+      ctx.fillStyle=letterInventory.length>0?'#fbbf24':'#a78bfa';
+      ctx.textAlign='center'; ctx.textBaseline='top';
+      if(letterInventory.length>0){
+        ctx.shadowColor='#fbbf24'; ctx.shadowBlur=12;
+      }
       ctx.fillText(hintText,pW/2,ty+tH+6);
+      ctx.restore();
+      // Sync mobile E button label
+      const btnE=document.getElementById('btn-e');
+      if(btnE) btnE.textContent=letterInventory.length>0?'✨':'E';
     }
     ctx.restore();
     ctx.save(); // dummy save to match restore at end of render
@@ -1351,7 +1364,7 @@ function tick(ts){
       if(p.amplitudeX) p.wx=p.baseWX+Math.sin(plxT*p.speedX+p.phaseX)*p.amplitudeX;
     });
     // Jump power scales with candy credits (max +200 more)
-    const jumpPow=Math.min(580, 380+candyScore*8);
+    const jumpPow=Math.min(900, 500+candyScore*12);
     // Jump — clears platform ride
     if(!wordPanel&&kJump&&!plxJumpPressed&&(plxOnGround||activePlatform)){
       plxVelY=-jumpPow; plxOnGround=false; plxOnPlatform=false; activePlatform=null;
@@ -2007,7 +2020,11 @@ function setupMobileControls(){
 
   document.getElementById('btn-e').addEventListener('touchstart',e=>{
     e.preventDefault();
-    if(nearNpc&&document.getElementById('shop').classList.contains('hidden'))openShop(nearNpc);
+    if(typeof plxMode!=='undefined'&&plxMode){
+      if(letterInventory.length>0&&!wordPanel) openWordPanel();
+    } else {
+      if(nearNpc&&document.getElementById('shop').classList.contains('hidden'))openShop(nearNpc);
+    }
   },{passive:false});
   document.getElementById('btn-travel').addEventListener('touchstart',e=>{
     e.preventDefault();openTravelOverlay();
