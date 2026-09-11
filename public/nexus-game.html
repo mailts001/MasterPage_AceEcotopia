@@ -40,7 +40,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#070810;color:#c8c4e
 .ab-btn.active{border-color:#38bdf8;color:#38bdf8;background:#0d1a2a}
 .ab-btn.cooldown{opacity:.4;cursor:not-allowed}
 #hud-ability-timer{font-size:.55rem;color:#94a3b8;margin-left:6px}
-#chat{position:fixed;top:0;left:0;width:280px;z-index:5;padding:6px}
+#chat{position:fixed;top:0;right:0;left:auto;width:240px;z-index:5;padding:6px}
 #chat.hidden{display:none}
 #chat-log{background:rgba(7,8,16,.78);border:1px solid #1a1730;border-radius:0 0 4px 4px;padding:5px 7px;height:90px;overflow-y:auto;font-size:.62rem;line-height:1.55;color:#8885b0;transition:height .2s}
 #chat-log::-webkit-scrollbar{width:2px}
@@ -1199,7 +1199,7 @@ function render(){
       ctx.restore();
     });
     // ── Players (avatar grows with candyScore: 1.0 → 2.0) ──
-    const plxAvatarScale=Math.min(2.0, 1.0+candyScore*0.1);
+    const plxAvatarScale=Math.min(3.0, 1.5+candyScore*0.1);
     const drawPLXPlayer=(wx,wy,isLocal,name,pid)=>{
       const sx=pW/2+(wx-camX);
       const sy=worldToScreenY(wy); // feet at physics ground — avatar grows upward
@@ -1215,41 +1215,50 @@ function render(){
     ctx.textAlign='left'; ctx.textBaseline='top';
     if(candyScore>0){
       ctx.fillStyle='#f9a8d4';
-      const szPct=Math.round(Math.min(200,100+candyScore*10));
+      const szPct=Math.round(Math.min(300,150+candyScore*10));
       ctx.fillText(`🍭 ${candyScore}  •  size ${szPct}%`,12,46);
     }
-    // ── Letter tray (persistent, color-coded) ──
-    if(letterInventory.length>0){
-      const tW=36, tH=36, gap=4;
-      const totalW=letterInventory.length*(tW+gap)-gap;
-      const trayX=pW/2-totalW/2, ty=8;
-      // Tray background panel
+    // ── Letter tray (always visible, centered top) ──
+    {
+      const tW=34, tH=34, gap=4, maxSlots=8;
+      const slots=Math.max(maxSlots, letterInventory.length);
+      const totalW=slots*(tW+gap)-gap;
+      const trayX=pW/2-totalW/2, ty=56;
       ctx.save();
-      ctx.fillStyle='rgba(10,6,30,0.78)';ctx.strokeStyle='#4a3070';ctx.lineWidth=1;
-      ctx.beginPath();ctx.roundRect(trayX-8,ty-8,totalW+16,tH+16,8);ctx.fill();ctx.stroke();
+      // Panel background
+      ctx.fillStyle='rgba(10,6,30,0.82)';ctx.strokeStyle='#4a3070';ctx.lineWidth=1;
+      ctx.beginPath();ctx.roundRect(trayX-8,ty-6,totalW+16,tH+12,8);ctx.fill();ctx.stroke();
+      // Empty-slot placeholders
+      for(let i=0;i<maxSlots;i++){
+        const tx=trayX+i*(tW+gap);
+        ctx.globalAlpha=0.25;
+        ctx.fillStyle='#4a3070'; ctx.strokeStyle='#4a3070'; ctx.lineWidth=1;
+        ctx.beginPath();ctx.roundRect(tx,ty,tW,tH,5);ctx.fill();ctx.stroke();
+        ctx.globalAlpha=1;
+      }
+      // Collected letters
       letterInventory.forEach((entry,i)=>{
         const ltr=entry.letter||entry, col=entry.color||'#c084fc';
         const tx=trayX+i*(tW+gap);
-        // Tile background in letter's word-set color (translucent)
-        ctx.globalAlpha=0.85;
-        ctx.fillStyle=col+'55'; ctx.strokeStyle=col; ctx.lineWidth=1.5;
+        ctx.globalAlpha=0.9;
+        ctx.fillStyle=col+'66'; ctx.strokeStyle=col; ctx.lineWidth=1.5;
         ctx.beginPath();ctx.roundRect(tx,ty,tW,tH,5);ctx.fill();ctx.stroke();
         ctx.globalAlpha=1;
-        ctx.fillStyle='#fff'; ctx.font='bold 15px "JetBrains Mono",monospace';
+        ctx.fillStyle='#fff'; ctx.font='bold 14px "JetBrains Mono",monospace';
         ctx.textAlign='center'; ctx.textBaseline='middle';
         ctx.fillText(ltr,tx+tW/2,ty+tH/2);
       });
       ctx.restore();
-      // Hint row: check if any full word set is complete
-      let hintText='press E to form word';
-      if(map.WORD_SETS){
+      // Label + hint below tray
+      let hintText= letterInventory.length===0 ? '🍬 collect letter bubbles to form words' : 'press E to form word';
+      if(letterInventory.length>0&&map.WORD_SETS){
         const inv=letterInventory.map(x=>x.letter||x);
         const match=map.WORD_SETS.find(ws=>[...ws.word].every(ch=>inv.includes(ch)));
         if(match) hintText=`✨ Spell "${match.word}"! Press E`;
       }
       ctx.font='10px "JetBrains Mono",monospace';
-      ctx.fillStyle='#a78bfa'; ctx.textAlign='center';
-      ctx.fillText(hintText,pW/2,ty+tH+16);
+      ctx.fillStyle='#a78bfa99'; ctx.textAlign='center'; ctx.textBaseline='top';
+      ctx.fillText(hintText,pW/2,ty+tH+6);
     }
     ctx.restore();
     ctx.save(); // dummy save to match restore at end of render
@@ -1793,7 +1802,9 @@ function enterGame(welcome){
   localPos={...sp};camX=sp.x;camY=sp.y;
   document.getElementById('lobby').classList.add('hidden');
   document.getElementById('hud').classList.remove('hidden');
-  document.getElementById('chat').classList.remove('hidden');
+  const chatEl2=document.getElementById('chat');
+  chatEl2.classList.remove('hidden');
+  chatEl2.style.cssText+='position:fixed!important;top:0!important;bottom:auto!important;right:0!important;left:auto!important;';
   document.getElementById('hud-status').textContent=username;
   document.getElementById('hud-credits').textContent=`♥ ${healthCredits} HP`;
   document.getElementById('hud-district').textContent=DISTRICTS.find(d=>d.id===districtId)?.name||districtId;
@@ -2190,7 +2201,10 @@ if(EMBED_MODE){
     const sp=map?map.spawn():{x:0,y:0};
     localPos={...sp};
     document.getElementById('hud').classList.remove('hidden');
-    document.getElementById('chat').classList.remove('hidden');
+    const chatEl=document.getElementById('chat');
+    chatEl.classList.remove('hidden');
+    // Force top-right position regardless of cached CSS
+    chatEl.style.cssText+='position:fixed!important;top:0!important;bottom:auto!important;right:0!important;left:auto!important;';
     document.getElementById('hud-status').textContent=username;
     document.getElementById('hud-credits').textContent=`♥ ${healthCredits} HP`;
     document.getElementById('hud-district').textContent=DISTRICTS.find(d=>d.id===districtId)?.name||districtId;
