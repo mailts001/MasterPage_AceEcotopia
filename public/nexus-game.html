@@ -40,7 +40,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#070810;color:#c8c4e
 .ab-btn.active{border-color:#38bdf8;color:#38bdf8;background:#0d1a2a}
 .ab-btn.cooldown{opacity:.4;cursor:not-allowed}
 #hud-ability-timer{font-size:.55rem;color:#94a3b8;margin-left:6px}
-#chat{position:fixed;top:0;right:0;left:auto;width:240px;z-index:5;padding:6px}
+#chat{position:fixed;top:26px;right:0;left:auto;width:240px;z-index:5;padding:6px}
 #chat.hidden{display:none}
 #chat-log{background:rgba(7,8,16,.78);border:1px solid #1a1730;border-radius:0 0 4px 4px;padding:5px 7px;height:90px;overflow-y:auto;font-size:.62rem;line-height:1.55;color:#8885b0;transition:height .2s}
 #chat-log::-webkit-scrollbar{width:2px}
@@ -528,6 +528,12 @@ function buildParallaxMap(){
     {wx:-850, baseWY:210, w:180, h:18, color:'#4ade80', amplitude:75,  speed:0.5, phase:0.3},
     {wx:-1250,baseWY:160, w:160, h:18, color:'#fb923c', amplitude:85,  speed:0.6, phase:1.7},
     {wx:-1650,baseWY:280, w:150, h:18, color:'#f9a8d4', amplitude:40,  speed:0.8, phase:2.9},
+    // Horizontal slider platforms (fixed wy, oscillate wx)
+    {baseWX:450,  wx:450,  baseWY:390, w:130, h:18, color:'#34d399', amplitudeX:180, speedX:0.5, phaseX:0,   amplitude:0, speed:0.5, phase:0},
+    {baseWX:900,  wx:900,  baseWY:360, w:120, h:18, color:'#f59e0b', amplitudeX:200, speedX:0.7, phaseX:1.2, amplitude:0, speed:0.7, phase:1.2},
+    {baseWX:-500, wx:-500, baseWY:400, w:140, h:18, color:'#34d399', amplitudeX:160, speedX:0.6, phaseX:2.0, amplitude:0, speed:0.6, phase:2.0},
+    {baseWX:-950, wx:-950, baseWY:370, w:130, h:18, color:'#f59e0b', amplitudeX:190, speedX:0.4, phaseX:0.8, amplitude:0, speed:0.4, phase:0.8},
+    {baseWX:1600, wx:1600, baseWY:380, w:120, h:18, color:'#34d399', amplitudeX:170, speedX:0.6, phaseX:1.5, amplitude:0, speed:0.6, phase:1.5},
   ].map(p=>({...p, wy:p.baseWY})); // wy updated each frame in tick
 
   // Candy collectibles: one emoji above each platform (jump-power boost)
@@ -562,9 +568,9 @@ function buildParallaxMap(){
     const isHard=wi>=8; // FUN, TOP, HIGH, WORD — placed higher
     [...ws.word].forEach((letter,li)=>{
       const xOff=(li-ws.word.length/2)*200+Math.sin(wi*7+li)*80;
-      // height: vowels near ground, consonants mid, hard words up high
-      const isVowel='AEIOU'.includes(letter);
-      const wy = isHard ? 170+li*20 : isVowel ? 480 : 330+li*15;
+      // height: ground-set easy (wy≈470-480), mid-set need small jump (wy≈360-400), high-set need platform (wy≈150-250)
+      const isMid=wi>=4&&wi<8; // CAKE,GOAL,RISE,GOLD — mid height
+      const wy = isHard ? 150+li*20 : isMid ? 380+li*10 : 470+li*5;
       LETTERS.push({wx:baseX+xOff, wy, letter, color:ws.color,
         wordSet:wi, collected:false, respawn:0, id:lid++});
     });
@@ -1113,7 +1119,7 @@ function render(){
     ctx.save();
     ctx.imageSmoothingEnabled=true;
     const pH=H, pW=W;
-    const groundScreenY=pH*0.88;
+    const groundScreenY=pH*0.82;
     const imgW=map.W_PX, imgH=1080;
     const scaledW=imgW*(pH/imgH);
     // Helper: world-Y → screen-Y (ground=groundScreenY, higher worldY=lower on screen)
@@ -1338,7 +1344,12 @@ function tick(ts){
     }
     // Platform oscillation (update positions first)
     const plxT=performance.now()/1000;
-    map.PLATFORMS.forEach(p=>{p.wy=p.baseWY+Math.sin(plxT*p.speed+p.phase)*p.amplitude;});
+    // Track previous wx for horizontal platform riding
+    const prevActivePlatformWX=activePlatform?activePlatform.wx:0;
+    map.PLATFORMS.forEach(p=>{
+      p.wy=p.baseWY+Math.sin(plxT*p.speed+p.phase)*p.amplitude;
+      if(p.amplitudeX) p.wx=p.baseWX+Math.sin(plxT*p.speedX+p.phaseX)*p.amplitudeX;
+    });
     // Jump power scales with candy credits (max +200 more)
     const jumpPow=Math.min(580, 380+candyScore*8);
     // Jump — clears platform ride
@@ -1349,9 +1360,11 @@ function tick(ts){
     if(!wordPanel&&joyY<-0.6&&(plxOnGround||activePlatform)){
       plxVelY=-jumpPow; plxOnGround=false; plxOnPlatform=false; activePlatform=null;
     }
-    // Ride active platform (player moves WITH it)
+    // Ride active platform (player moves WITH it, including horizontal sliders)
     if(activePlatform){
       localPos.y=activePlatform.wy; plxVelY=0; plxOnPlatform=true;
+      // Carry player with horizontal platform movement
+      if(activePlatform.amplitudeX) localPos.x+=activePlatform.wx-prevActivePlatformWX;
       // Fell off edge?
       if(localPos.x<activePlatform.wx-15||localPos.x>activePlatform.wx+activePlatform.w+15){
         activePlatform=null; plxOnPlatform=false;
@@ -1804,7 +1817,7 @@ function enterGame(welcome){
   document.getElementById('hud').classList.remove('hidden');
   const chatEl2=document.getElementById('chat');
   chatEl2.classList.remove('hidden');
-  chatEl2.style.cssText+='position:fixed!important;top:0!important;bottom:auto!important;right:0!important;left:auto!important;';
+  chatEl2.style.cssText+='position:fixed!important;top:26px!important;bottom:auto!important;right:0!important;left:auto!important;';
   document.getElementById('hud-status').textContent=username;
   document.getElementById('hud-credits').textContent=`♥ ${healthCredits} HP`;
   document.getElementById('hud-district').textContent=DISTRICTS.find(d=>d.id===districtId)?.name||districtId;
@@ -2204,7 +2217,7 @@ if(EMBED_MODE){
     const chatEl=document.getElementById('chat');
     chatEl.classList.remove('hidden');
     // Force top-right position regardless of cached CSS
-    chatEl.style.cssText+='position:fixed!important;top:0!important;bottom:auto!important;right:0!important;left:auto!important;';
+    chatEl.style.cssText+='position:fixed!important;top:26px!important;bottom:auto!important;right:0!important;left:auto!important;';
     document.getElementById('hud-status').textContent=username;
     document.getElementById('hud-credits').textContent=`♥ ${healthCredits} HP`;
     document.getElementById('hud-district').textContent=DISTRICTS.find(d=>d.id===districtId)?.name||districtId;
