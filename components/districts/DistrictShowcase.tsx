@@ -141,6 +141,24 @@ const DISTRICTS = [
     features: ['🌿 TCM symptom → constitution pattern', '🀄 BaZi & ZiWei birth chart cross-reference', '🫙 Personalised herb & diet recommendations', '🤖 Telegram bot daily check-in loop', '🗺️ 3D acupuncture body map (Qi points)'],
     stat: { value: '3D', label: 'Acupuncture body map' },
   },
+  {
+    id:       'candy',
+    name:     'Candy Parallax District',
+    tagline:  'Live Multiplayer Platformer',
+    icon:     '🍭',
+    accent:   '#f472b6',
+    accentCls:'text-pink-400',
+    borderCls:'border-pink-500/30',
+    video:    null,
+    liveGame: 'https://aceconology.duckdns.org:8444/nexus-game.html?embed=1&district=candy',
+    poster:   '/districts/commerce-poster.jpg',
+    href:     'https://aceconology.duckdns.org:8444/nexus-game.html?district=candy',
+    joinHref: '/citizen/register?district=candy',
+    externalLabel: 'Play full screen →',
+    desc:     'A live multiplayer 2D side-scroller where citizens explore a candy-coloured parallax world. Collect letter bubbles, form words, ride bouncing platforms, grow your avatar and walk through portal gates to other districts.',
+    features: ['🍬 Collect letter bubbles across the world','🅰️ Form words to earn candy credits','🎪 Bounce on moving platforms to reach higher letters','🌀 Walk to world edge portals → travel to other districts','👥 Live multiplayer — see other citizens in real time'],
+    stat: { value: 'LIVE', label: 'Multiplayer platformer' },
+  },
 ]
 
 const REPLAY_DELAY_MS = 3000   // hold on last frame for 3s before replaying
