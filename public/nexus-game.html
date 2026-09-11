@@ -377,6 +377,7 @@ let mobileZoom=1; // pinch zoom multiplier (1 = default)
 const keys={};
 let joyX=0, joyY=0; // virtual joystick
 let plxVelY=0, plxOnGround=true, plxOnPlatform=false, plxJumpPressed=false;
+let activePlatform=null, plxPopEffects=[];
 let candyScore=0;
 let letterInventory=[]; // max 8 collected letters
 let wordPanel=false;
@@ -510,7 +511,7 @@ function buildParallaxMap(){
     {name:'rocks', scale:0.5, ref:PLX_ROCKS,  yShift:0},
     {name:'clouds',scale:0.6, ref:PLX_CLOUDS, yShift:0},
     {name:'trees', scale:0.7, ref:PLX_TREES,  yShift:0.10},
-    {name:'cake',  scale:0.9, ref:PLX_CAKE,   yShift:0.14},
+    {name:'cake',  scale:0.9, ref:PLX_CAKE,   yShift:0.19},
     {name:'ground',scale:1.5, ref:PLX_GROUND, yShift:0},
   ];
   // Floating platforms with oscillation: baseWY=rest height, amplitude=travel range, speed=Hz, phase=offset
@@ -535,26 +536,44 @@ function buildParallaxMap(){
     color:p.color, label:['🍭','🍬','🧁','⭐'][i%4]
   }));
 
-  // Letter pickups: scattered at ground level and mid-air near platforms
-  const ALPHA='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const LETTERS=[];
-  const letterPositions=[
-    {wx:150,wy:440},{wx:500,wy:440},{wx:830,wy:440},{wx:1150,wy:440},
-    {wx:1500,wy:440},{wx:1820,wy:440},{wx:2200,wy:440},{wx:2550,wy:440},
-    {wx:-200,wy:440},{wx:-600,wy:440},{wx:-1000,wy:440},{wx:-1400,wy:440},
-    // mid-air near platforms
-    {wx:380,wy:310},{wx:720,wy:230},{wx:1080,wy:160},{wx:1430,wy:260},
-    {wx:1760,wy:130},{wx:2130,wy:210},{wx:2480,wy:150},{wx:2830,wy:280},
+  // Curated word sets — each word is color-coded so players can identify complete sets
+  const WORD_SETS=[
+    {word:'CANDY', color:'#f9a8d4', hint:'Sweet power-up!'},
+    {word:'JUMP',  color:'#60a5fa', hint:'Leap higher!'},
+    {word:'STAR',  color:'#fbbf24', hint:'Reach the top!'},
+    {word:'PLAY',  color:'#4ade80', hint:'Keep moving!'},
+    {word:'CAKE',  color:'#fb923c', hint:'Bake a word!'},
+    {word:'GOAL',  color:'#a78bfa', hint:'Aim high!'},
+    {word:'RISE',  color:'#86efac', hint:'Climb up!'},
+    {word:'GOLD',  color:'#fde68a', hint:'Valuable!'},
+    {word:'FUN',   color:'#f87171', hint:'Enjoy!'},
+    {word:'TOP',   color:'#67e8f9', hint:'Reach it!'},
+    {word:'HIGH',  color:'#d8b4fe', hint:'Go higher!'},
+    {word:'WORD',  color:'#c084fc', hint:'Spell it!'},
   ];
-  letterPositions.forEach((p,i)=>LETTERS.push({
-    wx:p.wx, wy:p.wy, letter:ALPHA[i%26],
-    collected:false, respawn:0, id:i
-  }));
+  // Generate letter pickups: spread across world at different heights
+  // Ground (wy 430-460): easy grab. Mid (wy 280-360): need small jump. High (wy 150-240): need platform+credits.
+  const LETTERS=[];
+  let lid=0;
+  // Distribute word sets across x-axis so players explore both directions
+  const xSteps=[-1800,-1400,-1000,-600,-200,200,600,1000,1400,1800,2200,2600];
+  WORD_SETS.forEach((ws,wi)=>{
+    const baseX=xSteps[wi]||wi*500;
+    const isHard=wi>=8; // FUN, TOP, HIGH, WORD — placed higher
+    [...ws.word].forEach((letter,li)=>{
+      const xOff=(li-ws.word.length/2)*200+Math.sin(wi*7+li)*80;
+      // height: vowels near ground, consonants mid, hard words up high
+      const isVowel='AEIOU'.includes(letter);
+      const wy = isHard ? 170+li*20 : isVowel ? 440 : 310+li*15;
+      LETTERS.push({wx:baseX+xOff, wy, letter, color:ws.color,
+        wordSet:wi, collected:false, respawn:0, id:lid++});
+    });
+  });
   LAYER_DEFS.forEach(l=>{
     if(!l.ref.img){l.ref.img=new Image();l.ref.img.src=l.ref.b64;}
   });
   return{
-    type:'parallax',GROUND_Y,CANVAS_H,W_PX,LAYER_DEFS,PLATFORMS,COLLECTIBLES,LETTERS,
+    type:'parallax',GROUND_Y,CANVAS_H,W_PX,LAYER_DEFS,PLATFORMS,COLLECTIBLES,LETTERS,WORD_SETS,
     spawn(){return{x:0,y:GROUND_Y};},
     isWalkable(gx,gy){return true;},
     toTile(sx,sy){return{gx:Math.floor(sx/32),gy:0};}
@@ -1137,19 +1156,46 @@ function render(){
       ctx.beginPath();ctx.arc(sx,sy,14,0,Math.PI*2);
       ctx.strokeStyle=c.color+'99';ctx.lineWidth=2;ctx.stroke();
     });
-    // ── Letter pickups ──
+    // ── Letter bubbles ──
     map.LETTERS.forEach(l=>{
       if(l.collected)return;
       const lsx=pW/2+(l.wx-camX);
-      const lsy=worldToScreenY(l.wy)+(Math.sin(t*1.5+l.id)*4);
+      const lsy=worldToScreenY(l.wy)+(Math.sin(t*1.8+l.id)*5);
       ctx.save();
-      ctx.fillStyle='#7c3aed';
-      ctx.shadowColor='#c084fc'; ctx.shadowBlur=10;
-      ctx.beginPath();ctx.arc(lsx,lsy,14,0,Math.PI*2);ctx.fill();
+      // Translucent bubble fill
+      ctx.globalAlpha=0.72;
+      ctx.fillStyle=l.color||'#c084fc';
+      ctx.shadowColor=l.color||'#c084fc'; ctx.shadowBlur=14;
+      ctx.beginPath();ctx.arc(lsx,lsy,17,0,Math.PI*2);ctx.fill();
       ctx.shadowBlur=0;
-      ctx.font='bold 13px "JetBrains Mono",monospace';
+      // Bubble gloss highlight
+      ctx.globalAlpha=0.45;
+      ctx.fillStyle='#ffffff';
+      ctx.beginPath();ctx.arc(lsx-5,lsy-5,7,0,Math.PI*2);ctx.fill();
+      // Outer ring
+      ctx.globalAlpha=0.5;
+      ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.arc(lsx,lsy,17,0,Math.PI*2);ctx.stroke();
+      // Letter
+      ctx.globalAlpha=1;
+      ctx.font='bold 14px "JetBrains Mono",monospace';
       ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText(l.letter,lsx,lsy);
+      ctx.restore();
+    });
+    // ── Pop effects ──
+    plxPopEffects.forEach(p=>{
+      const age=t-p.t, frac=age/0.5;
+      if(frac>=1)return;
+      const psx=pW/2+(p.wx-camX), psy=worldToScreenY(p.wy);
+      ctx.save();
+      ctx.globalAlpha=1-frac;
+      const r=(p.big?18:16)+(frac*55);
+      ctx.strokeStyle=p.color; ctx.lineWidth=2.5;
+      ctx.beginPath();ctx.arc(psx,psy,r,0,Math.PI*2);ctx.stroke();
+      // Inner ring
+      ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.arc(psx,psy,r*0.55,0,Math.PI*2);ctx.stroke();
       ctx.restore();
     });
     // ── Players ──
@@ -1164,20 +1210,38 @@ function render(){
     ctx.font='bold 13px "JetBrains Mono",monospace';
     ctx.textAlign='left'; ctx.textBaseline='top';
     if(candyScore>0){ctx.fillStyle='#f9a8d4';ctx.fillText(`🍭 ${candyScore}`,12,46);}
-    // Letter tray at bottom
+    // ── Letter tray (persistent, color-coded) ──
     if(letterInventory.length>0){
-      const trayX=pW/2-letterInventory.length*18;
-      letterInventory.forEach((ltr,i)=>{
-        const tx=trayX+i*36, ty=pH-52;
-        ctx.fillStyle='#2d1b69'; ctx.strokeStyle='#c084fc'; ctx.lineWidth=1.5;
-        ctx.beginPath();ctx.roundRect(tx,ty,30,30,5);ctx.fill();ctx.stroke();
-        ctx.fillStyle='#f0e6ff'; ctx.font='bold 14px "JetBrains Mono",monospace';
+      const tW=36, tH=36, gap=4;
+      const totalW=letterInventory.length*(tW+gap)-gap;
+      const trayX=pW/2-totalW/2, ty=pH-58;
+      // Tray background panel
+      ctx.save();
+      ctx.fillStyle='rgba(10,6,30,0.78)';ctx.strokeStyle='#4a3070';ctx.lineWidth=1;
+      ctx.beginPath();ctx.roundRect(trayX-8,ty-8,totalW+16,tH+16,8);ctx.fill();ctx.stroke();
+      letterInventory.forEach((entry,i)=>{
+        const ltr=entry.letter||entry, col=entry.color||'#c084fc';
+        const tx=trayX+i*(tW+gap);
+        // Tile background in letter's word-set color (translucent)
+        ctx.globalAlpha=0.85;
+        ctx.fillStyle=col+'55'; ctx.strokeStyle=col; ctx.lineWidth=1.5;
+        ctx.beginPath();ctx.roundRect(tx,ty,tW,tH,5);ctx.fill();ctx.stroke();
+        ctx.globalAlpha=1;
+        ctx.fillStyle='#fff'; ctx.font='bold 15px "JetBrains Mono",monospace';
         ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillText(ltr,tx+15,ty+15);
+        ctx.fillText(ltr,tx+tW/2,ty+tH/2);
       });
+      ctx.restore();
+      // Hint row: check if any full word set is complete
+      let hintText='press E to form word';
+      if(map.WORD_SETS){
+        const inv=letterInventory.map(x=>x.letter||x);
+        const match=map.WORD_SETS.find(ws=>[...ws.word].every(ch=>inv.includes(ch)));
+        if(match) hintText=`✨ Spell "${match.word}"! Press E`;
+      }
       ctx.font='10px "JetBrains Mono",monospace';
       ctx.fillStyle='#a78bfa'; ctx.textAlign='center';
-      ctx.fillText('press E to form word',pW/2,pH-58);
+      ctx.fillText(hintText,pW/2,pH-66);
     }
     ctx.restore();
     ctx.save(); // dummy save to match restore at end of render
@@ -1255,44 +1319,52 @@ function tick(ts){
         localPos.x+=hx*spd*dt;
       }
     }
-    // Jump power scales with candy credits (max +200)
-    const jumpPow=Math.min(580, 380+candyScore*8);
-    // Jump: rising edge only, block when word panel open
-    if(!wordPanel&&kJump&&!plxJumpPressed&&(plxOnGround||plxOnPlatform)){
-      plxVelY=-jumpPow; plxOnGround=false; plxOnPlatform=false;
-    }
-    plxJumpPressed=kJump>0;
-    // Mobile: joyY full up = jump
-    if(!wordPanel&&joyY<-0.6&&(plxOnGround||plxOnPlatform)){
-      plxVelY=-jumpPow; plxOnGround=false; plxOnPlatform=false;
-    }
-    // Platform oscillation
+    // Platform oscillation (update positions first)
     const plxT=performance.now()/1000;
     map.PLATFORMS.forEach(p=>{p.wy=p.baseWY+Math.sin(plxT*p.speed+p.phase)*p.amplitude;});
-    // Gravity
-    if(!plxOnGround&&!plxOnPlatform) plxVelY+=900*dt;
-    localPos.y+=plxVelY*dt;
-    // Land on ground
-    if(localPos.y>=map.GROUND_Y){
-      localPos.y=map.GROUND_Y; plxVelY=0; plxOnGround=true;
-    } else { plxOnGround=false; }
-    // Platform collision (only when falling: plxVelY>=0)
-    plxOnPlatform=false;
-    if(plxVelY>=0){
-      map.PLATFORMS.forEach(p=>{
-        if(localPos.x>=p.wx-10&&localPos.x<=p.wx+p.w+10&&
-           localPos.y<=p.wy+p.h+2&&localPos.y>=p.wy-40){
-          localPos.y=p.wy; plxVelY=0; plxOnPlatform=true;
-        }
-      });
+    // Jump power scales with candy credits (max +200 more)
+    const jumpPow=Math.min(580, 380+candyScore*8);
+    // Jump — clears platform ride
+    if(!wordPanel&&kJump&&!plxJumpPressed&&(plxOnGround||activePlatform)){
+      plxVelY=-jumpPow; plxOnGround=false; plxOnPlatform=false; activePlatform=null;
+    }
+    plxJumpPressed=kJump>0;
+    if(!wordPanel&&joyY<-0.6&&(plxOnGround||activePlatform)){
+      plxVelY=-jumpPow; plxOnGround=false; plxOnPlatform=false; activePlatform=null;
+    }
+    // Ride active platform (player moves WITH it)
+    if(activePlatform){
+      localPos.y=activePlatform.wy; plxVelY=0; plxOnPlatform=true;
+      // Fell off edge?
+      if(localPos.x<activePlatform.wx-15||localPos.x>activePlatform.wx+activePlatform.w+15){
+        activePlatform=null; plxOnPlatform=false;
+      }
+    } else {
+      // Gravity + movement
+      if(!plxOnGround) plxVelY+=900*dt;
+      localPos.y+=plxVelY*dt;
+      if(localPos.y>=map.GROUND_Y){
+        localPos.y=map.GROUND_Y; plxVelY=0; plxOnGround=true;
+      } else { plxOnGround=false; }
+      // Land on platform (only when falling)
+      plxOnPlatform=false;
+      if(plxVelY>=0){
+        map.PLATFORMS.forEach(p=>{
+          if(localPos.x>=p.wx-10&&localPos.x<=p.wx+p.w+10&&
+             localPos.y<=p.wy+p.h+4&&localPos.y>=p.wy-50){
+            localPos.y=p.wy; plxVelY=0; plxOnPlatform=true; activePlatform=p;
+          }
+        });
+      }
     }
     // Candy collectible pickup
     map.COLLECTIBLES.forEach(c=>{
       if(c.collected)return;
       const cdx=localPos.x-c.wx, cdy=localPos.y-c.wy;
-      if(cdx*cdx+cdy*cdy<1400){
+      if(cdx*cdx+cdy*cdy<1600){
         c.collected=true; candyScore++;
-        showToast(`${c.label} +1 candy boost!  Jump power: ${Math.round(Math.min(580,380+candyScore*8))}`);
+        plxPopEffects.push({wx:c.wx,wy:c.wy,t:plxT,color:c.color,big:true});
+        showToast(`${c.label} +1 boost!  Jump power: ${Math.round(jumpPow+8)}`);
       }
     });
     // Letter pickup
@@ -1300,15 +1372,24 @@ function tick(ts){
       map.LETTERS.forEach(l=>{
         if(l.collected)return;
         const ldx=localPos.x-l.wx, ldy=localPos.y-l.wy;
-        if(ldx*ldx+ldy*ldy<1400){
-          l.collected=true; l.respawn=plxT+20; // respawn after 20s
-          letterInventory.push(l.letter);
-          showToast(`Collected "${l.letter}"  •  Tray: ${letterInventory.join(' ')}`);
+        if(ldx*ldx+ldy*ldy<1600){
+          l.collected=true; l.respawn=plxT+25;
+          // push letter with its color info for tray display
+          letterInventory.push({letter:l.letter, color:l.color, wordSet:l.wordSet});
+          plxPopEffects.push({wx:l.wx,wy:l.wy,t:plxT,color:l.color,big:false});
+          // Word completion hint
+          const ws=map.WORD_SETS&&map.WORD_SETS[l.wordSet];
+          const inv=letterInventory.map(x=>x.letter||x);
+          const have=ws&&[...ws.word].every(ch=>inv.includes(ch));
+          if(have) showToast(`🎉 You have all letters for "${ws.word}"! Press E to form it!`);
+          else showToast(`"${l.letter}" collected  •  ${letterInventory.length}/8 letters`);
         }
       });
     }
     // Letter respawn
     map.LETTERS.forEach(l=>{if(l.collected&&plxT>=l.respawn)l.collected=false;});
+    // Pop effects expire after 0.5s
+    plxPopEffects=plxPopEffects.filter(p=>plxT-p.t<0.5);
     // Word panel: open with E key
     if(keys['e']&&!wordPanel&&letterInventory.length>0){openWordPanel();}
     camX+=(localPos.x-camX)*.12;
@@ -1698,7 +1779,7 @@ function enterGame(welcome){
     npcs=welcome.npcs||[];
   }
   playerElevPx=0;playerLevel=0;merchantItems=[];campaignPollTimer=30;lastPlacementHash='';lastCycleSeen={};
-  plxVelY=0;plxOnGround=true;plxOnPlatform=false;candyScore=0;
+  plxVelY=0;plxOnGround=true;plxOnPlatform=false;activePlatform=null;plxPopEffects=[];candyScore=0;letterInventory=[];
   spawnMerchantItems();
   const sp=map.spawn();
   localPos={...sp};camX=sp.x;camY=sp.y;
@@ -2148,14 +2229,15 @@ function renderWordPanel(){
   const ltrs=document.getElementById('word-letters');
   if(!ltrs)return;
   // Show inventory letters as clickable tiles
-  ltrs.innerHTML=letterInventory.map((l,i)=>
-    `<span onclick="wordAddLetter(${i})" style="cursor:pointer;display:inline-block;width:32px;height:32px;line-height:32px;text-align:center;background:#2d1b69;border:2px solid #c084fc;border-radius:6px;color:#f0e6ff;font-weight:bold;font-family:monospace;font-size:16px;user-select:none">${l}</span>`
-  ).join('');
+  ltrs.innerHTML=letterInventory.map((entry,i)=>{
+    const ltr=entry.letter||entry, col=entry.color||'#c084fc';
+    return `<span onclick="wordAddLetter(${i})" title="${ltr}" style="cursor:pointer;display:inline-block;width:34px;height:34px;line-height:34px;text-align:center;background:${col}33;border:2px solid ${col};border-radius:7px;color:#fff;font-weight:bold;font-family:monospace;font-size:17px;user-select:none">${ltr}</span>`;
+  }).join('');
   document.getElementById('word-current').textContent=wordCurrent||'—';
 }
 function wordAddLetter(idx){
   if(wordCurrent.length>=8)return;
-  wordCurrent+=letterInventory[idx];
+  const e=letterInventory[idx]; wordCurrent+=(e.letter||e);
   document.getElementById('word-current').textContent=wordCurrent;
 }
 function wordBackspace(){
@@ -2168,7 +2250,7 @@ function wordSubmit(){
   const res=document.getElementById('word-result');
   if(w.length<3){res.style.color='#f87171';res.textContent='Need at least 3 letters!';return;}
   // Check all letters of word are in inventory
-  const inv=[...letterInventory];
+  const inv=letterInventory.map(x=>x.letter||x);
   let ok=true;
   for(const ch of wordCurrent.toUpperCase()){
     const i=inv.indexOf(ch);if(i===-1){ok=false;break;}inv.splice(i,1);
@@ -2178,7 +2260,7 @@ function wordSubmit(){
   // Valid word — award points, consume letters
   const pts=w.length*10+(w.length>5?w.length*5:0);
   candyScore+=pts;
-  for(const ch of wordCurrent.toUpperCase()){const i=letterInventory.indexOf(ch);if(i!==-1)letterInventory.splice(i,1);}
+  for(const ch of wordCurrent.toUpperCase()){const i=letterInventory.findIndex(x=>(x.letter||x)===ch);if(i!==-1)letterInventory.splice(i,1);}
   wordCurrent='';
   res.style.color='#4ade80';
   res.textContent=`✨ "${w}" = +${pts} pts!  Total: ${candyScore}`;
@@ -2194,7 +2276,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Backspace'){wordBackspace();e.preventDefault();return;}
   if(/^[a-zA-Z]$/.test(e.key)){
     const ch=e.key.toUpperCase();
-    const idx=letterInventory.indexOf(ch);
+    const idx=letterInventory.findIndex(x=>(x.letter||x)===ch);
     if(idx!==-1){wordAddLetter(idx);e.preventDefault();}
   }
 },{capture:true});
