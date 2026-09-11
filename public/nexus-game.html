@@ -1123,7 +1123,7 @@ function render(){
     ctx.save();
     ctx.imageSmoothingEnabled=true;
     const pH=H, pW=W;
-    const groundScreenY=pH*0.87;
+    const groundScreenY=pH*0.82;
     const imgW=map.W_PX, imgH=1080;
     const scaledW=imgW*(pH/imgH);
     // Helper: world-Y → screen-Y (ground=groundScreenY, higher worldY=lower on screen)
@@ -1224,7 +1224,7 @@ function render(){
     // ── Edge portal beacons ──
     {
       const PLX_EXITS=EXITS['candy']||['hub','boutique','','carnival'];
-      const PORTAL_ZONE=5500, BEACON_START=4800;
+      const PORTAL_ZONE=5000, BEACON_START=4000;
       const portals=[{dest:PLX_EXITS[0],wx:-PORTAL_ZONE},{dest:PLX_EXITS[1],wx:PORTAL_ZONE}];
       portals.forEach(({dest,wx})=>{
         if(!dest)return;
@@ -1489,20 +1489,19 @@ function tick(ts){
     plxPopEffects=plxPopEffects.filter(p=>plxT-p.t<0.5);
     // Word panel: open with E key
     if(keys['e']&&!wordPanel&&letterInventory.length>0){openWordPanel();}
-    // Edge portals — show confirm dialog, never instant-teleport
-    if(portalCd<=0&&document.getElementById('portal-confirm').classList.contains('hidden')){
+    // Edge portals — trigger at ±5000 (inside platform zone), show confirm dialog
+    if(portalCd<=0&&plxOnGround&&document.getElementById('portal-confirm').classList.contains('hidden')){
       const PLX_EXITS=EXITS['candy']||['hub','boutique','','carnival'];
-      const PORTAL_ZONE=5500;
+      const PORTAL_ZONE=5000;
       let portalDest='';
       if(localPos.x<=-PORTAL_ZONE&&PLX_EXITS[0])portalDest=PLX_EXITS[0];
       else if(localPos.x>=PORTAL_ZONE&&PLX_EXITS[1])portalDest=PLX_EXITS[1];
       if(portalDest){
-        portalCd=10; // long cooldown so dialog isn't re-triggered
+        portalCd=12;
         const dInfo=DISTRICTS.find(d=>d.id===portalDest)||{id:portalDest,name:portalDest,color:'#7c3aed',genre:''};
-        // Build a portal-confirm-compatible object then wire Go → flashTravel
         const ep={icon:'🌀',label:dInfo.name,tagline:dInfo.genre||'District',color:dInfo.color};
         showPortalConfirm(ep);
-        // Override the Go button to use flashTravel (internal district) not travelExternal
+        // Override Go button → flashTravel for internal districts
         document.getElementById('pc-go').onclick=()=>{dismissPortalConfirm();flashTravel(portalDest);};
       }
     }
