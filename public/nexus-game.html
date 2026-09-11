@@ -1198,11 +1198,15 @@ function render(){
       ctx.beginPath();ctx.arc(psx,psy,r*0.55,0,Math.PI*2);ctx.stroke();
       ctx.restore();
     });
-    // ── Players ──
+    // ── Players (avatar grows with candyScore: 1.0 → 2.0) ──
+    const plxAvatarScale=Math.min(2.0, 1.0+candyScore*0.04);
     const drawPLXPlayer=(wx,wy,isLocal,name,pid)=>{
       const sx=pW/2+(wx-camX);
-      const sy=worldToScreenY(wy)-40;
+      const sy=worldToScreenY(wy)-40*plxAvatarScale;
+      ctx.save();
+      ctx.translate(sx,sy);ctx.scale(plxAvatarScale,plxAvatarScale);ctx.translate(-sx,-sy);
       drawPlayerSprite(sx,sy,isLocal,name,pid);
+      ctx.restore();
     };
     Object.entries(remotePlayers).forEach(([pid,p])=>drawPLXPlayer(p.x,p.y||map.GROUND_Y,false,p.name||'?',parseInt(pid)));
     if(gstate!=='spectate')drawPLXPlayer(localPos.x,localPos.y,true,username,myId);
