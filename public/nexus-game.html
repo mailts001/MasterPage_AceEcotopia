@@ -1225,6 +1225,7 @@ function render(){
     {
       const GATE_WX=[-5600, 5600];
       const gateH=220, gateW=72, pillarW=14;
+      const underground=90; // pillars extend this far below physics ground into earth layer
       const pulse=0.7+0.3*Math.sin(t*2.2);
       const stripe=0.5+0.5*Math.sin(t*3.5);
       const gsy=worldToScreenY(map.GROUND_Y);
@@ -1232,6 +1233,7 @@ function render(){
         const gsx=pW/2+(gwx-camX);
         if(gsx<-120||gsx>pW+120)return;
         const gtop=gsy-gateH;
+        const gbottom=gsy+underground; // buried into earth
         ctx.save();
         // Outer atmospheric glow
         const glowW=gateW+40+pulse*16;
@@ -1249,7 +1251,7 @@ function render(){
         pg.addColorStop(0.75,'rgba(109,40,217,0.55)');
         pg.addColorStop(1,'rgba(59,7,100,0)');
         ctx.fillStyle=pg;
-        ctx.fillRect(gsx-gateW/2,gtop,gateW,gateH);
+        ctx.fillRect(gsx-gateW/2,gtop,gateW,gsy-gtop); // fill up to ground level only
         // Spinning arc rings inside portal
         ctx.globalAlpha=0.35*pulse;
         ctx.strokeStyle='#e9d5ff'; ctx.lineWidth=1.5;
@@ -1259,25 +1261,26 @@ function render(){
           ctx.ellipse(gsx,gsy-gateH*0.5,gateW*r*0.5,gateH*r*0.35,ang,0,Math.PI*2);
           ctx.stroke();
         });
-        // Left pillar
+        // Left pillar (extends from gtop above ground down to gbottom below ground)
         ctx.globalAlpha=1;
         const lx=gsx-gateW/2-pillarW;
-        ctx.fillStyle='#f9a8d4'; ctx.fillRect(lx,gtop,pillarW,gateH);
-        ctx.save(); ctx.beginPath(); ctx.rect(lx,gtop,pillarW,gateH); ctx.clip();
+        const fullH=gbottom-gtop;
+        ctx.fillStyle='#f9a8d4'; ctx.fillRect(lx,gtop,pillarW,fullH);
+        ctx.save(); ctx.beginPath(); ctx.rect(lx,gtop,pillarW,fullH); ctx.clip();
         ctx.strokeStyle='#c084fc'; ctx.lineWidth=5; ctx.globalAlpha=0.55;
-        for(let s=-gateH;s<gateH+pillarW;s+=16){ctx.beginPath();ctx.moveTo(lx+s,gtop);ctx.lineTo(lx+s+gateH,gtop+gateH);ctx.stroke();}
+        for(let s=-fullH;s<fullH+pillarW;s+=16){ctx.beginPath();ctx.moveTo(lx+s,gtop);ctx.lineTo(lx+s+fullH,gtop+fullH);ctx.stroke();}
         ctx.restore();
         ctx.strokeStyle='#e879f9'; ctx.lineWidth=1.5; ctx.globalAlpha=0.9;
-        ctx.strokeRect(lx,gtop,pillarW,gateH);
+        ctx.strokeRect(lx,gtop,pillarW,fullH);
         // Right pillar
         const rx=gsx+gateW/2;
-        ctx.globalAlpha=1; ctx.fillStyle='#f9a8d4'; ctx.fillRect(rx,gtop,pillarW,gateH);
-        ctx.save(); ctx.beginPath(); ctx.rect(rx,gtop,pillarW,gateH); ctx.clip();
+        ctx.globalAlpha=1; ctx.fillStyle='#f9a8d4'; ctx.fillRect(rx,gtop,pillarW,fullH);
+        ctx.save(); ctx.beginPath(); ctx.rect(rx,gtop,pillarW,fullH); ctx.clip();
         ctx.strokeStyle='#c084fc'; ctx.lineWidth=5; ctx.globalAlpha=0.55;
-        for(let s=-gateH;s<gateH+pillarW;s+=16){ctx.beginPath();ctx.moveTo(rx+s,gtop);ctx.lineTo(rx+s+gateH,gtop+gateH);ctx.stroke();}
+        for(let s=-fullH;s<fullH+pillarW;s+=16){ctx.beginPath();ctx.moveTo(rx+s,gtop);ctx.lineTo(rx+s+fullH,gtop+fullH);ctx.stroke();}
         ctx.restore();
         ctx.strokeStyle='#e879f9'; ctx.lineWidth=1.5; ctx.globalAlpha=0.9;
-        ctx.strokeRect(rx,gtop,pillarW,gateH);
+        ctx.strokeRect(rx,gtop,pillarW,fullH);
         // Top arch beam
         ctx.globalAlpha=1; ctx.fillStyle='#a855f7';
         ctx.fillRect(lx,gtop-16,gateW+pillarW*2,16);
@@ -2159,14 +2162,17 @@ function setupMobileControls(){
 }
 
 // ═══════════════ BUILD LOBBY / TRAVEL UI ═══════════════
+const LIVE_DISTRICTS=new Set(['hub','candy']);
 function buildCards(containerId,mode){
   const el=document.getElementById(containerId);
   DISTRICTS.forEach(d=>{
+    const live=LIVE_DISTRICTS.has(d.id);
     const card=document.createElement('div');
     card.className='d-card';card.dataset.did=d.id;
-    card.style.setProperty('--dc',d.color);
-    card.innerHTML=`<div class="dname">${d.name}</div><div class="genre">${d.genre}</div><div class="cnt">…</div><button>${mode==='lobby'?'Enter':'Go'}</button>`;
-    card.querySelector('button').onclick=()=>mode==='lobby'?selectDistrict(d.id):travelTo(d.id);
+    card.style.setProperty('--dc',live?d.color:'#3a3a4a');
+    if(!live)card.style.opacity='0.45';
+    card.innerHTML=`<div class="dname">${d.name}</div><div class="genre">${d.genre}</div><div class="cnt">…</div><button style="${live?'':'background:#2a2a3a;cursor:not-allowed;opacity:.6'}">${live?(mode==='lobby'?'Enter':'Go'):'Coming Soon'}</button>`;
+    if(live)card.querySelector('button').onclick=()=>mode==='lobby'?selectDistrict(d.id):travelTo(d.id);
     el.appendChild(card);
   });
 }
