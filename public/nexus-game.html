@@ -685,10 +685,13 @@ function drawBlob(ctx2,sx,sy,av,fl,t){
   const a=AVATARS[av%AVATARS.length];
   const bob=Math.sin(t*4.5+av*1.3)*2; // gentle 2px bounce per avatar, offset by id
 
-  // Shadow stays at ground — shrinks slightly when airborne
-  const sw=6-Math.abs(bob)*0.25;
-  ctx2.beginPath();ctx2.ellipse(sx,sy,sw,sw*0.38,0,0,Math.PI*2);
-  ctx2.fillStyle='rgba(0,0,0,0.22)';ctx2.fill();
+  // Shadow only when on ground (plxOnGround/activePlatform), hidden when airborne in parallax
+  const isAirborne=(typeof map!=='undefined'&&map&&map.type==='parallax'&&!plxOnGround&&!activePlatform);
+  if(!isAirborne){
+    const sw=6-Math.abs(bob)*0.25;
+    ctx2.beginPath();ctx2.ellipse(sx,sy,sw,sw*0.38,0,0,Math.PI*2);
+    ctx2.fillStyle='rgba(0,0,0,0.22)';ctx2.fill();
+  }
 
   // Body and all details bounce together
   ctx2.save();ctx2.translate(sx,sy+bob);
@@ -1217,6 +1220,42 @@ function render(){
     };
     Object.entries(remotePlayers).forEach(([pid,p])=>drawPLXPlayer(p.x,p.y||map.GROUND_Y,false,p.name||'?',parseInt(pid)));
     if(gstate!=='spectate')drawPLXPlayer(localPos.x,localPos.y,true,username,myId);
+    // ── Edge portal beacons ──
+    {
+      const PLX_EXITS=EXITS['candy']||['hub','boutique','','carnival'];
+      const PORTAL_ZONE=5500, BEACON_START=4800;
+      const portals=[{dest:PLX_EXITS[0],wx:-PORTAL_ZONE},{dest:PLX_EXITS[1],wx:PORTAL_ZONE}];
+      portals.forEach(({dest,wx})=>{
+        if(!dest)return;
+        const psx=pW/2+(wx-camX);
+        const psy=worldToScreenY(map.GROUND_Y-80);
+        // Only draw if within 1600px screen distance
+        const screenDist=Math.abs(psx-pW/2);
+        if(screenDist>pW*0.9)return;
+        const nearness=Math.max(0,1-(Math.abs(localPos.x-wx)-BEACON_START)/(PORTAL_ZONE-BEACON_START));
+        if(nearness<=0)return;
+        const bpulse=0.6+0.4*Math.sin(plxT*3);
+        ctx.save();
+        ctx.globalAlpha=nearness*bpulse;
+        // Portal ring
+        const pr=28+bpulse*8;
+        const grad=ctx.createRadialGradient(psx,psy,0,psx,psy,pr);
+        grad.addColorStop(0,'rgba(167,139,250,0.9)');
+        grad.addColorStop(0.5,'rgba(139,92,246,0.5)');
+        grad.addColorStop(1,'rgba(109,40,217,0)');
+        ctx.fillStyle=grad;
+        ctx.beginPath();ctx.arc(psx,psy,pr,0,Math.PI*2);ctx.fill();
+        ctx.strokeStyle='#c084fc'; ctx.lineWidth=2.5;
+        ctx.beginPath();ctx.arc(psx,psy,pr*0.7,0,Math.PI*2);ctx.stroke();
+        // Label
+        const dname=DISTRICTS.find(d=>d.id===dest)?.name||dest;
+        ctx.font='bold 11px "JetBrains Mono",monospace';
+        ctx.fillStyle='#e9d5ff'; ctx.textAlign='center'; ctx.textBaseline='bottom';
+        ctx.shadowColor='#7c3aed'; ctx.shadowBlur=8;
+        ctx.fillText(`⟶ ${dname}`,psx,psy-pr-4);
+        ctx.restore();
+      });
+    }
     // ── Score & letter inventory HUD ──
     ctx.font='bold 13px "JetBrains Mono",monospace';
     ctx.textAlign='left'; ctx.textBaseline='top';
@@ -1263,17 +1302,31 @@ function render(){
         const match=map.WORD_SETS.find(ws=>[...ws.word].every(ch=>inv.includes(ch)));
         if(match) hintText=`✨ Spell "${match.word}"! Press E`;
       }
-      // Pulsing hint — bigger, bold, gold when letters collected
-      const pulse=0.55+0.45*Math.sin(t*4);
+      // Pulsing hint — pill background for contrast, gold glow when letters collected
+      const pulse=0.7+0.3*Math.sin(t*4);
+      const hasLetters=letterInventory.length>0;
       ctx.save();
-      ctx.globalAlpha=letterInventory.length>0?pulse:0.45;
-      ctx.font=`bold ${letterInventory.length>0?17:13}px "JetBrains Mono",monospace`;
-      ctx.fillStyle=letterInventory.length>0?'#fbbf24':'#a78bfa';
+      ctx.font=`bold ${hasLetters?16:13}px "JetBrains Mono",monospace`;
+      const hintW=ctx.measureText(hintText).width;
+      const hintX=pW/2, hintY=ty+tH+8;
+      const padX=12, padY=6;
+      // Dark pill background
+      ctx.globalAlpha=hasLetters?Math.max(0.75,pulse):0.6;
+      ctx.fillStyle='rgba(10,6,20,0.82)';
+      ctx.beginPath();
+      const rx=hintX-hintW/2-padX, ry=hintY-padY, rw=hintW+padX*2, rh=(hasLetters?16:13)+padY*2;
+      ctx.roundRect(rx,ry,rw,rh,10);
+      ctx.fill();
+      // Border
+      ctx.globalAlpha=hasLetters?pulse:0.35;
+      ctx.strokeStyle=hasLetters?'#fbbf24':'#a78bfa55'; ctx.lineWidth=hasLetters?1.5:1;
+      ctx.stroke();
+      // Text
+      ctx.globalAlpha=hasLetters?pulse:0.7;
+      ctx.fillStyle=hasLetters?'#fef08a':'#c4b5fd';
       ctx.textAlign='center'; ctx.textBaseline='top';
-      if(letterInventory.length>0){
-        ctx.shadowColor='#fbbf24'; ctx.shadowBlur=12;
-      }
-      ctx.fillText(hintText,pW/2,ty+tH+6);
+      if(hasLetters){ctx.shadowColor='#fbbf24'; ctx.shadowBlur=10;}
+      ctx.fillText(hintText,hintX,hintY);
       ctx.restore();
       // Sync mobile E button label
       const btnE=document.getElementById('btn-e');
@@ -1435,6 +1488,15 @@ function tick(ts){
     plxPopEffects=plxPopEffects.filter(p=>plxT-p.t<0.5);
     // Word panel: open with E key
     if(keys['e']&&!wordPanel&&letterInventory.length>0){openWordPanel();}
+    // Edge portals — teleport to adjacent district when reaching world boundary
+    if(portalCd<=0){
+      const PLX_EXITS=EXITS['candy']||['hub','boutique','','carnival'];
+      const PORTAL_ZONE=5500;
+      let portalDest='';
+      if(localPos.x<=-PORTAL_ZONE&&PLX_EXITS[0])portalDest=PLX_EXITS[0];
+      else if(localPos.x>=PORTAL_ZONE&&PLX_EXITS[1])portalDest=PLX_EXITS[1];
+      if(portalDest){portalCd=4;flashTravel(portalDest);}
+    }
     camX+=(localPos.x-camX)*.12;
     camY=map.GROUND_Y;
   } else {
