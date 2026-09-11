@@ -376,6 +376,8 @@ let panOffset={x:0,y:0}, panDrag=false, panDragLast={x:0,y:0}, panIdleTimer=0;
 let mobileZoom=1; // pinch zoom multiplier (1 = default)
 const keys={};
 let joyX=0, joyY=0; // virtual joystick
+let plxVelY=0, plxOnGround=true, plxOnPlatform=false, plxJumpPressed=false;
+let candyScore=0;
 let tileSheet=null;
 let playerElevPx=0, merchantItems=[];
 let playerInventory=[]; // {product, image_url, reward_type, coupon_value, coupon_code, coupon_qr_url, price, currency, description, ts}
@@ -494,19 +496,41 @@ const PLX_GROUND={b64:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAB4AAAAQ4CAY
 
 function buildParallaxMap(){
   const CANVAS_H=540,GROUND_Y=480,W_PX=1920;
+  // yShift: positive = slide image DOWN (fraction of canvas height)
+  // cake & trees content floats above ground in raw image; shift them into the ground
   const LAYER_DEFS=[
-    {name:'sky',   scale:1.0, ref:PLX_SKY},
-    {name:'rocks', scale:0.5, ref:PLX_ROCKS},
-    {name:'clouds',scale:0.6, ref:PLX_CLOUDS},
-    {name:'trees', scale:0.7, ref:PLX_TREES},
-    {name:'cake',  scale:0.9, ref:PLX_CAKE},
-    {name:'ground',scale:1.5, ref:PLX_GROUND},
+    {name:'sky',   scale:1.0, ref:PLX_SKY,    yShift:0},
+    {name:'rocks', scale:0.5, ref:PLX_ROCKS,  yShift:0},
+    {name:'clouds',scale:0.6, ref:PLX_CLOUDS, yShift:0},
+    {name:'trees', scale:0.7, ref:PLX_TREES,  yShift:0.10},
+    {name:'cake',  scale:0.9, ref:PLX_CAKE,   yShift:0.14},
+    {name:'ground',scale:1.5, ref:PLX_GROUND, yShift:0},
   ];
+  // Floating candy platforms: {wx=world-left-x, wy=world-Y (lower=higher on screen), w=width, h=height, color}
+  // Platforms scroll 1:1 with world camera (no parallax)
+  const PLATFORMS=[
+    {wx:300,  wy:340, w:160, h:18, color:'#f9a8d4', label:'🍭'},
+    {wx:600,  wy:260, w:130, h:18, color:'#c084fc', label:'🍬'},
+    {wx:950,  wy:190, w:180, h:18, color:'#fb923c', label:'🧁'},
+    {wx:1280, wy:290, w:140, h:18, color:'#f9a8d4', label:'🍭'},
+    {wx:1550, wy:160, w:200, h:18, color:'#4ade80', label:'⭐'},
+    {wx:1900, wy:250, w:150, h:18, color:'#c084fc', label:'🍬'},
+    {wx:2250, wy:180, w:160, h:18, color:'#fb923c', label:'🧁'},
+    {wx:2600, wy:310, w:180, h:18, color:'#f9a8d4', label:'🍭'},
+    // negative world-X for walking left
+    {wx:-500, wy:290, w:140, h:18, color:'#c084fc', label:'🍬'},
+    {wx:-900, wy:200, w:180, h:18, color:'#4ade80', label:'⭐'},
+  ];
+  // Collectible candies: one per platform, sitting above it
+  const COLLECTIBLES=PLATFORMS.map((p,i)=>({
+    wx:p.wx+p.w/2, wy:p.wy-36, collected:false, id:i,
+    color:p.color, label:p.label
+  }));
   LAYER_DEFS.forEach(l=>{
     if(!l.ref.img){l.ref.img=new Image();l.ref.img.src=l.ref.b64;}
   });
   return{
-    type:'parallax',GROUND_Y,CANVAS_H,W_PX,LAYER_DEFS,
+    type:'parallax',GROUND_Y,CANVAS_H,W_PX,LAYER_DEFS,PLATFORMS,COLLECTIBLES,
     spawn(){return{x:0,y:GROUND_Y};},
     isWalkable(gx,gy){return true;},
     toTile(sx,sy){return{gx:Math.floor(sx/32),gy:0};}
@@ -1041,36 +1065,68 @@ function render(){
       ctx.fillStyle=strokeC;ctx.fillText(label,hs.x,hs.y-hh-2);ctx.restore();
     }
   } else if(map.type==='parallax'){
-    // Parallax 2D side-scroll district
-    ctx.restore(); // exit world-transform; work in screen space
+    // Parallax 2D side-scroll district — screen-space rendering
+    ctx.restore();
     ctx.save();
     ctx.imageSmoothingEnabled=true;
     const pH=H, pW=W;
-    const groundScreenY=pH*0.88; // where ground strip sits on screen
+    const groundScreenY=pH*0.88;
     const imgW=map.W_PX, imgH=1080;
-    const scaleY=pH/imgH;
-    const scaledW=imgW*scaleY;
-    // Draw each layer back to front
+    const scaledW=imgW*(pH/imgH);
+    // Helper: world-Y → screen-Y (ground=groundScreenY, higher worldY=lower on screen)
+    const worldToScreenY=wy=>groundScreenY-(map.GROUND_Y-wy);
+    // ── Layers ──
     map.LAYER_DEFS.forEach(layer=>{
       const img=layer.ref.img;
       if(!img||!img.complete||img.naturalWidth===0)return;
-      // parallax offset: world cam moves, layer shifts by its scale
-      const rawOff = -camX * layer.scale;
-      // tile so it repeats infinitely
-      const tileW = scaledW;
-      const startX = ((rawOff % tileW) + tileW) % tileW - tileW;
-      for(let dx=startX; dx<pW+tileW; dx+=tileW){
-        ctx.drawImage(img, dx, 0, tileW, pH);
+      const rawOff=-camX*layer.scale;
+      const tileW=scaledW;
+      const startX=((rawOff%tileW)+tileW)%tileW-tileW;
+      const yOff=(layer.yShift||0)*pH;
+      for(let dx=startX;dx<pW+tileW;dx+=tileW){
+        ctx.drawImage(img,dx,yOff,tileW,pH);
       }
     });
-    // Draw players in screen space: x relative to camX, y at ground
-    const drawPLXPlayer=(wx,isLocal,name,pid)=>{
+    // ── Platforms ──
+    const t=performance.now()/1000;
+    map.PLATFORMS.forEach(p=>{
+      const sx=pW/2+(p.wx-camX);
+      const sy=worldToScreenY(p.wy);
+      // candy-striped rounded platform
+      ctx.save();
+      ctx.shadowColor=p.color; ctx.shadowBlur=8;
+      ctx.fillStyle=p.color;
+      ctx.beginPath();ctx.roundRect(sx,sy,p.w,p.h,6);ctx.fill();
+      ctx.shadowBlur=0;
+      ctx.fillStyle='rgba(255,255,255,0.25)';
+      ctx.beginPath();ctx.roundRect(sx+2,sy+2,p.w-4,6,4);ctx.fill();
+      ctx.restore();
+    });
+    // ── Collectibles ──
+    map.COLLECTIBLES.forEach(c=>{
+      if(c.collected)return;
+      const sx=pW/2+(c.wx-camX);
+      const sy=worldToScreenY(c.wy)+(Math.sin(t*2+c.id)*5);
+      ctx.font='18px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(c.label,sx,sy);
+      // glow ring
+      ctx.beginPath();ctx.arc(sx,sy,14,0,Math.PI*2);
+      ctx.strokeStyle=c.color+'99';ctx.lineWidth=2;ctx.stroke();
+    });
+    // ── Players ──
+    const drawPLXPlayer=(wx,wy,isLocal,name,pid)=>{
       const sx=pW/2+(wx-camX);
-      const sy=groundScreenY-40;
+      const sy=worldToScreenY(wy)-40;
       drawPlayerSprite(sx,sy,isLocal,name,pid);
     };
-    Object.entries(remotePlayers).forEach(([pid,p])=>drawPLXPlayer(p.x,false,p.name||'?',parseInt(pid)));
-    if(gstate!=='spectate')drawPLXPlayer(localPos.x,true,username,myId);
+    Object.entries(remotePlayers).forEach(([pid,p])=>drawPLXPlayer(p.x,p.y||map.GROUND_Y,false,p.name||'?',parseInt(pid)));
+    if(gstate!=='spectate')drawPLXPlayer(localPos.x,localPos.y,true,username,myId);
+    // ── Score HUD ──
+    if(candyScore>0){
+      ctx.font='bold 14px "JetBrains Mono",monospace';
+      ctx.fillStyle='#f9a8d4'; ctx.textAlign='left'; ctx.textBaseline='top';
+      ctx.fillText(`🍭 ${candyScore}`,12,48);
+    }
     ctx.restore();
     ctx.save(); // dummy save to match restore at end of render
   } else {
@@ -1135,15 +1191,50 @@ function tick(ts){
   const spd=speedBoost.active?baseSpd*1.8:baseSpd;
 
   if(map.type==='parallax'){
-    // 2D side-scroll: left/right only; Y locked to ground
+    // 2D side-scroll: left/right + jump
     const kRight=(keys['d']||keys['ArrowRight']?1:0);
     const kLeft =(keys['a']||keys['ArrowLeft'] ?1:0);
+    const kJump =(keys[' ']||keys['ArrowUp']||keys['w']?1:0);
     let hx = kRight - kLeft + joyX;
     if(Math.abs(hx)>0.05&&frozenTimer<=0){
       if(hx>0)localDir=1;else localDir=-1;
       localPos.x+=hx*spd*dt;
     }
-    localPos.y=map.GROUND_Y; // always on ground
+    // Jump: rising edge only
+    if(kJump&&!plxJumpPressed&&(plxOnGround||plxOnPlatform)){
+      plxVelY=-380; plxOnGround=false; plxOnPlatform=false;
+    }
+    plxJumpPressed=kJump>0;
+    // Mobile: joyY full up = jump
+    if(joyY<-0.6&&(plxOnGround||plxOnPlatform)){
+      plxVelY=-380; plxOnGround=false; plxOnPlatform=false;
+    }
+    // Gravity
+    if(!plxOnGround&&!plxOnPlatform) plxVelY+=900*dt;
+    localPos.y+=plxVelY*dt;
+    // Land on ground
+    if(localPos.y>=map.GROUND_Y){
+      localPos.y=map.GROUND_Y; plxVelY=0; plxOnGround=true;
+    } else { plxOnGround=false; }
+    // Platform collision (only when falling down: plxVelY>=0)
+    plxOnPlatform=false;
+    if(plxVelY>=0){
+      map.PLATFORMS.forEach(p=>{
+        if(localPos.x>=p.wx-8&&localPos.x<=p.wx+p.w+8&&
+           localPos.y<=p.wy+p.h&&localPos.y>=p.wy-30){
+          localPos.y=p.wy; plxVelY=0; plxOnPlatform=true;
+        }
+      });
+    }
+    // Collectible pickup
+    map.COLLECTIBLES.forEach(c=>{
+      if(c.collected)return;
+      const dx=localPos.x-c.wx, dy=localPos.y-c.wy;
+      if(Math.abs(dx)<30&&Math.abs(dy)<50){
+        c.collected=true; candyScore++;
+        showToast(`${c.label} +1 candy!  Total: ${candyScore}`);
+      }
+    });
     camX+=(localPos.x-camX)*.12;
     camY=map.GROUND_Y;
   } else {
@@ -1531,6 +1622,7 @@ function enterGame(welcome){
     npcs=welcome.npcs||[];
   }
   playerElevPx=0;playerLevel=0;merchantItems=[];campaignPollTimer=30;lastPlacementHash='';lastCycleSeen={};
+  plxVelY=0;plxOnGround=true;plxOnPlatform=false;candyScore=0;
   spawnMerchantItems();
   const sp=map.spawn();
   localPos={...sp};camX=sp.x;camY=sp.y;
