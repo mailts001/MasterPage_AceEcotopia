@@ -570,7 +570,8 @@ function buildParallaxMap(){
       const xOff=(li-ws.word.length/2)*200+Math.sin(wi*7+li)*80;
       // height: ground-set easy (wy≈470-480), mid-set need small jump (wy≈360-400), high-set need platform (wy≈150-250)
       const isMid=wi>=4&&wi<8; // CAKE,GOAL,RISE,GOLD — mid height
-      const wy = isHard ? 150+li*20 : isMid ? 380+li*10 : 470+li*5;
+      // Easy wy capped at 455 so letters float above visual ground (GROUND_Y=480)
+      const wy = isHard ? 150+li*20 : isMid ? 350+li*10 : 440+li*5;
       LETTERS.push({wx:baseX+xOff, wy, letter, color:ws.color,
         wordSet:wi, collected:false, respawn:0, id:lid++});
     });
@@ -1488,14 +1489,22 @@ function tick(ts){
     plxPopEffects=plxPopEffects.filter(p=>plxT-p.t<0.5);
     // Word panel: open with E key
     if(keys['e']&&!wordPanel&&letterInventory.length>0){openWordPanel();}
-    // Edge portals — teleport to adjacent district when reaching world boundary
-    if(portalCd<=0){
+    // Edge portals — show confirm dialog, never instant-teleport
+    if(portalCd<=0&&document.getElementById('portal-confirm').classList.contains('hidden')){
       const PLX_EXITS=EXITS['candy']||['hub','boutique','','carnival'];
       const PORTAL_ZONE=5500;
       let portalDest='';
       if(localPos.x<=-PORTAL_ZONE&&PLX_EXITS[0])portalDest=PLX_EXITS[0];
       else if(localPos.x>=PORTAL_ZONE&&PLX_EXITS[1])portalDest=PLX_EXITS[1];
-      if(portalDest){portalCd=4;flashTravel(portalDest);}
+      if(portalDest){
+        portalCd=10; // long cooldown so dialog isn't re-triggered
+        const dInfo=DISTRICTS.find(d=>d.id===portalDest)||{id:portalDest,name:portalDest,color:'#7c3aed',genre:''};
+        // Build a portal-confirm-compatible object then wire Go → flashTravel
+        const ep={icon:'🌀',label:dInfo.name,tagline:dInfo.genre||'District',color:dInfo.color};
+        showPortalConfirm(ep);
+        // Override the Go button to use flashTravel (internal district) not travelExternal
+        document.getElementById('pc-go').onclick=()=>{dismissPortalConfirm();flashTravel(portalDest);};
+      }
     }
     camX+=(localPos.x-camX)*.12;
     camY=map.GROUND_Y;
