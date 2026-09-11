@@ -564,7 +564,7 @@ function buildParallaxMap(){
       const xOff=(li-ws.word.length/2)*200+Math.sin(wi*7+li)*80;
       // height: vowels near ground, consonants mid, hard words up high
       const isVowel='AEIOU'.includes(letter);
-      const wy = isHard ? 170+li*20 : isVowel ? 440 : 310+li*15;
+      const wy = isHard ? 170+li*20 : isVowel ? 480 : 330+li*15;
       LETTERS.push({wx:baseX+xOff, wy, letter, color:ws.color,
         wordSet:wi, collected:false, respawn:0, id:lid++});
     });
@@ -1199,10 +1199,10 @@ function render(){
       ctx.restore();
     });
     // ── Players (avatar grows with candyScore: 1.0 → 2.0) ──
-    const plxAvatarScale=Math.min(2.0, 1.0+candyScore*0.04);
+    const plxAvatarScale=Math.min(2.0, 1.0+candyScore*0.1);
     const drawPLXPlayer=(wx,wy,isLocal,name,pid)=>{
       const sx=pW/2+(wx-camX);
-      const sy=worldToScreenY(wy)-40*plxAvatarScale;
+      const sy=worldToScreenY(wy); // feet at physics ground — avatar grows upward
       ctx.save();
       ctx.translate(sx,sy);ctx.scale(plxAvatarScale,plxAvatarScale);ctx.translate(-sx,-sy);
       drawPlayerSprite(sx,sy,isLocal,name,pid);
@@ -1213,12 +1213,16 @@ function render(){
     // ── Score & letter inventory HUD ──
     ctx.font='bold 13px "JetBrains Mono",monospace';
     ctx.textAlign='left'; ctx.textBaseline='top';
-    if(candyScore>0){ctx.fillStyle='#f9a8d4';ctx.fillText(`🍭 ${candyScore}`,12,46);}
+    if(candyScore>0){
+      ctx.fillStyle='#f9a8d4';
+      const szPct=Math.round(Math.min(200,100+candyScore*10));
+      ctx.fillText(`🍭 ${candyScore}  •  size ${szPct}%`,12,46);
+    }
     // ── Letter tray (persistent, color-coded) ──
     if(letterInventory.length>0){
       const tW=36, tH=36, gap=4;
       const totalW=letterInventory.length*(tW+gap)-gap;
-      const trayX=pW/2-totalW/2, ty=pH-58;
+      const trayX=pW/2-totalW/2, ty=pH-95;
       // Tray background panel
       ctx.save();
       ctx.fillStyle='rgba(10,6,30,0.78)';ctx.strokeStyle='#4a3070';ctx.lineWidth=1;
@@ -1355,7 +1359,7 @@ function tick(ts){
       if(plxVelY>=0){
         map.PLATFORMS.forEach(p=>{
           if(localPos.x>=p.wx-10&&localPos.x<=p.wx+p.w+10&&
-             localPos.y<=p.wy+p.h+4&&localPos.y>=p.wy-50){
+             localPos.y<=p.wy+p.h+8&&localPos.y>=p.wy-120){
             localPos.y=p.wy; plxVelY=0; plxOnPlatform=true; activePlatform=p;
           }
         });
@@ -1365,7 +1369,7 @@ function tick(ts){
     map.COLLECTIBLES.forEach(c=>{
       if(c.collected)return;
       const cdx=localPos.x-c.wx, cdy=localPos.y-c.wy;
-      if(cdx*cdx+cdy*cdy<1600){
+      if(cdx*cdx+cdy*cdy<2500){
         c.collected=true; candyScore++;
         plxPopEffects.push({wx:c.wx,wy:c.wy,t:plxT,color:c.color,big:true});
         showToast(`${c.label} +1 boost!  Jump power: ${Math.round(jumpPow+8)}`);
@@ -1376,7 +1380,7 @@ function tick(ts){
       map.LETTERS.forEach(l=>{
         if(l.collected)return;
         const ldx=localPos.x-l.wx, ldy=localPos.y-l.wy;
-        if(ldx*ldx+ldy*ldy<1600){
+        if(ldx*ldx+ldy*ldy<2500){
           l.collected=true; l.respawn=plxT+25;
           // push letter with its color info for tray display
           letterInventory.push({letter:l.letter, color:l.color, wordSet:l.wordSet});
