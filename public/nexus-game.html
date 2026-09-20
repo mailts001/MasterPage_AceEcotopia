@@ -6,11 +6,12 @@
 <title>X68 Ecotopia</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;500&display=swap">
+<script>if(new URLSearchParams(location.search).get('embed')==='1'){document.documentElement.style.setProperty('--lobby-display','none');}else{document.documentElement.style.setProperty('--lobby-display','flex');}</script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;height:100%;overflow:hidden;background:#070810;color:#c8c4e8;font-family:'JetBrains Mono',monospace;touch-action:none}
 #gc{display:block;position:fixed;inset:0;width:100%;height:100%}
-.layer{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(7,8,16,.96);z-index:10;overflow-y:auto;padding:20px 10px}
+.layer{position:fixed;inset:0;display:var(--lobby-display,flex);flex-direction:column;align-items:center;justify-content:center;background:rgba(7,8,16,.96);z-index:10;overflow-y:auto;padding:20px 10px}
 .layer.hidden{display:none}
 #lobby h1{font-family:'Orbitron',sans-serif;font-size:clamp(1.4rem,4vw,2.6rem);font-weight:900;letter-spacing:.1em;color:#a78bfa;text-shadow:0 0 40px #7c3aed88;margin-bottom:.2rem}
 #lobby p.sub{font-size:.7rem;letter-spacing:.2em;color:#6b6894;text-transform:uppercase;margin-bottom:1.4rem}
@@ -64,6 +65,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#070810;color:#c8c4e
 #embed-fullscreen-btn.hidden{display:none}
 #portrait-prompt.hidden{display:none}
 #district-loading.hidden{display:none}
+#spectate-overlay.hidden{display:none!important}
 #collect-modal{display:flex}
 #collect-modal.hidden{display:none}
 #inv-modal{display:flex}
@@ -296,23 +298,29 @@ const EMBED_DISTRICT=_up.get('district')||'hub';
 const EMBED_PREFILL_NAME=_up.get('name')||'';
 const EMBED_PREFILL_AVATAR=parseInt(_up.get('avatar')||'0',10)||0;
 let embedAvatarIdx=EMBED_PREFILL_AVATAR;
+let embedJoined=false; // true after first "Enter District" — re-travel skips spectate
 // ═══════════════ CONSTANTS ═══════════════
 const ZONE='https://aceconology.duckdns.org:8444';
 const SEND_RATE=0.05;
 const SHEET_COLS=6, TILE_PX=32;
 
 const DISTRICTS=[
-  {id:'hub',      name:'Nexus Hub',        genre:'Social Lobby', color:'#7c3aed'},
-  {id:'boutique', name:'Boutique District', genre:'Social Plaza',  color:'#db2777'},
-  {id:'harvest',  name:'Harvest Fields',    genre:'Farming Sim',  color:'#65a30d'},
-  {id:'aqua',     name:'Aqua Zone',         genre:'Platformer',   color:'#0891b2'},
-  {id:'grove',    name:'Whispering Grove',  genre:'Open World',   color:'#059669'},
-  {id:'castle',   name:'Castle Ramparts',  genre:'RPG Raid',      color:'#d97706'},
-  {id:'neon',     name:'Neon City',         genre:'Shooter',      color:'#dc2626'},
-  {id:'carnival', name:'Carnival Square',  genre:'Party Games',   color:'#ea580c'},
-  {id:'glacier',  name:'Glacier Peak',      genre:'Ice Puzzler',  color:'#2563eb'},
-  {id:'candy',    name:'Candy Parallax',    genre:'Parallax World', color:'#f472b6'},
+  {id:'hub',       name:'Nexus Hub',          genre:'Social Lobby',   color:'#7c3aed'},
+  {id:'boutique',  name:'Boutique District',  genre:'Social Plaza',   color:'#db2777'},
+  {id:'marketing', name:'Marketing District', genre:'Math Challenge', color:'#f43f5e'},
+  {id:'harvest',   name:'Harvest Fields',     genre:'Farming Sim',    color:'#65a30d'},
+  {id:'aqua',      name:'Aqua Zone',          genre:'Platformer',     color:'#0891b2'},
+  {id:'grove',     name:'Whispering Grove',   genre:'Open World',     color:'#059669'},
+  {id:'castle',    name:'Castle Ramparts',    genre:'RPG Raid',       color:'#d97706'},
+  {id:'neon',      name:'Neon City',          genre:'Shooter',        color:'#dc2626'},
+  {id:'carnival',  name:'Carnival Square',    genre:'Party Games',    color:'#ea580c'},
+  {id:'glacier',   name:'Glacier Peak',       genre:'Ice Puzzler',    color:'#2563eb'},
+  {id:'candy',     name:'Candy Parallax',     genre:'Parallax World', color:'#f472b6'},
 ];
+// Districts that launch an external Godot HTML5 game instead of a TOSIOS WebSocket room
+const EXTERNAL_DISTRICTS={
+  marketing: 'https://aceconology.duckdns.org:8444/nonya/',
+};
 
 // External district portals — draw glowing beacons on hub map, navigate out on touch
 const EXTERNAL_PORTALS=[
@@ -1400,7 +1408,9 @@ function render(){
       ctx.restore();
       // Sync mobile E button label
       const btnE=document.getElementById('btn-e');
-      if(btnE) btnE.textContent=letterInventory.length>0?'✨':'E';
+      if(btnE){const lc=letterInventory.length;btnE.textContent=lc>0?`✉${lc}`:'✉';btnE.style.borderColor=lc>0?'rgba(251,191,36,.8)':'rgba(167,139,250,.4)';}
+      const wbtn=document.getElementById('ab-word');
+      if(wbtn){const lc=letterInventory.length;wbtn.textContent=lc>0?`✉ WORD (${lc})`:'✉ WORD';wbtn.style.opacity=lc>0?'1':'0.5';}
     }
     ctx.restore();
     ctx.save(); // dummy save to match restore at end of render
@@ -1911,7 +1921,7 @@ function connectZone(did){
 
 function onMsg({t,d}){
   switch(t){
-    case'welcome':myId=d.id;if(EMBED_MODE&&gstate==='connecting'){enterSpectateMode(d);}else{enterGame(d);}break;
+    case'welcome':myId=d.id;if(EMBED_MODE&&gstate==='connecting'&&!embedJoined){enterSpectateMode(d);}else{enterGame(d);}break;
     case'player_join':if(d.id!==myId){remotePlayers[d.id]={x:d.x||0,y:d.y||0,name:d.username||'?',avatar:d.avatar??0,facing:1};if(gstate!=='spectate')addChat(`<span style="color:#4a4870">${d.username||'?'} arrived</span>`);updateSpectateCount();}break;
     case'player_leave':delete remotePlayers[d.id];updateSpectateCount();break;
     case'move':if(remotePlayers[d.id]){const rp=remotePlayers[d.id];const dx=d.x-rp.x;if(Math.abs(dx)>0.5)rp.facing=dx>0?1:-1;rp.x=d.x;rp.y=d.y;}break;
@@ -1965,6 +1975,7 @@ function enterGame(welcome){
   document.getElementById('hud-credits').textContent=`♥ ${healthCredits} HP`;
   document.getElementById('hud-district').textContent=DISTRICTS.find(d=>d.id===districtId)?.name||districtId;
   document.getElementById('ability-bar').classList.remove('hidden');
+  updateDistrictUI();
   setupMobileControls();
   // Canvas click → bridge placement
   const gc=document.getElementById('gc');
@@ -1995,6 +2006,11 @@ function showLobby(){
 
 function selectDistrict(did){
   username=document.getElementById('name-input').value.trim()||'Traveller';
+  if(EXTERNAL_DISTRICTS[did]){
+    const url=EXTERNAL_DISTRICTS[did]+'?name='+encodeURIComponent(username);
+    window.open(url,'_blank','noopener');
+    return;
+  }
   districtId=did;gstate='connecting';setConnMsg(`Waking ${did} zone…`);
   const _dls=document.getElementById('district-loading');if(_dls)_dls.style.display='flex';
   connectZone(did);
@@ -2002,6 +2018,11 @@ function selectDistrict(did){
 
 function travelTo(did){
   closeTravelOverlay();
+  if(EXTERNAL_DISTRICTS[did]){
+    const url=EXTERNAL_DISTRICTS[did]+'?name='+encodeURIComponent(username)+'&avatar='+myAvatar;
+    window.open(url,'_blank','noopener');
+    return;
+  }
   if(did===districtId)return;
   districtId=did;remotePlayers={};npcs=[];
   if(ws){ws.close();ws=null;}
@@ -2075,6 +2096,36 @@ function toggleChat(){
   chatMini=!chatMini;
   document.getElementById('chat').classList.toggle('chat-mini',chatMini);
   document.getElementById('chat-toggle').textContent=chatMini?'▸':'▾';
+}
+
+function updateDistrictUI(){
+  if(!map)return;
+  const isPlx=map.type==='parallax';
+  // Ability bar: hub-only abilities hidden in candy
+  const ab=document.getElementById('ability-bar');
+  if(ab){
+    document.getElementById('ab-speed').style.display=isPlx?'none':'';
+    document.getElementById('ab-bridge').style.display=isPlx?'none':'';
+    document.getElementById('ab-cloud').style.display=isPlx?'none':'';
+    // In parallax, add/show a word panel button inside ability bar
+    let wbtn=document.getElementById('ab-word');
+    if(!wbtn){
+      wbtn=document.createElement('button');
+      wbtn.id='ab-word';wbtn.className='ab-btn';
+      wbtn.title='Open letter tray';
+      wbtn.onclick=()=>{if(wordPanel)closeWordPanel();else openWordPanel();};
+      ab.appendChild(wbtn);
+    }
+    wbtn.style.display=isPlx?'':'none';
+  }
+  // Zoom strip: hide +/- for parallax (side-scroll doesn't need isometric zoom)
+  const zstrip=document.getElementById('embed-zoom-strip');
+  if(zstrip){
+    const zbtns=zstrip.querySelectorAll('button');
+    zbtns.forEach(b=>b.style.display=isPlx?'none':'');
+    const sep=zstrip.querySelector('div');
+    if(sep)sep.style.display=isPlx?'none':'';
+  }
 }
 
 function setupMobileControls(){
@@ -2151,7 +2202,9 @@ function setupMobileControls(){
   document.getElementById('btn-e').addEventListener('touchstart',e=>{
     e.preventDefault();
     if(typeof plxMode!=='undefined'&&plxMode){
-      if(letterInventory.length>0&&!wordPanel) openWordPanel();
+      if(wordPanel){closeWordPanel();}
+      else if(letterInventory.length>0){openWordPanel();}
+      else{showToast('Collect letters by walking over them first!');}
     } else {
       if(nearNpc&&document.getElementById('shop').classList.contains('hidden'))openShop(nearNpc);
     }
@@ -2162,7 +2215,7 @@ function setupMobileControls(){
 }
 
 // ═══════════════ BUILD LOBBY / TRAVEL UI ═══════════════
-const LIVE_DISTRICTS=new Set(['hub','candy']);
+const LIVE_DISTRICTS=new Set(['hub','candy','marketing']);
 function buildCards(containerId,mode){
   const el=document.getElementById(containerId);
   DISTRICTS.forEach(d=>{
@@ -2320,9 +2373,9 @@ if(EMBED_MODE){
   };
   window._updateFsUrl();
   const _isMob=('ontouchstart' in window)||window.matchMedia('(pointer:coarse)').matches;
+  // Show fullscreen strip for all embed (desktop + mobile); zoom buttons managed by updateDistrictUI
+  document.getElementById('embed-zoom-strip').classList.remove('hidden');
   if(_isMob){
-    document.getElementById('embed-zoom-strip').classList.remove('hidden');
-    // fullscreen button is now inside embed-zoom-strip
     function _chkOri(){
       const pp=document.getElementById('portrait-prompt');if(!pp)return;
       const isP=window.innerHeight>window.innerWidth&&window.innerWidth<500;
@@ -2354,6 +2407,7 @@ if(EMBED_MODE){
   // Show loading screen while connecting
   const _dli=document.getElementById('district-loading');
   if(_dli)_dli.style.display='flex';
+  buildCards('travel-grid','travel');
   connectZone(districtId);
   // sp-join-btn handler
   document.getElementById('sp-join-btn').onclick=()=>{
@@ -2374,8 +2428,10 @@ if(EMBED_MODE){
     document.getElementById('hud-credits').textContent=`♥ ${healthCredits} HP`;
     document.getElementById('hud-district').textContent=DISTRICTS.find(d=>d.id===districtId)?.name||districtId;
     document.getElementById('ability-bar').classList.remove('hidden');
+    embedJoined=true;
     gstate='game';
     spawnMerchantItems();
+    updateDistrictUI();
     setupMobileControls();
   };
 }else{
@@ -2443,15 +2499,16 @@ function wordSubmit(){
     const i=inv.indexOf(ch);if(i===-1){ok=false;break;}inv.splice(i,1);
   }
   if(!ok){res.style.color='#f87171';res.textContent=`You don't have all those letters!`;return;}
-  if(!PLX_WORDS.has(w)){res.style.color='#fbbf24';res.textContent=`"${w}" not in dictionary — try another!`;return;}
+  const isWordSet=map&&map.WORD_SETS&&map.WORD_SETS.some(ws=>ws.word===wordCurrent.toUpperCase());
+  if(!isWordSet&&!PLX_WORDS.has(w)){res.style.color='#fbbf24';res.textContent=`"${w}" not in dictionary — try another!`;return;}
   // Valid word — award points, consume letters
-  const pts=w.length*10+(w.length>5?w.length*5:0);
+  const pts=(isWordSet?w.length*25:w.length*10)+(w.length>5?w.length*5:0);
   candyScore+=pts;
   for(const ch of wordCurrent.toUpperCase()){const i=letterInventory.findIndex(x=>(x.letter||x)===ch);if(i!==-1)letterInventory.splice(i,1);}
   wordCurrent='';
   res.style.color='#4ade80';
-  res.textContent=`✨ "${w}" = +${pts} pts!  Total: ${candyScore}`;
-  showToast(`✨ Word "${w}" scored +${pts}! Jump power up!`);
+  res.textContent=isWordSet?`🌟 "${w.toUpperCase()}" BONUS = +${pts} pts!  Total: ${candyScore}`:`✨ "${w}" = +${pts} pts!  Total: ${candyScore}`;
+  showToast(isWordSet?`🌟 WORD SET "${w.toUpperCase()}" = +${pts} BONUS pts! Jump power up!`:`✨ Word "${w}" scored +${pts}! Jump power up!`);
   renderWordPanel();
   if(letterInventory.length===0){setTimeout(closeWordPanel,1800);}
 }
