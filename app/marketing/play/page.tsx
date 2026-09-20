@@ -51,7 +51,7 @@ export default function MarketingPlayPage() {
           </div>
         </div>
         <div className="text-center">
-          <p className="text-rose-300 font-semibold text-lg tracking-wide">Opening Nonya Kitchen</p>
+          <p className="text-rose-300 font-semibold text-lg tracking-wide">Opening Nonya Street Challenges</p>
           <p className="text-slate-600 text-sm mt-1">Preparing your lunchbox math challenge…</p>
         </div>
       </div>
@@ -100,7 +100,7 @@ export default function MarketingPlayPage() {
         <span className="text-xs text-rose-500/60 font-mono tracking-widest uppercase">
           Marketing District
         </span>
-        <span className="text-xs text-slate-700">Nonya Kitchen Math</span>
+        <span className="text-xs text-slate-700">Nonya Street Challenges</span>
       </nav>
 
       <div className="relative max-w-2xl mx-auto px-6 py-10 space-y-10">
@@ -113,9 +113,9 @@ export default function MarketingPlayPage() {
           </div>
           <h1 className="text-4xl font-bold tracking-tight">
             <span className="bg-gradient-to-r from-rose-400 to-pink-300 bg-clip-text text-transparent">
-              Nonya Kitchen
+              Nonya Street
             </span>
-            <span className="text-white"> Math</span>
+            <span className="text-white"> Challenges</span>
           </h1>
           <p className="text-slate-500 text-sm max-w-sm mx-auto leading-relaxed">
             Run the Peranakan kopitiam. Collect orders, tally the totals, deliver lunchboxes —
