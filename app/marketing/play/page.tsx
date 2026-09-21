@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 
 type Phase = 'intro' | 'launch'
 
@@ -12,21 +11,9 @@ export default function MarketingPlayPage() {
   const router = useRouter()
   const [phase, setPhase] = useState<Phase>('intro')
   const [tick, setTick]   = useState(0)
-  const [gameUrl, setGameUrl] = useState(GAME_BASE_URL)
 
-  useEffect(() => {
-    const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        const params = new URLSearchParams({
-          uid:   user.id,
-          email: user.email ?? '',
-          name:  user.user_metadata?.display_name ?? user.email ?? 'Citizen',
-        })
-        setGameUrl(`${GAME_BASE_URL}?${params.toString()}`)
-      }
-    })
-  }, [])
+  // Game URL stays clean — query params break the Godot SW cache.
+  // Player identity can be passed via postMessage once the game window loads.
 
   useEffect(() => {
     if (phase !== 'intro') return
@@ -35,7 +22,7 @@ export default function MarketingPlayPage() {
   }, [phase])
 
   function handlePlay() {
-    window.open(gameUrl, '_blank', 'noopener')
+    window.open(GAME_BASE_URL, '_blank', 'noopener')
     setPhase('launch')
     setTimeout(() => setPhase('intro'), 2000)
   }
