@@ -99,7 +99,7 @@ const DISTRICTS = [
     accentCls:'text-rose-400',
     borderCls:'border-rose-500/30',
     video:    null,
-    liveGame: 'https://aceconology.duckdns.org:8444/nonya/#embed=1',
+    liveGame: 'https://aceconology.duckdns.org:8444/nonya/gate.html',
     poster:   '/districts/marketingos-poster.jpg',
     href:     '/marketing',
     joinHref: '/marketing/submit',
