@@ -9,11 +9,9 @@ const GAME_BASE_URL = 'https://aceconology.duckdns.org:8444/nonya/'
 
 export default function MarketingPlayPage() {
   const router = useRouter()
-  const [phase, setPhase] = useState<Phase>('intro')
-  const [tick, setTick]   = useState(0)
-
-  // Game URL stays clean — query params break the Godot SW cache.
-  // Player identity can be passed via postMessage once the game window loads.
+  const [phase, setPhase]       = useState<Phase>('intro')
+  const [tick, setTick]         = useState(0)
+  const [playerName, setName]   = useState('')
 
   useEffect(() => {
     if (phase !== 'intro') return
@@ -22,7 +20,9 @@ export default function MarketingPlayPage() {
   }, [phase])
 
   function handlePlay() {
-    window.open(GAME_BASE_URL, '_blank', 'noopener')
+    const name = playerName.trim() || 'Traveller'
+    // Hash fragment is invisible to the SW cache key — safe to use for name passing
+    window.open(GAME_BASE_URL + '#name=' + encodeURIComponent(name), '_blank', 'noopener')
     setPhase('launch')
     setTimeout(() => setPhase('intro'), 2000)
   }
@@ -151,8 +151,20 @@ export default function MarketingPlayPage() {
           ))}
         </div>
 
-        {/* CTA */}
-        <div className="flex flex-col items-center gap-3">
+        {/* Name input + CTA */}
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-full max-w-xs space-y-1">
+            <label className="text-[10px] text-slate-500 uppercase tracking-widest px-1">Your Name</label>
+            <input
+              type="text"
+              maxLength={20}
+              placeholder="Traveller"
+              value={playerName}
+              onChange={e => setName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handlePlay()}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-rose-500/60 focus:bg-white/8 transition-all"
+            />
+          </div>
           <button
             onClick={handlePlay}
             className="relative group w-full max-w-xs bg-gradient-to-r from-rose-500 to-pink-400 text-white font-bold text-base py-4 rounded-2xl hover:shadow-[0_0_40px_rgba(244,63,94,0.4)] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
@@ -163,7 +175,7 @@ export default function MarketingPlayPage() {
             </span>
           </button>
           <p className="text-[10px] text-slate-700">
-            Single player · Math challenge · Peranakan culture
+            Multiplayer · Math challenge · Peranakan culture
           </p>
         </div>
 

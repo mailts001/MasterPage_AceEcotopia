@@ -1890,7 +1890,7 @@ function dismissPortalConfirm(){
 }
 
 function travelExternal(ep){
-  const url=ep.url; // no query params — Godot SW requires a clean URL
+  const url=ep.url+'#name='+encodeURIComponent(username);
   if(window.parent!==window){
     window.parent.postMessage({type:'x68-district-travel',url},'*');
   }else{
@@ -2007,7 +2007,7 @@ function showLobby(){
 function selectDistrict(did){
   username=document.getElementById('name-input').value.trim()||'Traveller';
   if(EXTERNAL_DISTRICTS[did]){
-    const url=EXTERNAL_DISTRICTS[did]; // no query params — Godot SW requires a clean URL
+    const url=EXTERNAL_DISTRICTS[did]+'#name='+encodeURIComponent(username);
     window.open(url,'_blank','noopener');
     return;
   }
@@ -2019,7 +2019,7 @@ function selectDistrict(did){
 function travelTo(did){
   closeTravelOverlay();
   if(EXTERNAL_DISTRICTS[did]){
-    const url=EXTERNAL_DISTRICTS[did]; // no query params — Godot SW requires a clean URL
+    const url=EXTERNAL_DISTRICTS[did]+'#name='+encodeURIComponent(username);
     window.open(url,'_blank','noopener');
     return;
   }
