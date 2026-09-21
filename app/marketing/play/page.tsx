@@ -1,160 +1,228 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-type Phase = 'intro' | 'launch'
+const GAME_URL = 'https://aceconology.duckdns.org:8444/nonya/'
+const WS_URL   = 'wss://aceconology.duckdns.org:8444/nonya-ws'
 
-const GAME_BASE_URL = 'https://aceconology.duckdns.org:8444/nonya/'
+// World bounds for mini-map normalization
+const WORLD_W = 4000   // approximate world x range visible
+const WORLD_H = 400    // world y: 640–1040 mapped to canvas height
+const WORLD_Y_MIN = 640
+
+const PLAYER_COLORS = ['#f43f5e','#fb923c','#facc15','#4ade80','#38bdf8','#a78bfa','#f472b6','#34d399']
+
+interface Player { id: string; name: string; x: number; y: number; score: number }
 
 export default function MarketingPlayPage() {
-  const router = useRouter()
-  const [phase, setPhase]       = useState<Phase>('intro')
-  const [tick, setTick]         = useState(0)
+  const router   = useRouter()
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const wsRef    = useRef<WebSocket | null>(null)
+  const playersRef = useRef<Player[]>([])
+  const [online, setOnline]     = useState(0)
   const [playerName, setName]   = useState('')
+  const [launching, setLaunch]  = useState(false)
+  const [tick, setTick]         = useState(0)
 
+  // Ambient ticker
   useEffect(() => {
-    if (phase !== 'intro') return
     const id = setInterval(() => setTick(t => t + 1), 120)
     return () => clearInterval(id)
-  }, [phase])
+  }, [])
+
+  // WebSocket spectate connection — receive-only (no join message sent)
+  useEffect(() => {
+    function connect() {
+      const ws = new WebSocket(WS_URL)
+      wsRef.current = ws
+      ws.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data)
+          if (msg.type === 'state') {
+            playersRef.current = msg.players as Player[]
+            setOnline(msg.players.length)
+          }
+        } catch {}
+      }
+      ws.onclose = () => setTimeout(connect, 4000)
+      ws.onerror = () => ws.close()
+    }
+    connect()
+    return () => { wsRef.current?.close() }
+  }, [])
+
+  // Canvas render loop
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    let raf: number
+    let camX = 0   // camera offset, drifts toward average player x
+
+    function draw() {
+      const W = canvas!.width
+      const H = canvas!.height
+      const players = playersRef.current
+
+      // Drift camera toward centroid
+      if (players.length > 0) {
+        const avgX = players.reduce((s, p) => s + p.x, 0) / players.length
+        const targetCamX = Math.max(0, avgX - WORLD_W / 2)
+        camX += (targetCamX - camX) * 0.02
+      }
+
+      // Background
+      ctx.fillStyle = '#07090f'
+      ctx.fillRect(0, 0, W, H)
+
+      // Faint grid
+      ctx.strokeStyle = 'rgba(244,63,94,0.07)'
+      ctx.lineWidth = 1
+      const gridStep = W / 8
+      for (let x = 0; x < W; x += gridStep) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke()
+      }
+      for (let y = 0; y < H; y += H / 4) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke()
+      }
+
+      // Ground line
+      const groundY = H * 0.78
+      ctx.strokeStyle = 'rgba(244,63,94,0.25)'
+      ctx.lineWidth = 1.5
+      ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(W, groundY); ctx.stroke()
+
+      // District label
+      ctx.fillStyle = 'rgba(244,63,94,0.12)'
+      ctx.font = 'bold 11px Orbitron, monospace'
+      ctx.letterSpacing = '0.15em'
+      ctx.textAlign = 'left'
+      ctx.fillText('NONYA STREET DISTRICT', 12, 18)
+
+      // Draw players
+      players.forEach((p, i) => {
+        const color = PLAYER_COLORS[i % PLAYER_COLORS.length]
+        // Map world coords to canvas
+        const cx = ((p.x - camX) / WORLD_W) * W
+        const cy = groundY - ((p.y - WORLD_Y_MIN) / WORLD_H) * (groundY * 0.6) - 10
+
+        if (cx < -20 || cx > W + 20) return  // off canvas
+
+        // Glow ring
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 18)
+        grad.addColorStop(0, color + 'aa')
+        grad.addColorStop(1, color + '00')
+        ctx.fillStyle = grad
+        ctx.beginPath(); ctx.arc(cx, cy, 18, 0, Math.PI * 2); ctx.fill()
+
+        // Player dot
+        ctx.fillStyle = color
+        ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI * 2); ctx.fill()
+
+        // Shadow line to ground
+        ctx.strokeStyle = color + '44'
+        ctx.lineWidth = 1
+        ctx.setLineDash([2, 3])
+        ctx.beginPath(); ctx.moveTo(cx, cy + 6); ctx.lineTo(cx, groundY); ctx.stroke()
+        ctx.setLineDash([])
+
+        // Name badge
+        ctx.font = '700 11px Rajdhani, sans-serif'
+        ctx.textAlign = 'center'
+        const label = p.name.length > 12 ? p.name.slice(0, 11) + '…' : p.name
+        const lw = ctx.measureText(label).width
+        ctx.fillStyle = 'rgba(7,9,15,0.82)'
+        ctx.beginPath()
+        ctx.roundRect(cx - lw/2 - 5, cy - 32, lw + 10, 16, 4)
+        ctx.fill()
+        ctx.fillStyle = color
+        ctx.fillText(label, cx, cy - 20)
+
+        // Score
+        ctx.font = '10px Rajdhani, sans-serif'
+        ctx.fillStyle = 'rgba(255,255,255,0.45)'
+        ctx.fillText(p.score + 'pt', cx, cy - 8)
+      })
+
+      // Empty state
+      if (players.length === 0) {
+        ctx.textAlign = 'center'
+        ctx.fillStyle = 'rgba(244,63,94,0.3)'
+        ctx.font = '12px Rajdhani, sans-serif'
+        ctx.fillText('WAITING FOR PLAYERS…', W / 2, H / 2)
+      }
+
+      raf = requestAnimationFrame(draw)
+    }
+
+    draw()
+    return () => cancelAnimationFrame(raf)
+  }, [])
 
   function handlePlay() {
     const name = playerName.trim() || 'Traveller'
-    // Hash fragment is invisible to the SW cache key — safe to use for name passing
-    window.open(GAME_BASE_URL + '#name=' + encodeURIComponent(name), '_blank', 'noopener')
-    setPhase('launch')
-    setTimeout(() => setPhase('intro'), 2000)
+    window.open(GAME_URL + '#name=' + encodeURIComponent(name), '_blank', 'noopener')
+    setLaunch(true)
+    setTimeout(() => setLaunch(false), 2500)
   }
 
-  if (phase === 'launch') {
-    return (
-      <div className="fixed inset-0 bg-[#080C18] flex flex-col items-center justify-center gap-6 z-50">
-        <div className="relative w-24 h-24">
-          <div className="absolute inset-0 rounded-full border-4 border-rose-500/30 animate-ping" />
-          <div className="absolute inset-2 rounded-full border-4 border-rose-400/50 animate-spin" style={{ animationDuration: '1.5s' }} />
-          <div className="absolute inset-4 rounded-full bg-rose-500/20 flex items-center justify-center text-3xl">
-            🍱
-          </div>
-        </div>
-        <div className="text-center">
-          <p className="text-rose-300 font-semibold text-lg tracking-wide">Opening Nonya Street Challenges</p>
-          <p className="text-slate-600 text-sm mt-1">Preparing your lunchbox math challenge…</p>
-        </div>
-      </div>
-    )
-  }
-
-  const floatItems = [
-    { icon: '🍱', label: 'Nasi Lemak Set',  price: '$4.50' },
-    { icon: '🥟', label: 'Kueh Lapis',       price: '$2.80' },
-    { icon: '🍜', label: 'Laksa Bowl',        price: '$6.00' },
-    { icon: '🧆', label: 'Otah Otah',         price: '$1.50' },
-    { icon: '🍮', label: 'Chendol Cup',       price: '$3.20' },
-  ]
-  const active = tick % floatItems.length
+  const foods = ['🍱','🥟','🍜','🧆','🍮']
+  const foodLabels = ['Nasi Lemak $4.50','Kueh Lapis $2.80','Laksa Bowl $6.00','Otah Otah $1.50','Chendol Cup $3.20']
 
   return (
-    <div className="min-h-screen bg-[#080C18] text-white overflow-hidden relative">
+    <div className="fixed inset-0 bg-[#07090f] text-white flex flex-col overflow-hidden">
 
-      {/* Ambient grid */}
-      <div className="absolute inset-0 pointer-events-none"
-        style={{
-          backgroundImage: 'linear-gradient(rgba(244,63,94,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(244,63,94,0.04) 1px, transparent 1px)',
-          backgroundSize: '48px 48px',
-        }}
-      />
-
-      {/* Scrolling price tape */}
-      <div className="absolute top-0 left-0 right-0 h-8 bg-rose-500/5 border-b border-rose-500/10 flex items-center overflow-hidden">
+      {/* Scrolling food ticker */}
+      <div className="shrink-0 h-7 bg-rose-500/5 border-b border-rose-500/10 flex items-center overflow-hidden">
         <div
-          className="flex gap-10 text-[11px] font-mono whitespace-nowrap"
-          style={{ transform: `translateX(-${(tick * 0.6) % 400}px)`, transition: 'transform 0.12s linear' }}
+          className="flex gap-10 text-[10px] font-mono whitespace-nowrap text-rose-400"
+          style={{ transform: `translateX(-${(tick * 0.55) % 360}px)`, transition: 'transform 0.12s linear' }}
         >
-          {[...floatItems, ...floatItems, ...floatItems].map((item, i) => (
-            <span key={i} className="text-rose-400">
-              {item.icon} {item.label} {item.price}
-            </span>
+          {[...foodLabels,...foodLabels,...foodLabels].map((f,i) => (
+            <span key={i}>{foods[i % foods.length]} {f}</span>
           ))}
         </div>
       </div>
 
       {/* Nav */}
-      <nav className="relative flex items-center justify-between px-6 pt-10 pb-4">
-        <button onClick={() => router.back()} className="text-slate-500 hover:text-white text-sm transition">
+      <nav className="shrink-0 flex items-center justify-between px-5 py-2 border-b border-white/5">
+        <button onClick={() => router.back()} className="text-slate-500 hover:text-white text-xs transition">
           ← Marketing
         </button>
-        <span className="text-xs text-rose-500/60 font-mono tracking-widest uppercase">
-          Marketing District
+        <span className="text-[10px] text-rose-500/60 font-mono tracking-widest uppercase">
+          Marketing District · Live
         </span>
-        <span className="text-xs text-slate-700">Nonya Street Challenges</span>
+        <span className="text-[10px] text-slate-700">Nonya Street Challenges</span>
       </nav>
 
-      <div className="relative max-w-2xl mx-auto px-6 py-10 space-y-10">
+      {/* Live game canvas — takes all remaining space above the join panel */}
+      <div className="relative flex-1 min-h-0">
+        <canvas
+          ref={canvasRef}
+          className="w-full h-full block"
+          width={900}
+          height={400}
+          style={{ imageRendering: 'pixelated' }}
+        />
 
-        {/* Header */}
-        <div className="text-center space-y-3">
-          <div className="inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full border border-rose-500/30 bg-rose-500/8 text-rose-400 mb-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse inline-block" />
-            DISTRICT LIVE
-          </div>
-          <h1 className="text-4xl font-bold tracking-tight">
-            <span className="bg-gradient-to-r from-rose-400 to-pink-300 bg-clip-text text-transparent">
-              Nonya Street
-            </span>
-            <span className="text-white"> Challenges</span>
-          </h1>
-          <p className="text-slate-500 text-sm max-w-sm mx-auto leading-relaxed">
-            Run the Peranakan kopitiam. Collect orders, tally the totals, deliver lunchboxes —
-            earn your way through the kampung.
+        {/* Live badge */}
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/70 border border-rose-500/30 rounded-full px-3 py-1 text-[10px] tracking-widest">
+          <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse inline-block" />
+          <span className="text-rose-400 font-bold">LIVE</span>
+          <span className="text-green-400 font-bold">{online}</span>
+          <span className="text-slate-500">players in district</span>
+        </div>
+      </div>
+
+      {/* Join panel — fixed at bottom, mirrors nexus embed spectate overlay */}
+      <div className="shrink-0 border-t border-rose-500/20 bg-gradient-to-t from-black to-[#07090f] px-5 py-5">
+        <div className="max-w-sm mx-auto flex flex-col items-center gap-3">
+          <p className="text-[10px] text-slate-500 uppercase tracking-widest">
+            Enter your name to play
           </p>
-        </div>
-
-        {/* Animated menu board */}
-        <div className="bg-white/3 border border-white/8 rounded-2xl p-5 space-y-3">
-          <div className="text-[10px] text-slate-600 uppercase tracking-widest mb-3">Today's Menu</div>
-          {floatItems.map((item, i) => (
-            <div
-              key={i}
-              className={`flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-500 ${
-                i === active
-                  ? 'bg-rose-500/10 border border-rose-500/30'
-                  : 'bg-white/3 border border-transparent'
-              }`}
-            >
-              <div className="w-8 h-8 rounded-lg bg-rose-500/15 flex items-center justify-center text-sm shrink-0">
-                {item.icon}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium text-white truncate">{item.label}</div>
-                <div className="text-[10px] text-slate-600">Peranakan specialty</div>
-              </div>
-              <div className={`text-sm font-bold font-mono ${i === active ? 'text-rose-400' : 'text-slate-600'}`}>
-                {item.price}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* How to play */}
-        <div className="grid grid-cols-3 gap-3 text-center">
-          {[
-            { icon: '🎯', title: 'Take Order', desc: 'Answer the Majie\'s price question' },
-            { icon: '🍱', title: 'Pack Food',  desc: 'Jump to collect the right ingredients' },
-            { icon: '🚀', title: 'Deliver',    desc: 'Bring the lunchbox to earn points' },
-          ].map((s, i) => (
-            <div key={i} className="bg-white/3 border border-white/8 rounded-xl p-4 space-y-2">
-              <div className="text-2xl">{s.icon}</div>
-              <div className="text-xs font-semibold text-white">{s.title}</div>
-              <div className="text-[10px] text-slate-600 leading-relaxed">{s.desc}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Name input + CTA */}
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-full max-w-xs space-y-1">
-            <label className="text-[10px] text-slate-500 uppercase tracking-widest px-1">Your Name</label>
+          <div className="flex gap-2 items-center w-full">
             <input
               type="text"
               maxLength={20}
@@ -162,24 +230,22 @@ export default function MarketingPlayPage() {
               value={playerName}
               onChange={e => setName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handlePlay()}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-rose-500/60 focus:bg-white/8 transition-all"
+              className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-rose-500/60 transition-all"
             />
+            <button
+              onClick={handlePlay}
+              disabled={launching}
+              className="shrink-0 bg-gradient-to-r from-rose-500 to-pink-400 text-white font-bold text-sm px-5 py-2.5 rounded-lg hover:shadow-[0_0_24px_rgba(244,63,94,0.5)] transition-all disabled:opacity-60 whitespace-nowrap"
+            >
+              {launching ? 'Opening…' : 'Enter District →'}
+            </button>
           </div>
-          <button
-            onClick={handlePlay}
-            className="relative group w-full max-w-xs bg-gradient-to-r from-rose-500 to-pink-400 text-white font-bold text-base py-4 rounded-2xl hover:shadow-[0_0_40px_rgba(244,63,94,0.4)] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <span className="relative z-10 flex items-center justify-center gap-2">
-              <span>Enter the Kitchen</span>
-              <span className="group-hover:translate-x-1 transition-transform inline-block">→</span>
-            </span>
-          </button>
           <p className="text-[10px] text-slate-700">
             Multiplayer · Math challenge · Peranakan culture
           </p>
         </div>
-
       </div>
+
     </div>
   )
 }
