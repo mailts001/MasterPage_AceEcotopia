@@ -25,6 +25,22 @@ export default function MarketingPlayPage() {
   const [launching, setLaunch]  = useState(false)
   const [tick, setTick]         = useState(0)
 
+  // Prefetch game files while user browses lobby — so "Enter District" loads instantly
+  useEffect(() => {
+    const urls = [
+      'https://aceconology.duckdns.org:8444/nonya/index.wasm',
+      'https://aceconology.duckdns.org:8444/nonya/index.pck',
+    ]
+    urls.forEach(url => {
+      const link = document.createElement('link')
+      link.rel = 'prefetch'
+      link.href = url
+      link.as = 'fetch'
+      link.crossOrigin = 'anonymous'
+      document.head.appendChild(link)
+    })
+  }, [])
+
   // Ambient ticker
   useEffect(() => {
     const id = setInterval(() => setTick(t => t + 1), 120)
